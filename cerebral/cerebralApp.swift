@@ -32,15 +32,23 @@ struct CerebralApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Import PDF...") {
-                    // TODO: Implement PDF import
+                    NotificationCenter.default.post(name: .importPDF, object: nil)
                 }
-                .keyboardShortcut("o")
+                .keyboardShortcut("o", modifiers: [.command])
             }
-            CommandGroup(after: .appInfo) {
-                Button("Preferences...") {
-                    NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+            
+            CommandGroup(after: .toolbar) {
+                Button("Toggle Chat Panel") {
+                    NotificationCenter.default.post(name: .toggleChatPanel, object: nil)
                 }
-                .keyboardShortcut(",")
+                .keyboardShortcut("c", modifiers: [.command])
+                
+                Divider()
+                
+                Button("Focus Search") {
+                    NotificationCenter.default.post(name: .focusSearch, object: nil)
+                }
+                .keyboardShortcut("f", modifiers: [.command])
             }
         }
         

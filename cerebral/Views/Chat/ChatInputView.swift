@@ -16,18 +16,21 @@ struct ChatInputView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .bottom, spacing: 12) {
+            HStack(alignment: .bottom, spacing: DesignSystem.Spacing.sm) {
                 // Text Input
                 TextField("Ask anything...", text: $text, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(CerebralTextFieldStyle())
                     .focused($isTextFieldFocused)
                     .lineLimit(1...6)
+                    .font(DesignSystem.Typography.body)
                     .onSubmit {
-                        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isLoading {
+                        if canSend && !isLoading {
                             onSend()
                         }
                     }
                     .disabled(isLoading)
+                    .accessibilityLabel("Message input")
+                    .accessibilityHint("Type your message here and press Enter or click send")
                 
                 // Send Button
                 Button(action: onSend) {
@@ -35,19 +38,29 @@ struct ChatInputView: View {
                         ProgressView()
                             .scaleEffect(0.8)
                             .frame(width: 20, height: 20)
+                            .accessibilityLabel("Sending message")
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.title2)
-                            .foregroundColor(canSend ? .accentColor : .secondary)
+                            .foregroundColor(canSend ? DesignSystem.Colors.accent : DesignSystem.Colors.textTertiary)
                     }
                 }
                 .buttonStyle(.borderless)
+                .minimumTouchTarget()
                 .disabled(!canSend || isLoading)
+                .accessibleButton(
+                    label: canSend ? "Send message" : "Cannot send empty message",
+                    hint: canSend ? "Sends your message to the AI assistant" : "Type a message to enable sending"
+                )
+                .keyboardShortcut(.return, modifiers: [])
             }
-            .padding()
+            .padding(DesignSystem.Spacing.md)
+            .background(DesignSystem.Colors.surfaceSecondary)
         }
         .onAppear {
-            isTextFieldFocused = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isTextFieldFocused = true
+            }
         }
     }
     

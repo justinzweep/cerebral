@@ -10,62 +10,50 @@ import SwiftData
 
 struct ContentView: View {
     @State private var showingChat = true
-    @State private var showingAnnotations = false
     @State private var selectedDocument: Document?
     @StateObject private var annotationManager = AnnotationManager()
     @EnvironmentObject var settingsManager: SettingsManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         HSplitView {
             // Document Sidebar
-            DocumentSidebar(selectedDocument: $selectedDocument)
+            DocumentSidebarContent(selectedDocument: $selectedDocument)
                 .frame(minWidth: 200, idealWidth: 250, maxWidth: 300)
+                .accessibilityLabel("Document library sidebar")
             
             // PDF Viewer Area
             PDFViewerView(document: selectedDocument, annotationManager: annotationManager)
                 .frame(minWidth: 400)
+                .accessibilityLabel("PDF viewer")
             
-            // Right Side Panels
-            VStack(spacing: 0) {
-                if showingAnnotations && showingChat {
-                    // Both panels shown - use tabs
-                    TabView {
-                        AnnotationListView(annotationManager: annotationManager, document: selectedDocument)
-                            .tabItem {
-                                Label("Annotations", systemImage: "note.text")
-                            }
-                        
-                        ChatView()
-                            .environmentObject(settingsManager)
-                            .tabItem {
-                                Label("Chat", systemImage: "message")
-                            }
-                    }
+            // Chat Panel (conditionally shown)
+            if showingChat {
+                ChatView()
                     .frame(minWidth: 250, idealWidth: 300, maxWidth: 400)
-                } else if showingAnnotations {
-                    // Just annotations
-                    AnnotationListView(annotationManager: annotationManager, document: selectedDocument)
-                        .frame(minWidth: 250, idealWidth: 300, maxWidth: 400)
-                } else if showingChat {
-                    // Just chat
-                    ChatView()
-                        .frame(minWidth: 250, idealWidth: 300, maxWidth: 400)
-                        .environmentObject(settingsManager)
-                }
+                    .environmentObject(settingsManager)
+                    .accessibilityLabel("AI chat assistant panel")
             }
         }
+        .background(DesignSystem.Colors.secondaryBackground)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button(action: { showingAnnotations.toggle() }) {
-                    Image(systemName: showingAnnotations ? "note.text.badge.plus" : "note.text")
+                Button(action: { 
+                    withAnimation(DesignSystem.Animation.smooth) {
+                        showingChat.toggle()
+                    }
+                }) {
+                    Image(systemName: showingChat ? "sidebar.trailing" : "message")
+                        .foregroundColor(DesignSystem.Colors.accent)
                 }
-                .help(showingAnnotations ? "Hide Annotations" : "Show Annotations")
-                
-                Button(action: { showingChat.toggle() }) {
-                    Image(systemName: showingChat ? "sidebar.right" : "message")
-                }
-                .help(showingChat ? "Hide Chat" : "Show Chat")
+                .buttonStyle(.borderless)
+                .minimumTouchTarget()
+                .accessibleButton(
+                    label: showingChat ? "Hide chat panel" : "Show chat panel",
+                    hint: "Toggle the visibility of the AI chat panel"
+                )
+                .keyboardShortcut("c", modifiers: [.command])
             }
         }
         .onChange(of: selectedDocument) { oldDocument, newDocument in
@@ -74,7 +62,14 @@ struct ContentView: View {
         .onAppear {
             setupAnnotationManager()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleChatPanel)) { _ in
+            withAnimation(DesignSystem.Animation.smooth) {
+                showingChat.toggle()
+            }
+        }
         .navigationTitle("Cerebral")
+        .focusable()
+        .focusEffectDisabled()
     }
     
     private func setupAnnotationManager() {

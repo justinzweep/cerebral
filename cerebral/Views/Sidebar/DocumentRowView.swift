@@ -11,40 +11,82 @@ struct DocumentRowView: View {
     let document: Document
     
     var body: some View {
-        HStack {
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            // PDF Icon
             Image(systemName: "doc.fill")
-                .foregroundColor(.red)
-                .font(.title2)
+                .foregroundColor(DesignSystem.Colors.pdfRed)
+                .font(DesignSystem.Typography.title3)
+                .frame(width: 24, height: 24)
+                .accessibilityHidden(true)
             
-            VStack(alignment: .leading, spacing: 2) {
+            // Document Info
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
                 Text(document.title)
-                    .font(.headline)
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
                 
-                Text(document.dateAdded, style: .relative)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Text(document.dateAdded, style: .relative)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textTertiary)
+                    
+                    if let lastOpened = document.lastOpened {
+                        Text("•")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
+                        
+                        Text("Opened \(lastOpened, style: .relative)")
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
+                    }
+                }
             }
             
             Spacer()
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, DesignSystem.Spacing.xs)
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .background(Color.clear)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("PDF document: \(document.title)")
+        .accessibilityHint("Added \(document.dateAdded, style: .relative). Double-click to open.")
+        .accessibilityAddTraits(.isButton)
         .contextMenu {
-            Button("Chat about this document") {
+            Button {
                 NotificationCenter.default.post(name: .documentSelected, object: document)
+            } label: {
+                Label("Chat about this document", systemImage: "message")
             }
+            .accessibleButton(
+                label: "Start chat about \(document.title)",
+                hint: "Opens the chat panel with this document's context"
+            )
             
             Divider()
             
-            Button("Reveal in Finder") {
+            Button {
                 NSWorkspace.shared.activateFileViewerSelecting([document.filePath])
+            } label: {
+                Label("Reveal in Finder", systemImage: "folder")
             }
+            .accessibleButton(
+                label: "Show \(document.title) in Finder",
+                hint: "Opens Finder and highlights this document"
+            )
             
             Divider()
             
-            Button("Delete", role: .destructive) {
+            Button(role: .destructive) {
                 // This will be handled by the parent view
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
+            .accessibleButton(
+                label: "Delete \(document.title)",
+                hint: "Removes this document from your library"
+            )
         }
     }
 }

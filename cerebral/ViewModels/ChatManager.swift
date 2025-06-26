@@ -12,6 +12,7 @@ class ChatManager: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading: Bool = false
     @Published var lastError: String?
+    @Published var hasConnectionError: Bool = false
     
     private var claudeAPIService: ClaudeAPIService?
     private var currentDocumentContext: [Document] = []
@@ -36,6 +37,7 @@ class ChatManager: ObservableObject {
         
         isLoading = true
         lastError = nil
+        hasConnectionError = false
         
         do {
             let response = try await claudeAPIService?.sendMessage(
@@ -59,6 +61,7 @@ class ChatManager: ObservableObject {
             )
             messages.append(errorMessage)
             lastError = error.localizedDescription
+            hasConnectionError = true
         }
         
         isLoading = false
@@ -75,19 +78,26 @@ class ChatManager: ObservableObject {
     func clearMessages() {
         messages.removeAll()
         lastError = nil
+        hasConnectionError = false
     }
     
     func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {
-        guard settingsManager.isAPIKeyValid else { return false }
+        guard settingsManager.isAPIKeyValid else { 
+            hasConnectionError = true
+            return false 
+        }
         
         if claudeAPIService == nil {
             claudeAPIService = ClaudeAPIService(settingsManager: settingsManager)
         }
         
         do {
-            return try await claudeAPIService?.validateConnection() ?? false
+            let isValid = try await claudeAPIService?.validateConnection() ?? false
+            hasConnectionError = !isValid
+            return isValid
         } catch {
             lastError = error.localizedDescription
+            hasConnectionError = true
             return false
         }
     }

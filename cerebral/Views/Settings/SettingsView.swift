@@ -17,9 +17,21 @@ struct SettingsView: View {
                     Label("API Key", systemImage: "key.fill")
                 }
                 .environmentObject(settingsManager)
+            
+            UserProfileView()
+                .tabItem {
+                    Label("Profile", systemImage: "person.fill")
+                }
+                .environmentObject(settingsManager)
+            
+            GeneralSettingsView()
+                .tabItem {
+                    Label("General", systemImage: "gearshape.fill")
+                }
+                .environmentObject(settingsManager)
         }
-        .frame(width: 500, height: 400)
-        .navigationTitle("Preferences")
+        .frame(width: 500, height: 450)
+        .navigationTitle("Settings")
     }
 }
 

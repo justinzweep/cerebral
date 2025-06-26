@@ -14,100 +14,159 @@ struct APIKeySettingsView: View {
     @State private var showingConfirmation: Bool = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Claude API Configuration")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Enter your Anthropic Claude API key to enable AI chat functionality.")
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            
-            VStack(alignment: .leading, spacing: 12) {
-                Text("API Key")
-                    .fontWeight(.medium)
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                Text("Claude API Configuration")
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .accessibleHeading(level: .h1)
                 
-                HStack {
+                Text("Enter your Anthropic Claude API key to enable AI chat functionality.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                Text("API Key")
+                    .font(DesignSystem.Typography.bodyMedium)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .accessibleHeading(level: .h2)
+                
+                HStack(spacing: DesignSystem.Spacing.sm) {
                     if isEditing {
                         SecureField("sk-ant-...", text: $tempAPIKey)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
+                            .textFieldStyle(CerebralTextFieldStyle(isError: !settingsManager.validateAPIKey(tempAPIKey) && !tempAPIKey.isEmpty))
+                            .font(DesignSystem.Typography.monospace)
+                            .accessibilityLabel("API key input field")
+                            .accessibilityHint("Enter your Claude API key starting with sk-ant-")
                     } else {
-                        HStack {
+                        HStack(spacing: DesignSystem.Spacing.sm) {
                             Text(settingsManager.apiKey.isEmpty ? "No API key set" : "••••••••••••••••••••")
-                                .foregroundColor(settingsManager.apiKey.isEmpty ? .secondary : .primary)
-                                .font(.system(.body, design: .monospaced))
+                                .font(DesignSystem.Typography.monospace)
+                                .foregroundColor(settingsManager.apiKey.isEmpty ? DesignSystem.Colors.textTertiary : DesignSystem.Colors.textPrimary)
+                            
                             Spacer()
+                            
                             if settingsManager.isAPIKeyValid {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                    .foregroundColor(DesignSystem.Colors.successGreen)
+                                    .accessibilityLabel("API key is valid")
                             }
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(6)
+                        .padding(.horizontal, DesignSystem.Spacing.sm)
+                        .padding(.vertical, DesignSystem.Spacing.xs)
+                        .background(DesignSystem.Colors.background)
+                        .cornerRadius(DesignSystem.CornerRadius.sm)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                                .stroke(DesignSystem.Colors.border, lineWidth: 1)
+                        )
                     }
                     
-                    if isEditing {
-                        Button("Save") {
-                            if settingsManager.validateAPIKey(tempAPIKey) {
-                                settingsManager.saveAPIKey(tempAPIKey)
+                    VStack(spacing: DesignSystem.Spacing.xs) {
+                        if isEditing {
+                            Button("Save") {
+                                if settingsManager.validateAPIKey(tempAPIKey) {
+                                    settingsManager.saveAPIKey(tempAPIKey)
+                                    isEditing = false
+                                }
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .disabled(!settingsManager.validateAPIKey(tempAPIKey))
+                            .accessibleButton(
+                                label: "Save API key",
+                                hint: "Saves the entered API key securely"
+                            )
+                            
+                            Button("Cancel") {
+                                tempAPIKey = settingsManager.apiKey
                                 isEditing = false
                             }
-                        }
-                        .disabled(!settingsManager.validateAPIKey(tempAPIKey))
-                        
-                        Button("Cancel") {
-                            tempAPIKey = settingsManager.apiKey
-                            isEditing = false
-                        }
-                    } else {
-                        Button(settingsManager.apiKey.isEmpty ? "Add" : "Edit") {
-                            tempAPIKey = settingsManager.apiKey
-                            isEditing = true
-                        }
-                        
-                        if !settingsManager.apiKey.isEmpty {
-                            Button("Remove") {
-                                showingConfirmation = true
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibleButton(label: "Cancel editing", hint: "Discards changes and stops editing")
+                        } else {
+                            Button(settingsManager.apiKey.isEmpty ? "Add" : "Edit") {
+                                tempAPIKey = settingsManager.apiKey
+                                isEditing = true
                             }
-                            .foregroundColor(.red)
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibleButton(
+                                label: settingsManager.apiKey.isEmpty ? "Add API key" : "Edit API key",
+                                hint: "Opens the API key input field for editing"
+                            )
+                            
+                            if !settingsManager.apiKey.isEmpty {
+                                Button("Remove") {
+                                    showingConfirmation = true
+                                }
+                                .buttonStyle(TertiaryButtonStyle())
+                                .foregroundColor(DesignSystem.Colors.errorRed)
+                                .accessibleButton(
+                                    label: "Remove API key",
+                                    hint: "Removes the saved API key from secure storage"
+                                )
+                            }
                         }
                     }
                 }
             }
             
+            // Error Messages
             if isEditing && !settingsManager.validateAPIKey(tempAPIKey) && !tempAPIKey.isEmpty {
-                Label("Invalid API key format. Claude API keys should start with 'sk-ant-'", 
-                      systemImage: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
-                    .font(.caption)
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(DesignSystem.Colors.errorRed)
+                        .accessibilityHidden(true)
+                    
+                    Text("Invalid API key format. Claude API keys should start with 'sk-ant-'")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.errorRed)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Error: Invalid API key format")
             }
             
             if let error = settingsManager.lastError {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
-                    .font(.caption)
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(DesignSystem.Colors.errorRed)
+                        .accessibilityHidden(true)
+                    
+                    Text(error)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.errorRed)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Error: \(error)")
             }
             
-            VStack(alignment: .leading, spacing: 8) {
+            // Help Section
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                 Text("How to get your API key:")
-                    .fontWeight(.medium)
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.subheadline)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .accessibleHeading(level: .h3)
                 
-                Text("1. Visit console.anthropic.com")
-                Text("2. Create an account or sign in")
-                Text("3. Go to API Keys section")
-                Text("4. Create a new API key")
-                Text("5. Copy and paste it above")
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                    HelpStepView(step: "1", text: "Visit console.anthropic.com")
+                    HelpStepView(step: "2", text: "Create an account or sign in")
+                    HelpStepView(step: "3", text: "Go to API Keys section")
+                    HelpStepView(step: "4", text: "Create a new API key")
+                    HelpStepView(step: "5", text: "Copy and paste it above")
+                }
             }
-            .font(.caption)
-            .foregroundColor(.secondary)
+            .padding(DesignSystem.Spacing.md)
+            .background(DesignSystem.Colors.background)
+            .cornerRadius(DesignSystem.CornerRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
+            )
             
             Spacer()
         }
-        .padding(20)
+        .padding(DesignSystem.Spacing.lg)
         .onAppear {
             tempAPIKey = settingsManager.apiKey
         }
@@ -119,6 +178,29 @@ struct APIKeySettingsView: View {
         } message: {
             Text("Are you sure you want to remove your Claude API key? This will disable AI chat functionality.")
         }
+    }
+}
+
+// MARK: - Helper Components
+
+struct HelpStepView: View {
+    let step: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            Text(step)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.accent)
+                .fontWeight(.medium)
+                .frame(minWidth: 12)
+            
+            Text(text)
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(step): \(text)")
     }
 }
 
