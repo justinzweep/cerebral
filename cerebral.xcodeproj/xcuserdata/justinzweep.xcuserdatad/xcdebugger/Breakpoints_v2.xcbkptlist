@@ -20,20 +20,6 @@
             landmarkType = "24">
             <Locations>
                <Location
-                  uuid = "E73878BD-EB55-48A6-AAE6-96D2729477B3 - e15a7b0d771e3bf7"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "closure #1 () -&gt; SwiftUI.TupleView&lt;(SwiftUI.Text, &lt;&lt;opaque return type of SwiftUI.View.fixedSize(horizontal: Swift.Bool, vertical: Swift.Bool) -&gt; some&gt;&gt;.0)&gt; in closure #1 () -&gt; SwiftUI.TupleView&lt;(&lt;&lt;opaque return type of SwiftUI.View.foregroundColor(Swift.Optional&lt;SwiftUI.Color&gt;) -&gt; some&gt;&gt;.0, SwiftUI.VStack&lt;SwiftUI.TupleView&lt;(SwiftUI.Text, &lt;&lt;opaque return type of SwiftUI.View.fixedSize(horizontal: Swift.Bool, vertical: Swift.Bool) -&gt; some&gt;&gt;.0)&gt;&gt;, SwiftUI.VStack&lt;SwiftUI.TupleView&lt;(&lt;&lt;opaque return type of SwiftUI.View.buttonStyle&lt;&#x3c4;_0_0 where &#x3c4;_1_0: SwiftUI.ButtonStyle&gt;(&#x3c4;_1_0) -&gt; some&gt;&gt;.0, SwiftUI.Text)&gt;&gt;)&gt; in cerebral.APIKeyRequiredView.body.getter : some"
-                  moduleName = "cerebral.debug.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/justinzweep/Developer/Blendr-Labs/cerebral/cerebral/Views/Chat/ChatView.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "253"
-                  endingLineNumber = "253">
-               </Location>
-               <Location
                   uuid = "E73878BD-EB55-48A6-AAE6-96D2729477B3 - 8ee4b7eb3df0456d"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
@@ -46,6 +32,20 @@
                   endingColumnNumber = "9223372036854775807"
                   startingLineNumber = "254"
                   endingLineNumber = "254">
+               </Location>
+               <Location
+                  uuid = "E73878BD-EB55-48A6-AAE6-96D2729477B3 - 8ee4b7eb3df0448e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 () -&gt; SwiftUI.TupleView&lt;(&lt;&lt;opaque return type of SwiftUI.View.foregroundColor(Swift.Optional&lt;SwiftUI.Color&gt;) -&gt; some&gt;&gt;.0, SwiftUI.VStack&lt;SwiftUI.TupleView&lt;(SwiftUI.Text, &lt;&lt;opaque return type of SwiftUI.View.fixedSize(horizontal: Swift.Bool, vertical: Swift.Bool) -&gt; some&gt;&gt;.0)&gt;&gt;, SwiftUI.VStack&lt;SwiftUI.TupleView&lt;(&lt;&lt;opaque return type of SwiftUI.View.buttonStyle&lt;&#x3c4;_0_0 where &#x3c4;_1_0: SwiftUI.ButtonStyle&gt;(&#x3c4;_1_0) -&gt; some&gt;&gt;.0, SwiftUI.Text)&gt;&gt;)&gt; in cerebral.APIKeyRequiredView.body.getter : some"
+                  moduleName = "cerebral.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/justinzweep/Developer/Blendr-Labs/cerebral/cerebral/Views/Chat/ChatView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "253"
+                  endingLineNumber = "253">
                </Location>
             </Locations>
          </BreakpointContent>

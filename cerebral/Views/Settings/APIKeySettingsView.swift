@@ -59,7 +59,7 @@ struct APIKeySettingsView: View {
                                         try settingsManager.saveAPIKey(tempAPIKey)
                                         isEditingAPIKey = false
                                     } catch {
-                                        print("Failed to save API key: \(error)")
+                                        ServiceContainer.shared.errorManager.handle(error, context: "api_key_save")
                                     }
                                 }
                             }
@@ -121,9 +121,9 @@ struct APIKeySettingsView: View {
             Button("Remove", role: .destructive) {
                 do {
                     try settingsManager.deleteAPIKey()
-                } catch {
-                    print("Failed to delete API key: \(error)")
-                }
+                                    } catch {
+                        ServiceContainer.shared.errorManager.handle(error, context: "api_key_delete")
+                    }
             }
         } message: {
             Text("Are you sure you want to remove your Claude API key?")

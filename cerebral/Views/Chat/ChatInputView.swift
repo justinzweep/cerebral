@@ -408,7 +408,7 @@ struct HighlightOverlay: View {
 
 
 #Preview {
-    @State var inputText = "Hello @document.pdf"
+    @Previewable @State var inputText = "Hello @document.pdf"
     
     return VStack {
         Spacer()

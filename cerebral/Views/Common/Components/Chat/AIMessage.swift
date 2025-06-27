@@ -83,7 +83,6 @@ struct AIMessage: View {
             Spacer(minLength: DesignSystem.Spacing.xxl)
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
-        .trackPerformance("ai_message_\(message.id)")
     }
     
     @ViewBuilder
@@ -119,7 +118,6 @@ struct StreamingWaitingAnimation: View {
         .onAppear {
             showCursor = true
         }
-        .trackPerformance("streaming_animation")
     }
 }
 

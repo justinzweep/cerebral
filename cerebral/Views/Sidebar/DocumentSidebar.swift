@@ -90,7 +90,7 @@ struct DocumentSidebarContent: View {
                 importDocument(from: url)
             }
         case .failure(let error):
-            print("Error importing documents: \(error)")
+            ServiceContainer.shared.errorManager.handle(error, context: "document_import_bulk")
         }
     }
     
@@ -126,9 +126,9 @@ struct DocumentSidebarContent: View {
             modelContext.insert(document)
             
             try modelContext.save()
-        } catch {
-            print("Error importing document: \(error)")
-        }
+                                } catch {
+                            ServiceContainer.shared.errorManager.handle(error, context: "document_import_single")
+                        }
     }
 }
 

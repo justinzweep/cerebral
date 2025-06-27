@@ -74,7 +74,6 @@ struct DocumentSidebarPane: View {
                                 )
                                 .animation(DesignSystem.Animation.microInteraction, value: selectedDocument?.id)
                                 .id(document.id) // Stable ID for each document
-                                .trackPerformance("document_row_\(index)")
                         }
                     }
                 }
@@ -82,7 +81,6 @@ struct DocumentSidebarPane: View {
                 .padding(.bottom, DesignSystem.Spacing.lg)
             }
             .scrollIndicators(.hidden) // Performance optimization
-            .trackPerformance("document_list_scroll")
         }
         .fileImporter(
             isPresented: $showingImporter,
@@ -93,11 +91,10 @@ struct DocumentSidebarPane: View {
                 do {
                     try await ServiceContainer.shared.documentService.importDocuments(result, to: modelContext)
                 } catch {
-                    ServiceContainer.shared.errorManager.handle(error)
+                                            ServiceContainer.shared.errorManager.handle(error, context: "document_import_ui")
                 }
             }
         }
-        .trackPerformance("document_sidebar_pane")
     }
 }
 

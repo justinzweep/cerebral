@@ -64,29 +64,3 @@ final class ErrorManager {
 3. Implement consistent error UI components
 4. Add proper error recovery mechanisms
 5. Replace string errors with typed errors
-
-### 8. Performance Optimizations (Priority: LOW)
-
-**Current Issues:**
-- Some views might re-render unnecessarily
-- Large lists without optimization
-- Potential memory leaks in streaming
-
-**Refactoring Plan:**
-
-#### A. View Performance
-- Add `@ViewBuilder` where beneficial
-- Use `LazyVStack` and `LazyHStack` appropriately
-- Implement proper view identity for animations
-
-#### B. Memory Management
-- Audit streaming task cancellation
-- Review SwiftData query efficiency
-- Optimize PDF rendering
-
-**Actions:**
-1. Profile app performance to identify bottlenecks
-2. Add `@ViewBuilder` to custom view builders
-3. Optimize SwiftData queries with proper predicates
-4. Review and fix potential memory leaks
-5. Add performance monitoring

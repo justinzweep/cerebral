@@ -53,7 +53,6 @@ struct PDFThumbnailView: View {
                 loadingTask?.cancel()
                 loadingTask = nil
             }
-            .trackPerformance("thumbnail_\(document.id)")
     }
     
     private func loadThumbnail() {

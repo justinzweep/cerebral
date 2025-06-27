@@ -52,7 +52,6 @@ struct ChatView: View {
                                     .id(message.id) // Stable ID for each message
                                     .padding(.horizontal, DesignSystem.Spacing.md)
                                     .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
-                                    .trackPerformance("message_\(message.id)")
                                 }
                             }
                         }
@@ -67,7 +66,6 @@ struct ChatView: View {
                             }
                         }
                     }
-                    .trackPerformance("chat_scroll_view")
                 }
                 
                 

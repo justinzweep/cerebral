@@ -60,6 +60,60 @@ enum AppError: LocalizedError {
             return pdfError.recoverySuggestion
         }
     }
+    
+    /// Error severity level for determining how to handle the error
+    var severity: ErrorSeverity {
+        switch self {
+        case .apiKeyInvalid, .settingsError(.invalidAPIKey), .chatError(.noAPIKey):
+            return .critical
+        case .networkFailure, .chatServiceUnavailable, .chatError(.connectionFailed):
+            return .high
+        case .documentImportFailed, .documentError(.importFailed), .documentError(.invalidFormat):
+            return .medium
+        case .pdfError(.textExtractionFailed), .pdfError(.thumbnailGenerationFailed):
+            return .low
+        default:
+            return .medium
+        }
+    }
+    
+    /// Whether this error can be automatically retried
+    var isRetryable: Bool {
+        switch self {
+        case .networkFailure, .chatServiceUnavailable, .chatError(.connectionFailed), .chatError(.requestFailed), .chatError(.rateLimitExceeded):
+            return true
+        default:
+            return false
+        }
+    }
+    
+    /// Whether this error requires user action to resolve
+    var requiresUserAction: Bool {
+        switch self {
+        case .apiKeyInvalid, .settingsError(.invalidAPIKey), .chatError(.noAPIKey):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+// MARK: - Error Severity
+
+enum ErrorSeverity {
+    case low        // Minor issues that don't prevent core functionality
+    case medium     // Issues that affect some features
+    case high       // Issues that affect major functionality
+    case critical   // Issues that prevent core app functionality
+    
+    var displayPriority: Int {
+        switch self {
+        case .low: return 1
+        case .medium: return 2
+        case .high: return 3
+        case .critical: return 4
+        }
+    }
 }
 
 // MARK: - Chat Errors

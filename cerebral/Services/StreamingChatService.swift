@@ -15,7 +15,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
     private weak var delegate: StreamingChatServiceDelegate?
     
     // Performance monitoring
-    private let performanceMonitor = PerformanceMonitor.shared
     
     init(delegate: StreamingChatServiceDelegate) {
         self.delegate = delegate
@@ -37,7 +36,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         hiddenContext: String? = nil,
         conversationHistory: [ChatMessage]
     ) async {
-        performanceMonitor.startMeasuring(identifier: "streaming_message")
         
         // Cancel any existing streaming task to prevent memory leaks
         cancelCurrentStreaming()
@@ -134,7 +132,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
             // Clean up task reference
             await MainActor.run { [weak self] in
                 self?.streamingTask = nil
-                self?.performanceMonitor.endMeasuring(identifier: "streaming_message")
             }
         }
     }
@@ -144,7 +141,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         streamingTask?.cancel()
         streamingTask = nil
         Task { @MainActor in
-            performanceMonitor.endMeasuring(identifier: "streaming_message")
         }
     }
     

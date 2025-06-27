@@ -12,13 +12,13 @@ struct ContentView: View {
     @State private var sidebarWidth: CGFloat = 280
     @State private var chatWidth: CGFloat = 320
     @State private var appState = ServiceContainer.shared.appState
+    @State private var errorManager = ServiceContainer.shared.errorManager
     @State private var keyboardService: KeyboardShortcutService?
     
     @Environment(SettingsManager.self) var settingsManager: SettingsManager
     @Environment(\.modelContext) private var modelContext
     
     // Performance monitoring
-    private let performanceMonitor = PerformanceMonitor.shared
     
     var body: some View {
         HStack(spacing: 0) {
@@ -29,7 +29,6 @@ struct ContentView: View {
                     .background(DesignSystem.Colors.secondaryBackground)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                     .id("sidebar") // Stable ID for animations
-                    .trackPerformance("document_sidebar")
                 
                 // Resizable divider for sidebar
                 ResizableDivider(
@@ -48,7 +47,6 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .background(DesignSystem.Colors.secondaryBackground)
                     .id(appState.selectedDocument?.id.uuidString ?? "no-document") // Stable ID based on document
-                    .trackPerformance("pdf_viewer")
             }
             .frame(minWidth: 300)
             .padding(.horizontal, DesignSystem.Spacing.sm)
@@ -71,18 +69,15 @@ struct ContentView: View {
                     .environment(settingsManager)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                     .id("chat-panel") // Stable ID for animations
-                    .trackPerformance("chat_panel")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .background(DesignSystem.Colors.secondaryBackground)
         .onAppear {
-            performanceMonitor.startMeasuring(identifier: "content_view_load")
             setupApplication()
         }
         .onDisappear {
-            performanceMonitor.endMeasuring(identifier: "content_view_load")
             cleanupApplication()
         }
         .fileImporter(
@@ -91,18 +86,31 @@ struct ContentView: View {
             allowsMultipleSelection: true
         ) { result in
             Task { @MainActor in
-                performanceMonitor.startMeasuring(identifier: "document_import")
                 
                 do {
                     try await ServiceContainer.shared.documentService.importDocuments(result, to: modelContext)
                 } catch {
-                    ServiceContainer.shared.errorManager.handle(error)
+                    ServiceContainer.shared.errorManager.handle(error, context: "document_import")
                 }
                 
-                performanceMonitor.endMeasuring(identifier: "document_import")
             }
         }
-        .trackPerformance("main_content_view")
+        // Global Error Handling
+        .errorAlert(
+            isPresented: $errorManager.showingError,
+            error: errorManager.currentError,
+            onRetry: {
+                // Retry action based on error type
+                if let error = errorManager.currentError {
+                    errorManager.attemptRetry(for: error)
+                    handleRetryAction(for: error)
+                }
+            },
+            onOpenSettings: {
+                // Open settings action
+                openSettingsWindow()
+            }
+        )
     }
     
     // MARK: - Private Methods
@@ -126,6 +134,30 @@ struct ContentView: View {
     
     private func setupServices() {
         ServiceContainer.shared.configureModelContext(modelContext)
+    }
+    
+    private func handleRetryAction(for error: AppError) {
+        switch error {
+        case .networkFailure, .chatServiceUnavailable:
+            // For network errors, we could trigger a connection test
+            Task {
+                do {
+                    _ = try await ServiceContainer.shared.chatService().validateConnection()
+                } catch {
+                    ServiceContainer.shared.errorManager.handle(error)
+                }
+            }
+        case .chatError(.connectionFailed), .chatError(.requestFailed):
+            // Similar retry logic for chat errors
+            break
+        default:
+            break
+        }
+    }
+    
+    private func openSettingsWindow() {
+        // Open the Settings window
+        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
     }
 }
 
