@@ -7,11 +7,11 @@
 
 import Foundation
 import SwiftData
+import AppKit
 
 // MARK: - Chat Service Protocol
 
 protocol ChatServiceProtocol {
-    func sendMessage(_ text: String, context: [Document], conversationHistory: [ChatMessage]) async throws -> String
     func sendStreamingMessage(_ text: String, context: [Document], conversationHistory: [ChatMessage]) -> AsyncThrowingStream<StreamingResponse, Error>
     func validateConnection() async throws -> Bool
 }
@@ -24,11 +24,13 @@ protocol PDFServiceProtocol {
     func getDocumentMetadata(from document: Document) -> [String: Any]?
     func generateThumbnail(for document: Document, size: CGSize) -> NSImage?
     func clearThumbnailCache()
+    func validatePDF(at url: URL) throws
 }
 
 // MARK: - Document Service Protocol
 
 protocol DocumentServiceProtocol {
+    func setModelContext(_ context: ModelContext)
     func importDocument(from url: URL, to modelContext: ModelContext) async throws -> Document
     func importDocuments(_ result: Result<[URL], Error>, to modelContext: ModelContext) async throws
     func findDocument(byName name: String) -> Document?
@@ -65,13 +67,16 @@ protocol StreamingChatServiceProtocol {
 
 // MARK: - Document Reference Service Protocol
 
+@MainActor
 protocol DocumentReferenceServiceProtocol {
-    func resolveDocumentReferences(in text: String) async -> ([DocumentReference], String)
-    func processMessage(_ message: String, with documents: [Document]) -> String
+    func extractDocumentReferences(from text: String) -> [Document]
+    func getDocumentUUIDs(from documents: [Document]) -> [UUID]
+    func combineUniqueDocuments(_ documentArrays: [Document]...) -> [Document]
 }
 
 // MARK: - Message Builder Service Protocol
 
+@MainActor
 protocol MessageBuilderServiceProtocol {
     func buildMessage(
         userInput: String,

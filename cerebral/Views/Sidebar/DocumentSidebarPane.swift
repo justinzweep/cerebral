@@ -76,7 +76,13 @@ struct DocumentSidebarPane: View {
             allowedContentTypes: [.pdf],
             allowsMultipleSelection: true
         ) { result in
-            FileImportService.shared.importDocuments(result, to: modelContext)
+            Task {
+                do {
+                    try await ServiceContainer.shared.documentService.importDocuments(result, to: modelContext)
+                } catch {
+                    ServiceContainer.shared.errorManager.handle(error)
+                }
+            }
         }
     }
 }

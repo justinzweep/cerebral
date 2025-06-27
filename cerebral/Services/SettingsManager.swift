@@ -79,7 +79,7 @@ class SettingsManager: ObservableObject, SettingsServiceProtocol {
         return true
     }
     
-    private func validateAPIKey(_ key: String) -> Bool {
+    func validateAPIKey(_ key: String) -> Bool {
         // Claude API keys start with "sk-ant-" and are typically 90+ characters long
         return key.hasPrefix("sk-ant-") && key.count > 20
     }

@@ -38,8 +38,13 @@ struct ProfileTabView: View {
                     HStack {
                         Button("Save") {
                             if settingsManager.validateAPIKey(tempAPIKey) {
-                                settingsManager.saveAPIKey(tempAPIKey)
-                                isEditingAPIKey = false
+                                do {
+                                    try settingsManager.saveAPIKey(tempAPIKey)
+                                    isEditingAPIKey = false
+                                } catch {
+                                    // Error is already handled by SettingsManager and stored in lastError
+                                    print("Failed to save API key: \(error)")
+                                }
                             }
                         }
                         .disabled(!settingsManager.validateAPIKey(tempAPIKey))
@@ -91,7 +96,12 @@ struct ProfileTabView: View {
         }
         .confirmationDialog("Remove API Key", isPresented: $showingAPIKeyConfirmation) {
             Button("Remove", role: .destructive) {
-                settingsManager.deleteAPIKey()
+                do {
+                    try settingsManager.deleteAPIKey()
+                } catch {
+                    // Error is already handled by SettingsManager and stored in lastError
+                    print("Failed to delete API key: \(error)")
+                }
             }
         } message: {
             Text("Are you sure you want to remove your Claude API key?")

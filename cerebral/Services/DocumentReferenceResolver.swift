@@ -8,7 +8,7 @@
 import Foundation
 
 /// Service responsible for resolving @mention document references
-final class DocumentReferenceResolver {
+final class DocumentReferenceResolver: DocumentReferenceServiceProtocol {
     static let shared = DocumentReferenceResolver()
     
     private init() {}

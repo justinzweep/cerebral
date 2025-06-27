@@ -8,10 +8,79 @@
 import Foundation
 
 /// Service responsible for building and enhancing messages with document content
-final class MessageBuilder {
+final class MessageBuilder: MessageBuilderServiceProtocol {
     static let shared = MessageBuilder()
     
     private init() {}
+    
+    // MARK: - MessageBuilderServiceProtocol Implementation
+    
+    @MainActor
+    func buildMessage(
+        userInput: String,
+        documents: [Document] = [],
+        hiddenContext: String? = nil
+    ) -> String {
+        return buildEnhancedMessage(userText: userInput, documents: documents, hiddenContext: hiddenContext)
+    }
+    
+    @MainActor
+    func extractDocumentContext(from documents: [Document]) -> String {
+        var context = ""
+        
+        for (index, document) in documents.enumerated() {
+            context += "=== Document \(index + 1): \(document.title) ===\n"
+            
+            // Add metadata
+            if let metadata = PDFService.shared.getDocumentMetadata(from: document) {
+                if let pageCount = metadata["pageCount"] as? Int {
+                    context += "Pages: \(pageCount)\n"
+                }
+                if let author = metadata["author"] as? String, !author.isEmpty {
+                    context += "Author: \(author)\n"
+                }
+                if let subject = metadata["subject"] as? String, !subject.isEmpty {
+                    context += "Subject: \(subject)\n"
+                }
+            }
+            
+            // Extract and add text content
+            if let extractedText = PDFService.shared.extractText(from: document, maxLength: 4000) {
+                context += "\nDocument Content:\n"
+                context += extractedText
+            } else {
+                context += "\nContent: [Unable to extract text from this PDF]\n"
+            }
+            
+            context += "\n" + String(repeating: "=", count: 50) + "\n\n"
+        }
+        
+        return context
+    }
+    
+    @MainActor
+    func formatMessageWithContext(
+        userInput: String,
+        documentContext: String,
+        hiddenContext: String? = nil
+    ) -> String {
+        var formattedMessage = ""
+        
+        if !documentContext.isEmpty {
+            formattedMessage += "ATTACHED DOCUMENTS:\n\n"
+            formattedMessage += documentContext
+        }
+        
+        if let hiddenContext = hiddenContext, !hiddenContext.isEmpty {
+            formattedMessage += hiddenContext + "\n\n"
+        }
+        
+        formattedMessage += userInput
+        
+        return formattedMessage
+    }
+    
+    // MARK: - Legacy Methods (for backward compatibility)
     
     /// Build an enhanced message that includes document content for the LLM
     @MainActor
@@ -33,7 +102,7 @@ final class MessageBuilder {
                 enhancedMessage += "=== Document \(index + 1): \(document.title) ===\n"
                 
                 // Add metadata
-                if let metadata = PDFTextExtractionService.shared.getDocumentMetadata(from: document) {
+                if let metadata = PDFService.shared.getDocumentMetadata(from: document) {
                     if let pageCount = metadata["pageCount"] as? Int {
                         enhancedMessage += "Pages: \(pageCount)\n"
                     }
@@ -46,7 +115,7 @@ final class MessageBuilder {
                 }
                 
                 // Extract and add text content
-                if let extractedText = PDFTextExtractionService.shared.extractText(from: document, maxLength: 4000) {
+                if let extractedText = PDFService.shared.extractText(from: document, maxLength: 4000) {
                     enhancedMessage += "\nDocument Content:\n"
                     enhancedMessage += extractedText
                 } else {
@@ -96,7 +165,7 @@ final class MessageBuilder {
             // Try to find the document
             if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
                 // Extract content from the referenced document
-                if let extractedText = PDFTextExtractionService.shared.extractText(from: document, maxLength: 3000) {
+                if let extractedText = PDFService.shared.extractText(from: document, maxLength: 3000) {
                     let replacement = """
                     
                     [REFERENCED DOCUMENT: \(document.title)]

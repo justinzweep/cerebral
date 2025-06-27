@@ -9,7 +9,7 @@ import Foundation
 
 /// Service responsible for handling streaming chat functionality
 @MainActor
-final class StreamingChatService {
+final class StreamingChatService: StreamingChatServiceProtocol {
     private var claudeAPIService: ClaudeAPIService?
     private var streamingTask: Task<Void, Never>?
     
