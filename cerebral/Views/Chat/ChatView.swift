@@ -8,134 +8,102 @@
 import SwiftUI
 
 struct ChatView: View {
-    @StateObject private var chatManager = ChatManager()
-    @EnvironmentObject var settingsManager: SettingsManager
+    let chatManager = ChatManager()
+    @StateObject private var settingsManager = SettingsManager()
     @State private var inputText = ""
-    @State private var selectedDocument: Document?
+    @State private var attachedDocuments: [Document] = []
+    @State private var showingNewSessionAlert = false
     
     var body: some View {
         VStack(spacing: 0) {
-            // Chat Header
-            HStack(spacing: DesignSystem.Spacing.md) {
-                Text("AI Assistant")
-                    .font(DesignSystem.Typography.headline)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h2)
-                
-                Spacer()
-                
-                if selectedDocument != nil {
-                    Button {
-                        withAnimation(DesignSystem.Animation.smooth) {
-                            selectedDocument = nil
-                            chatManager.clearDocumentContext()
-                        }
-                    } label: {
-                        Image(systemName: "doc.badge.minus")
-                            .foregroundColor(DesignSystem.Colors.accent)
-                    }
-                    .buttonStyle(.borderless)
-                    .minimumTouchTarget()
-                    .accessibleButton(
-                        label: "Clear document context",
-                        hint: "Remove the current document from the chat context"
-                    )
+            // Chat Header with session info and actions
+            ChatHeaderView(
+                sessionTitle: chatManager.currentSessionTitle,
+                hasMessages: !chatManager.messages.isEmpty,
+                onNewSession: {
+                    showingNewSessionAlert = true
+                },
+                onExportMessages: {
+                    exportMessages()
                 }
-            }
-            .padding(DesignSystem.Spacing.md)
-            .background(DesignSystem.Colors.surfacePrimary)
-            
-            // Document Context Banner
-            if let document = selectedDocument {
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    Image(systemName: "doc.fill")
-                        .foregroundColor(DesignSystem.Colors.accent)
-                        .font(.caption)
-                    
-                    Text("Discussing: \(document.title)")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .lineLimit(1)
-                    
-                    Spacer()
-                    
-                    Button {
-                        withAnimation(DesignSystem.Animation.smooth) {
-                            selectedDocument = nil
-                            chatManager.clearDocumentContext()
-                        }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                            .font(.caption)
-                    }
-                    .buttonStyle(.borderless)
-                    .minimumTouchTarget()
-                    .accessibleButton(
-                        label: "Remove document from context",
-                        hint: "Stop discussing this document"
-                    )
-                }
-                .padding(.horizontal, DesignSystem.Spacing.md)
-                .padding(.vertical, DesignSystem.Spacing.xs)
-                .background(DesignSystem.Colors.accent.opacity(0.1))
-            }
-            
-            Divider()
+            )
             
             if settingsManager.isAPIKeyValid {
-                // Chat Messages
+                // Chat Messages Area
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: DesignSystem.Spacing.md) {
+                        LazyVStack(spacing: 0) {
                             if chatManager.messages.isEmpty {
-                                EmptyStateView(selectedDocument: selectedDocument)
+                                EmptyStateView(hasAttachedDocuments: !attachedDocuments.isEmpty)
                                     .padding(.top, DesignSystem.Spacing.huge)
                             } else {
-                                ForEach(chatManager.messages) { message in
-                                    MessageView(message: message)
-                                        .id(message.id)
-                                        .accessibilityElement(children: .combine)
+                                ForEach(Array(chatManager.messages.enumerated()), id: \.element.id) { index, message in
+                                    let shouldGroup = chatManager.shouldGroupMessage(at: index)
+                                    
+                                    MessageView(
+                                        message: message,
+                                        shouldGroup: shouldGroup
+                                    )
+                                    .id(message.id)
+                                    .padding(.horizontal, DesignSystem.Spacing.md)
+                                    .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+                                    .accessibilityElement(children: .combine)
                                 }
                             }
                         }
-                        .padding(DesignSystem.Spacing.md)
+                        .padding(.bottom, DesignSystem.Spacing.md)
                     }
                     .onChange(of: chatManager.messages.count) { _, _ in
                         if let lastMessage = chatManager.messages.last {
-                            withAnimation {
+                            withAnimation(.easeOut(duration: 0.3)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }
                     }
                 }
                 
-                Divider()
+                // Input divider
+                Rectangle()
+                    .fill(DesignSystem.Colors.border.opacity(0.3))
+                    .frame(height: 1)
                 
-                // Chat Input
+                // Enhanced Chat Input
                 ChatInputView(
                     text: $inputText,
-                    isLoading: chatManager.isLoading
-                ) {
-                    Task {
-                        await chatManager.sendMessage(
-                            inputText, 
-                            settingsManager: settingsManager,
-                            documentContext: selectedDocument != nil ? [selectedDocument!] : []
-                        )
-                        inputText = ""
+                    isLoading: chatManager.isLoading,
+                    attachedDocuments: attachedDocuments,
+                    onSend: {
+                        sendMessage()
+                    },
+                    onRemoveDocument: { document in
+                        withAnimation(DesignSystem.Animation.smooth) {
+                            attachedDocuments.removeAll { $0.id == document.id }
+                        }
                     }
-                }
+                )
                 .disabled(!settingsManager.isAPIKeyValid)
+                
             } else {
                 // API Key Required State
                 APIKeyRequiredView()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .documentSelected)) { notification in
+        .alert("Start New Chat Session", isPresented: $showingNewSessionAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Start New Session") {
+                startNewSession()
+            }
+        } message: {
+            Text("This will clear the current conversation. Are you sure you want to continue?")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .documentAddedToChat)) { notification in
             if let document = notification.object as? Document {
-                selectedDocument = document
-                chatManager.startNewConversation(with: document)
+                withAnimation(DesignSystem.Animation.smooth) {
+                    // Add to attached documents instead of replacing
+                    if !attachedDocuments.contains(where: { $0.id == document.id }) {
+                        attachedDocuments.append(document)
+                    }
+                }
             }
         }
         .onAppear {
@@ -147,68 +115,174 @@ struct ChatView: View {
         }
     }
     
+    // MARK: - Private Methods
+    
+    private func sendMessage() {
+        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        let messageText = inputText
+        inputText = ""
+        
+        Task {
+            await chatManager.sendMessage(
+                messageText,
+                settingsManager: settingsManager,
+                documentContext: attachedDocuments
+            )
+        }
+    }
+    
+    private func startNewSession() {
+        withAnimation(DesignSystem.Animation.smooth) {
+            chatManager.startNewSession()
+            attachedDocuments.removeAll()
+            inputText = ""
+        }
+    }
+    
+    private func exportMessages() {
+        let exportText = chatManager.exportMessages()
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.plainText]
+        savePanel.nameFieldStringValue = "Chat Export - \(Date().formatted(date: .abbreviated, time: .shortened)).txt"
+        
+        if savePanel.runModal() == .OK {
+            if let url = savePanel.url {
+                do {
+                    try exportText.write(to: url, atomically: true, encoding: .utf8)
+                } catch {
+                    print("Failed to export messages: \(error)")
+                }
+            }
+        }
+    }
+}
 
+// MARK: - Chat Header
+
+struct ChatHeaderView: View {
+    let sessionTitle: String
+    let hasMessages: Bool
+    let onNewSession: () -> Void
+    let onExportMessages: () -> Void
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
+                Text(sessionTitle)
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .lineLimit(1)
+                
+                if hasMessages {
+                    Text("Conversation active")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+            }
+            
+            Spacer()
+            
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                // Export button
+                if hasMessages {
+                    Button(action: onExportMessages) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .accessibleButton(
+                        label: "Export conversation",
+                        hint: "Exports the current conversation to a text file"
+                    )
+                }
+                
+                // New session button
+                Button(action: onNewSession) {
+                    Image(systemName: "plus.square")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .buttonStyle(.borderless)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .accessibleButton(
+                    label: "New chat session",
+                    hint: "Starts a new clean chat session"
+                )
+            }
+        }
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.sm)
+        .background(Material.thin)
+        .overlay(
+            Rectangle()
+                .fill(DesignSystem.Colors.border.opacity(0.3))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
 }
 
 // Notification for document selection
 extension Notification.Name {
     static let documentSelected = Notification.Name("documentSelected")
+    static let documentAddedToChat = Notification.Name("documentAddedToChat")
     static let importPDF = Notification.Name("importPDF")
     static let toggleChatPanel = Notification.Name("toggleChatPanel")
-    static let focusSearch = Notification.Name("focusSearch")
 }
 
 // MARK: - Empty State Components
 
 struct EmptyStateView: View {
-    let selectedDocument: Document?
+    let hasAttachedDocuments: Bool
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             // Icon
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: DesignSystem.Spacing.huge))
-                .foregroundColor(DesignSystem.Colors.accent)
+                .font(.system(size: 42))
+                .foregroundColor(DesignSystem.Colors.accent.opacity(0.6))
                 .accessibilityHidden(true)
             
-            // Title
-            Text("Start a conversation")
-                .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-                .accessibleHeading(level: .h3)
-            
-            // Description
-            Text(selectedDocument == nil ? 
-                 "Ask me anything about your documents or any topic you'd like to discuss." :
-                 "Ask me questions about '\(selectedDocument!.title)' or anything else you'd like to know.")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
+            // Title & Description
+            VStack(spacing: DesignSystem.Spacing.sm) {
+                Text("Start a conversation")
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .accessibleHeading(level: .h3)
+                
+                Text(hasAttachedDocuments ? 
+                     "Ask me questions about your attached documents or anything else you'd like to know." :
+                     "Ask me anything about your documents or any topic you'd like to discuss.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             
             // Suggestions
-            if selectedDocument == nil {
+            if hasAttachedDocuments {
                 VStack(spacing: DesignSystem.Spacing.xs) {
                     Text("Try asking:")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textTertiary)
                     
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                        Text("• \"Summarize this document\"")
+                        Text("• \"Summarize these documents\"")
                         Text("• \"What are the main points?\"")
-                        Text("• \"Explain this concept\"")
+                        Text("• \"Compare the key concepts\"")
                     }
                     .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.top, DesignSystem.Spacing.sm)
             }
         }
-        .frame(maxWidth: 300)
+        .frame(maxWidth: 320)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Chat is empty. \(selectedDocument == nil ? "Ask me anything about your documents or any topic you'd like to discuss." : "Ask me questions about \(selectedDocument!.title) or anything else you'd like to know.")")
+        .accessibilityLabel("Chat is empty. \(hasAttachedDocuments ? "Ask me questions about your attached documents or anything else you'd like to know." : "Ask me anything about your documents or any topic you'd like to discuss.")")
     }
 }
 
@@ -219,14 +293,14 @@ struct APIKeyRequiredView: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             // Icon
             Image(systemName: "key.slash")
-                .font(.system(size: DesignSystem.Spacing.huge))
+                .font(.system(size: 42))
                 .foregroundColor(DesignSystem.Colors.warningOrange)
                 .accessibilityHidden(true)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
                 // Title
-                Text("Claude API Key Required")
-                    .font(DesignSystem.Typography.title2)
+                Text("API Key Required")
+                    .font(DesignSystem.Typography.title3)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .accessibleHeading(level: .h2)
                 
@@ -254,15 +328,18 @@ struct APIKeyRequiredView: View {
                     .foregroundColor(DesignSystem.Colors.textTertiary)
             }
         }
-        .frame(maxWidth: 400)
+        .frame(maxWidth: 280)
         .padding(DesignSystem.Spacing.xl)
         .frame(maxHeight: .infinity)
         .accessibilityElement(children: .combine)
     }
 }
 
+// MARK: - Accessibility Extensions
+
+// accessibleHeading is already defined in DesignSystem.swift
+
 #Preview {
     ChatView()
-        .environmentObject(SettingsManager())
-        .frame(width: 300, height: 600)
-} 
+        .frame(width: 400, height: 600)
+}

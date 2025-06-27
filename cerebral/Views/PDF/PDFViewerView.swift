@@ -11,98 +11,37 @@ import SwiftData
 
 struct PDFViewerView: View {
     let document: Document?
-    let annotationManager: AnnotationManager?
     @State private var pdfDocument: PDFDocument?
     @State private var currentPage: Int = 0
-    @State private var selectedText: String?
     @State private var showingError: Bool = false
     @State private var errorMessage: String = ""
+
     @Environment(\.modelContext) private var modelContext
     
-    // Default annotation manager for when none is provided
-    @StateObject private var defaultAnnotationManager = AnnotationManager()
-    
-    private var activeAnnotationManager: AnnotationManager {
-        annotationManager ?? defaultAnnotationManager
-    }
-    
     var body: some View {
-        VStack {
-            if let document = document {
+        Group {
+            if let currentDocument = document {
                 if let pdfDocument = pdfDocument {
-                    VStack(spacing: 0) {
-                        // PDF Toolbar
-                        HStack {
-                            Text(document.title)
-                                .font(.headline)
-                                .lineLimit(1)
-                            
-                            Spacer()
-                            
-                            if let pageCount = pdfDocument.pageCount as Int?, pageCount > 0 {
-                                Text("Page \(currentPage + 1) of \(pageCount)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        
-                        // Annotation Toolbar
-                        AnnotationToolbar(annotationManager: activeAnnotationManager)
-                            .padding(.horizontal)
-                            .padding(.bottom, 8)
-                        
-                        Divider()
-                        
-                        // PDF Content with annotation overlay
-                        ZStack {
-                            PDFViewerRepresentable(
-                                document: pdfDocument,
-                                currentPage: $currentPage,
-                                selectedText: $selectedText,
-                                annotationManager: activeAnnotationManager
-                            )
-                            .background(Color(NSColor.controlBackgroundColor))
-                        }
-                    }
+                    // PDF Content only - no header
+                    PDFViewerRepresentable(
+                        document: pdfDocument,
+                        currentPage: $currentPage
+                    )
+                    .background(DesignSystem.Colors.secondaryBackground)
                 } else {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        
-                        Text("Loading PDF...")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-                    }
+                    // Enhanced Loading State
+                    LoadingStateView(message: "Loading PDF...")
                 }
             } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 64))
-                        .foregroundColor(.secondary)
-                    
-                    Text("No Document Selected")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    
-                    Text("Select a PDF from the sidebar to start reading")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                // Enhanced Empty State
+                EmptyPDFStateView()
             }
         }
         .onChange(of: document) { oldDocument, newDocument in
             loadPDF()
-            setupAnnotationManager()
         }
         .onAppear {
             loadPDF()
-            setupAnnotationManager()
         }
         .alert("Error Loading PDF", isPresented: $showingError) {
             Button("OK") { }
@@ -133,13 +72,56 @@ struct PDFViewerView: View {
             showingError = true
         }
     }
+}
+
+
+
+// MARK: - Loading State
+
+struct LoadingStateView: View {
+    let message: String
     
-    private func setupAnnotationManager() {
-        activeAnnotationManager.setContext(modelContext)
-        activeAnnotationManager.setCurrentDocument(document)
+    var body: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.accent))
+                .scaleEffect(1.5)
+            
+            Text(message)
+                .font(DesignSystem.Typography.title3)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DesignSystem.Colors.secondaryBackground)
+    }
+}
+
+// MARK: - Empty State
+
+struct EmptyPDFStateView: View {
+    var body: some View {
+        VStack(spacing: DesignSystem.Spacing.xl) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 64))
+                .foregroundColor(DesignSystem.Colors.textTertiary)
+            
+            VStack(spacing: DesignSystem.Spacing.sm) {
+                Text("No Document Selected")
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                
+                Text("Select a PDF from the sidebar to start reading")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DesignSystem.Colors.secondaryBackground.opacity(0.5))
     }
 }
 
 #Preview {
-    PDFViewerView(document: nil, annotationManager: nil)
+    PDFViewerView(document: nil)
 } 

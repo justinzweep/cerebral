@@ -8,11 +8,12 @@
 import Foundation
 
 @MainActor
-class ChatManager: ObservableObject {
-    @Published var messages: [ChatMessage] = []
-    @Published var isLoading: Bool = false
-    @Published var lastError: String?
-    @Published var hasConnectionError: Bool = false
+@Observable final class ChatManager {
+    var messages: [ChatMessage] = []
+    var isLoading: Bool = false
+    var lastError: String?
+    var hasConnectionError: Bool = false
+    var currentSessionTitle: String = "New Chat"
     
     private var claudeAPIService: ClaudeAPIService?
     private var currentDocumentContext: [Document] = []
@@ -67,19 +68,77 @@ class ChatManager: ObservableObject {
         isLoading = false
     }
     
+    // MARK: - Session Management
+    
+    func startNewSession(title: String = "New Chat") {
+        messages.removeAll()
+        currentDocumentContext.removeAll()
+        currentSessionTitle = title
+        lastError = nil
+        hasConnectionError = false
+        isLoading = false
+    }
+    
+    func startNewConversation(with document: Document? = nil) {
+        messages.removeAll()
+        lastError = nil
+        hasConnectionError = false
+        isLoading = false
+        
+        if let document = document {
+            setDocumentContext([document])
+            currentSessionTitle = "Chat with \(document.title)"
+            
+            let welcomeMessage = ChatMessage(
+                text: "I'm ready to help you with '\(document.title)'. Feel free to ask me any questions about this document!",
+                isUser: false,
+                documentReferences: [document.id]
+            )
+            messages.append(welcomeMessage)
+        } else {
+            clearDocumentContext()
+            currentSessionTitle = "New Chat"
+        }
+    }
+    
     func setDocumentContext(_ documents: [Document]) {
         currentDocumentContext = documents
+        if documents.count == 1 {
+            currentSessionTitle = "Chat with \(documents.first!.title)"
+        } else if documents.count > 1 {
+            currentSessionTitle = "Chat with \(documents.count) documents"
+        }
     }
     
     func clearDocumentContext() {
         currentDocumentContext.removeAll()
+        currentSessionTitle = "New Chat"
     }
     
     func clearMessages() {
         messages.removeAll()
         lastError = nil
         hasConnectionError = false
+        isLoading = false
     }
+    
+    // MARK: - Message Grouping
+    
+    func shouldGroupMessage(at index: Int) -> Bool {
+        guard index > 0 && index < messages.count else { return false }
+        
+        let currentMessage = messages[index]
+        let previousMessage = messages[index - 1]
+        
+        // Same sender
+        guard currentMessage.isUser == previousMessage.isUser else { return false }
+        
+        // Within 5 minutes
+        let timeDifference = currentMessage.timestamp.timeIntervalSince(previousMessage.timestamp)
+        return timeDifference < 300 // 5 minutes
+    }
+    
+    // MARK: - Utility Methods
     
     func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {
         guard settingsManager.isAPIKeyValid else { 
@@ -108,23 +167,6 @@ class ChatManager: ObservableObject {
             let timestamp = message.timestamp.formatted(date: .abbreviated, time: .shortened)
             return "[\(timestamp)] \(sender): \(message.text)"
         }.joined(separator: "\n\n")
-    }
-    
-    func startNewConversation(with document: Document? = nil) {
-        clearMessages()
-        
-        if let document = document {
-            setDocumentContext([document])
-            
-            let welcomeMessage = ChatMessage(
-                text: "I'm ready to help you with '\(document.title)'. Feel free to ask me any questions about this document!",
-                isUser: false,
-                documentReferences: [document.id]
-            )
-            messages.append(welcomeMessage)
-        } else {
-            clearDocumentContext()
-        }
     }
     
     private func filterValidMessages(_ messages: [ChatMessage]) -> [ChatMessage] {

@@ -9,94 +9,135 @@ import SwiftUI
 
 struct DocumentRowView: View {
     let document: Document
+    @State private var isHovered = false
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
-            // PDF Icon
-            Image(systemName: "doc.fill")
-                .foregroundColor(DesignSystem.Colors.pdfRed)
-                .font(DesignSystem.Typography.title3)
-                .frame(width: 24, height: 24)
-                .accessibilityHidden(true)
+            // PDF Icon with subtle styling
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xs)
+                .fill(DesignSystem.Colors.accent.opacity(0.1))
+                .frame(width: 36, height: 44)
+                .overlay(
+                    Image(systemName: "doc.text.fill")
+                        .foregroundColor(DesignSystem.Colors.accent)
+                        .font(.system(size: 16, weight: .medium))
+                )
             
-            // Document Info
+            // Document info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
                 Text(document.title)
-                    .font(DesignSystem.Typography.headline)
+                    .font(DesignSystem.Typography.body)
+                    .fontWeight(.medium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
                 
                 HStack(spacing: DesignSystem.Spacing.xs) {
-                    Text(document.dateAdded, style: .relative)
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textTertiary)
-                    
                     if let lastOpened = document.lastOpened {
-                        Text("•")
+                        Text(relativeDateString(from: lastOpened))
                             .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.textTertiary)
+                    } else {
+                        Text(relativeDateString(from: document.dateAdded))
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textTertiary)
+                    }
+                    
+                    if document.lastOpened != nil {
+                        Circle()
+                            .fill(DesignSystem.Colors.textTertiary)
+                            .frame(width: 2, height: 2)
                         
-                        Text("Opened \(lastOpened, style: .relative)")
+                        Text("Recent")
                             .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
+                            .foregroundColor(DesignSystem.Colors.accent)
                     }
                 }
             }
             
             Spacer()
+            
+            // Add to Chat button (subtle, only shown on hover)
+            if isHovered {
+                Button {
+                    NotificationCenter.default.post(
+                        name: .documentAddedToChat,
+                        object: document
+                    )
+                } label: {
+                    Image(systemName: "message")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DesignSystem.Colors.accent)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 24, height: 24)
+                .background(
+                    Circle()
+                        .fill(DesignSystem.Colors.accent.opacity(0.1))
+                )
+                .contentShape(Circle())
+                .accessibilityLabel("Add to chat")
+                .accessibilityHint("Add this document to the chat context")
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
+            
+            // Subtle indicator
+            if isHovered {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
         }
-        .padding(.vertical, DesignSystem.Spacing.xs)
         .padding(.horizontal, DesignSystem.Spacing.sm)
-        .background(Color.clear)
+        .padding(.vertical, DesignSystem.Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                .fill(isHovered ? DesignSystem.Colors.hoverBackground.opacity(0.5) : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(DesignSystem.Animation.microInteraction) {
+                isHovered = hovering
+            }
+        }
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("PDF document: \(document.title)")
-        .accessibilityHint("Added \(document.dateAdded, style: .relative). Double-click to open.")
-        .accessibilityAddTraits(.isButton)
-        .contextMenu {
-            Button {
-                NotificationCenter.default.post(name: .documentSelected, object: document)
-            } label: {
-                Label("Chat about this document", systemImage: "message")
-            }
-            .accessibleButton(
-                label: "Start chat about \(document.title)",
-                hint: "Opens the chat panel with this document's context"
-            )
-            
-            Divider()
-            
-            Button {
-                NSWorkspace.shared.activateFileViewerSelecting([document.filePath])
-            } label: {
-                Label("Reveal in Finder", systemImage: "folder")
-            }
-            .accessibleButton(
-                label: "Show \(document.title) in Finder",
-                hint: "Opens Finder and highlights this document"
-            )
-            
-            Divider()
-            
-            Button(role: .destructive) {
-                // This will be handled by the parent view
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            .accessibleButton(
-                label: "Delete \(document.title)",
-                hint: "Removes this document from your library"
-            )
-        }
+        .accessibilityHint("Tap to open document")
     }
-}
-
-#Preview {
-    let sampleDocument = Document(
-        title: "Sample Document",
-        filePath: URL(fileURLWithPath: "/path/to/sample.pdf")
-    )
     
-    return DocumentRowView(document: sampleDocument)
-        .padding()
+    private func relativeDateString(from date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Check if it's today
+        if calendar.isDate(date, inSameDayAs: now) {
+            return "Today"
+        }
+        
+        // Check if it's yesterday
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
+            return "Yesterday"
+        }
+        
+        // Check if it's in the same week
+        if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            return formatter.string(from: date)
+        }
+        
+        // Check if it's in the same year
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+        
+        // Different year
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
 } 

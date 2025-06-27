@@ -13,7 +13,7 @@ struct CerebralApp: App {
     @StateObject private var settingsManager = SettingsManager()
     
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([Document.self, Annotation.self, ChatSession.self, Folder.self])
+        let schema = Schema([Document.self, ChatSession.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         
         do {
@@ -42,13 +42,6 @@ struct CerebralApp: App {
                     NotificationCenter.default.post(name: .toggleChatPanel, object: nil)
                 }
                 .keyboardShortcut("c", modifiers: [.command])
-                
-                Divider()
-                
-                Button("Focus Search") {
-                    NotificationCenter.default.post(name: .focusSearch, object: nil)
-                }
-                .keyboardShortcut("f", modifiers: [.command])
             }
         }
         

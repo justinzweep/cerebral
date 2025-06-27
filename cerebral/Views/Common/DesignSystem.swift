@@ -12,14 +12,30 @@ import SwiftUI
 
 struct DesignSystem {
     
-    // MARK: - Colors
+    // MARK: - Enhanced Colors (Following UI Improvements Document)
     struct Colors {
-        // Semantic Colors
+        // Semantic colors with proper contrast ratios
+        static let primaryText = Color(.labelColor)
+        static let secondaryText = Color(.secondaryLabelColor)
+        static let tertiaryText = Color(.tertiaryLabelColor)
+        static let placeholderText = Color(.placeholderTextColor)
+        
+        // Surface colors using proper materials
+        static let primarySurface = Material.thick
+        static let secondarySurface = Material.regular
+        static let tertiarySurface = Material.thin
+        static let ultraThinSurface = Material.ultraThin
+        
+        // Accent colors with accessibility compliance
+        static let accent = Color(.controlAccentColor)
+        static let accentSecondary = Color(.controlAccentColor).opacity(0.8)
+        static let accentTertiary = Color(.controlAccentColor).opacity(0.6)
+        
+        // Legacy colors for backward compatibility
         static let primary = Color.primary
         static let secondary = Color.secondary
-        static let accent = Color.accentColor
         
-        // Custom App Colors
+        // Custom App Colors with refined palette
         static let pdfRed = Color(.systemRed)
         static let folderBlue = Color(.systemBlue)
         static let highlightYellow = Color(.systemYellow)
@@ -27,53 +43,57 @@ struct DesignSystem {
         static let warningOrange = Color(.systemOrange)
         static let errorRed = Color(.systemRed)
         
-        // Background Colors
+        // Background Colors with material support
         static let background = Color(NSColor.controlBackgroundColor)
         static let secondaryBackground = Color(NSColor.windowBackgroundColor)
         static let groupedBackground = Color(NSColor.unemphasizedSelectedContentBackgroundColor)
+        static let selectedBackground = Color(NSColor.selectedContentBackgroundColor)
+        static let hoverBackground = Color(NSColor.controlAccentColor).opacity(0.1)
         
-        // Surface Colors with Materials
+        // Surface Colors with Materials (Enhanced)
         static let surfacePrimary = Material.regular
         static let surfaceSecondary = Material.thin
         static let surfaceUltraThin = Material.ultraThin
         
-        // Text Colors
-        static let textPrimary = Color.primary
-        static let textSecondary = Color.secondary
-        static let textTertiary = Color(NSColor.tertiaryLabelColor)
-        static let textPlaceholder = Color(NSColor.placeholderTextColor)
+        // Text Colors (Enhanced)
+        static let textPrimary = primaryText
+        static let textSecondary = secondaryText
+        static let textTertiary = tertiaryText
+        static let textPlaceholder = placeholderText
+        static let textOnAccent = Color.white
         
-        // Border Colors
+        // Border Colors with refined contrast
         static let border = Color(NSColor.separatorColor)
         static let borderSecondary = Color(NSColor.gridColor)
+        static let borderFocus = accent
+        static let borderError = errorRed
     }
     
-    // MARK: - Typography
+    // MARK: - Enhanced Typography System
     struct Typography {
-        // Title Styles
-        static let largeTitle = Font.largeTitle.weight(.bold)
-        static let title = Font.title.weight(.semibold)
-        static let title2 = Font.title2.weight(.semibold)
-        static let title3 = Font.title3.weight(.medium)
+        // Better hierarchy with consistent line heights
+        static let title1 = Font.largeTitle.weight(.bold).leading(.tight)
+        static let title2 = Font.title.weight(.semibold).leading(.tight)
+        static let title3 = Font.title2.weight(.semibold).leading(.tight)
         
-        // Body Styles
-        static let headline = Font.headline.weight(.medium)
-        static let body = Font.body
-        static let bodyMedium = Font.body.weight(.medium)
-        static let callout = Font.callout
-        static let subheadline = Font.subheadline
+        // Refined body text with better readability
+        static let headline = Font.headline.weight(.medium).leading(.tight)
+        static let body = Font.body.leading(.loose)
+        static let bodyMedium = Font.body.weight(.medium).leading(.loose)
+        static let callout = Font.callout.leading(.loose)
+        static let subheadline = Font.subheadline.leading(.tight)
         
-        // Small Text Styles
-        static let footnote = Font.footnote
-        static let caption = Font.caption
-        static let caption2 = Font.caption2
+        // Small Text Styles with improved hierarchy
+        static let footnote = Font.footnote.leading(.tight)
+        static let caption = Font.caption.weight(.medium).leading(.tight)
+        static let caption2 = Font.caption2.leading(.tight)
         
         // Special Styles
         static let monospace = Font.system(.body, design: .monospaced)
         static let code = Font.system(.caption, design: .monospaced)
     }
     
-    // MARK: - Spacing (8pt Grid System)
+    // MARK: - Spacing (Enhanced 8pt Grid System)
     struct Spacing {
         static let xxxs: CGFloat = 2   // 2pt
         static let xxs: CGFloat = 4    // 4pt
@@ -98,46 +118,79 @@ struct DesignSystem {
         static let round: CGFloat = 999 // For pills/circular elements
     }
     
-    // MARK: - Shadows
+    // MARK: - Enhanced Shadows
     struct Shadows {
         static let subtle = Color.black.opacity(0.05)
         static let light = Color.black.opacity(0.1)
         static let medium = Color.black.opacity(0.15)
         static let strong = Color.black.opacity(0.25)
+        
+        // Specific shadow configurations
+        static let cardShadow = (radius: 4.0, x: 0.0, y: 2.0, opacity: 0.1)
+        static let floatingShadow = (radius: 8.0, x: 0.0, y: 4.0, opacity: 0.15)
+        static let deepShadow = (radius: 16.0, x: 0.0, y: 8.0, opacity: 0.25)
     }
     
-    // MARK: - Animation
+    // MARK: - Sophisticated Animation System
     struct Animation {
-        static let quick = SwiftUI.Animation.easeInOut(duration: 0.15)
+        // Micro-interactions
+        static let microInteraction = SwiftUI.Animation.easeOut(duration: 0.15)
+        static let interface = SwiftUI.Animation.easeInOut(duration: 0.2)
         static let smooth = SwiftUI.Animation.easeInOut(duration: 0.25)
         static let gentle = SwiftUI.Animation.easeInOut(duration: 0.35)
-        static let spring = SwiftUI.Animation.spring(response: 0.5, dampingFraction: 0.8)
+        
+        // Modal and page transitions
+        static let modal = SwiftUI.Animation.spring(response: 0.4, dampingFraction: 0.8)
+        static let pageTransition = SwiftUI.Animation.easeInOut(duration: 0.3)
+        
+        // Legacy support
+        static let quick = microInteraction
+        static let spring = modal
     }
 }
 
-// MARK: - Custom Button Styles
+// MARK: - Enhanced Button Styles
 
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.bodyMedium)
-            .foregroundColor(.white)
+            .foregroundColor(DesignSystem.Colors.textOnAccent)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.xs)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
-                    .fill(isEnabled ? DesignSystem.Colors.accent : DesignSystem.Colors.secondary)
+                    .fill(buttonBackgroundColor)
+                    .shadow(
+                        color: DesignSystem.Shadows.light,
+                        radius: configuration.isPressed ? 1 : 2,
+                        y: configuration.isPressed ? 0 : 1
+                    )
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(DesignSystem.Animation.quick, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private var buttonBackgroundColor: Color {
+        if !isEnabled {
+            return DesignSystem.Colors.secondaryText
+        } else if isHovered {
+            return DesignSystem.Colors.accentSecondary
+        } else {
+            return DesignSystem.Colors.accent
+        }
     }
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -150,17 +203,28 @@ struct SecondaryButtonStyle: ButtonStyle {
                     .stroke(DesignSystem.Colors.accent, lineWidth: 1)
                     .background(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
-                            .fill(configuration.isPressed ? DesignSystem.Colors.accent.opacity(0.1) : Color.clear)
+                            .fill(backgroundFill(isPressed: configuration.isPressed))
                     )
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(DesignSystem.Animation.quick, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private func backgroundFill(isPressed: Bool) -> Color {
+        if isPressed || isHovered {
+            return DesignSystem.Colors.hoverBackground
+        } else {
+            return Color.clear
+        }
     }
 }
 
 struct TertiaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -170,11 +234,84 @@ struct TertiaryButtonStyle: ButtonStyle {
             .padding(.vertical, DesignSystem.Spacing.xs)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
-                    .fill(configuration.isPressed ? DesignSystem.Colors.background : Color.clear)
+                    .fill(backgroundFill(isPressed: configuration.isPressed))
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(DesignSystem.Animation.quick, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private func backgroundFill(isPressed: Bool) -> Color {
+        if isPressed || isHovered {
+            return DesignSystem.Colors.hoverBackground
+        } else {
+            return Color.clear
+        }
+    }
+}
+
+struct DestructiveButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(DesignSystem.Typography.body)
+            .foregroundColor(DesignSystem.Colors.errorRed)
+            .padding(.horizontal, DesignSystem.Spacing.sm)
+            .padding(.vertical, DesignSystem.Spacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                    .fill(backgroundFill(isPressed: configuration.isPressed))
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(DesignSystem.Animation.microInteraction, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.microInteraction, value: isHovered)
+            .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private func backgroundFill(isPressed: Bool) -> Color {
+        if isPressed || isHovered {
+            return DesignSystem.Colors.errorRed.opacity(0.1)
+        } else {
+            return Color.clear
+        }
+    }
+}
+
+// MARK: - Enhanced Row Style for Lists
+struct EnhancedRowStyle: ViewModifier {
+    @State private var isHovered = false
+    let isSelected: Bool
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                    .fill(backgroundFill)
+            )
+            .animation(DesignSystem.Animation.microInteraction, value: isHovered)
+            .animation(DesignSystem.Animation.microInteraction, value: isSelected)
+            .onHover { isHovered = $0 }
+    }
+    
+    private var backgroundFill: Color {
+        if isSelected {
+            return DesignSystem.Colors.selectedBackground
+        } else if isHovered {
+            return DesignSystem.Colors.hoverBackground
+        } else {
+            return Color.clear
+        }
+    }
+}
+
+extension View {
+    func enhancedRowStyle(isSelected: Bool = false) -> some View {
+        modifier(EnhancedRowStyle(isSelected: isSelected))
     }
 }
 
@@ -307,5 +444,20 @@ struct StatusIndicator: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Connection status: \(status.text)")
+    }
+}
+
+// MARK: - Environment Extensions
+
+extension EnvironmentValues {
+    var openSettings: () -> Void {
+        get { self[OpenSettingsKey.self] }
+        set { self[OpenSettingsKey.self] = newValue }
+    }
+}
+
+private struct OpenSettingsKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {
+        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
     }
 } 

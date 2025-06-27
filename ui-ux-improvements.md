@@ -1,479 +1,271 @@
-# Cerebral macOS App - UI/UX Improvements Plan
+# UI/UX Improvements for Cerebral macOS App
 
 ## Executive Summary
+This document outlines comprehensive UI/UX improvements for Cerebral, focusing on creating a modern, sleek, and minimalistic macOS application that follows Apple Human Interface Guidelines. The improvements are inspired by contemporary chat applications while maintaining the unique functionality of a PDF annotation and AI assistant tool.
 
-After analyzing the current codebase, the Cerebral macOS app has fundamental functionality but lacks the polish and user experience expected from a high-quality macOS application. This document outlines comprehensive improvements to align with Apple's Human Interface Guidelines, accessibility standards, and modern macOS design patterns.
+## Overall Design Philosophy
 
-## Current State Analysis
+### Visual Hierarchy & Layout
+- **Implement a true three-pane layout** with clear visual separation using subtle dividers and different background materials
+- **Reduce visual noise** by using more whitespace and removing unnecessary borders
+- **Create depth through materials** instead of heavy shadows (use Material.thin, Material.regular strategically)
+- **Establish consistent visual rhythm** through a refined spacing system
 
-### Strengths
-- ✅ Basic three-panel layout (Documents | PDF Viewer | Chat)
-- ✅ SwiftUI implementation with modern architecture
-- ✅ Keychain integration for secure API key storage
-- ✅ PDF viewing with PDFKit integration
-- ✅ Basic annotation support
+## 1. Navigation & Structure Improvements ✅
 
-### Critical Issues
-- ❌ Poor visual hierarchy and spacing
-- ❌ Inconsistent color schemes and typography
-- ❌ Limited accessibility support
-- ❌ Missing keyboard navigation
-- ❌ Inadequate error states and feedback
-- ❌ Poor empty states
-- ❌ Inconsistent button styles and interactions
-- ❌ Missing progressive disclosure
-- ❌ Poor responsive layout handling
-
-## Detailed Improvement Categories
-
-### 1. 🎨 Visual Design & Aesthetics
-
-#### 1.1 Color System
+### Sidebar Refinements
 **Current Issues:**
-- Hard-coded colors without semantic meaning
-- Poor contrast ratios
-- No dark mode considerations
-- Inconsistent accent color usage
+- Heavy visual weight with too many visual elements
+- Inconsistent spacing and alignment
+- Lack of clear visual hierarchy between folders and documents
 
 **Improvements:**
-- Implement semantic color system using `Color.accentColor`, `Color.primary`, `Color.secondary`
-- Define custom color palette with proper contrast ratios (4.5:1 minimum)
-- Support for vibrancy effects using `Material` backgrounds
-- Dynamic color adaptation for dark/light modes
-- Color-blind friendly palette validation
+```swift
+// Enhanced sidebar with refined styling
+- Use sidebar list style with improved row styling
+- Implement collapsible sections with smooth animations
+- Add subtle hover states with material backgrounds
+- Use icon badges for document status (new, annotated, etc.)
+- Implement smart grouping by date/type/folder with clear headers
+```
 
-#### 1.2 Typography
-**Current Issues:**
-- Inconsistent font weights and sizes
-- Poor hierarchy
-- No consideration for dynamic type
+### Document Row Styling
+**Improvements:**
+- **Refined typography hierarchy** with better contrast ratios
+- **Subtle state indicators** (hover, selection, focus states)
+- **Contextual actions** revealed on hover (quick actions like share, chat)
+- **Smart metadata display** showing relevant info based on recency
+- **Improved accessibility** with better color contrast and touch targets
+
+### Search Enhancement
+- **Scoped search** with filters (by date, type, annotation status)
+- **Search result highlighting** with proper visual emphasis
+- **Recent searches** dropdown with quick access
+- **Keyboard navigation** throughout search results
+
+## 2. PDF Viewer Improvements
+
+### Modern PDF Interface
+**Required features:**
+- Text highlighting: when a user select text in the pdf a popup modal should appear with 3 colors. When the user selects a color the text should be higlighted, just as with the native mac pdf reader. It should look like the user use a marker over the text.
 
 **Improvements:**
-- Implement consistent typographic scale using semantic text styles
-- Support Dynamic Type for accessibility
-- Proper font weight hierarchy (Regular, Medium, Semibold, Bold)
-- Consistent line spacing and letter spacing
-- Better text contrast and readability
+```swift
+// Enhanced PDF viewer with modern styling
+- Floating toolbar with material background and subtle shadow; should only appear when text is selected
+- Status bar with elegant typography and proper spacing
+```
 
-#### 1.3 Spacing & Layout
+### Annotation System
+- **Color-coded annotation types** with consistent visual language
+- **Annotation preview cards** on hover with smooth animations
+- **Use PDFKit** whereever possible
+
+## 3. Chat Interface Modernization
+
+### Chat Layout Refinements
 **Current Issues:**
-- Inconsistent padding and margins
-- Poor alignment
-- Cramped interface elements
+- Basic message bubbles without proper visual hierarchy
+- Inconsistent spacing between messages
+- No visual indicators for message status
 
 **Improvements:**
-- Implement 8pt grid system for consistent spacing
-- Proper use of HStack/VStack spacing parameters
-- Consistent padding across all views
-- Better use of `Spacer()` for flexible layouts
-- Proper content margins and safe areas
+```swift
+// Modern chat interface inspired by contemporary apps
+- Refined message bubbles with subtle shadows and proper corner radius
+- Improved message spacing with breathing room
+- Typing indicators with elegant animations
+- Smart message grouping by time/context
+- Remove the document banner on top of the chat view
+- Input fields should follow SwiftUI best practises and have a clean minimal design
+```
 
-### 2. 🔧 Interaction Design
+### Chat Input Enhancement
+- **Multi-line input** with auto-expanding height
+- **Rich text formatting** options (bold, italic, code)
+- **Attachment preview above the chat input field** for document context
+    - This should replace the current functionality displaying the pdf banner on top of the chat view
+    - The attached pdf(s) should be displayed as 'pills' and should be removeable
+- **Send button animation** with proper state feedback
+- **The ability to start a new clean chat session**
 
-#### 2.1 Button Design
+### AI Assistant Personality
+- **Typing animation** with realistic timing
+- **Response streaming** with smooth text appearance
+
+## 4. Settings & Preferences
+
+### Modern Settings Interface
 **Current Issues:**
-- Inconsistent button styles
-- Poor button states (hover, pressed, disabled)
-- Missing button accessibility
+- Basic tab interface without visual polish
+- Inconsistent form styling
+- Poor visual hierarchy
 
 **Improvements:**
-- Consistent button hierarchy: Primary, Secondary, Tertiary
-- Proper button states with animations
-- Consistent button sizing and touch targets (44pt minimum)
-- Better button grouping and spacing
-- Icon-only buttons with proper labels and tooltips
+```swift
+// Settings with refined macOS styling
+- Navigation sidebar instead of tabs for better organization
+- Form groups with proper section headers and descriptions
+- Inline validation with helpful error messages
+- Preview areas for theme/appearance changes
+- Better organization of related settings
+```
 
-#### 2.2 Form Controls
-**Current Issues:**
-- Basic text field styling
-- Poor form validation feedback
-- Inconsistent control sizing
+### API Key Management
+- **Secure input fields** with proper masking and validation
+- **Connection status indicators** with real-time feedback
+- **Usage monitoring** with visual progress indicators
+- **Multiple API provider support** with clear switching interface
 
-**Improvements:**
-- Custom text field styles with proper focus states
-- Real-time validation with clear error messaging
-- Consistent form layouts with proper labels
-- Better input field affordances
-- Progress indicators for async operations
+## 5. Design System Enhancements
 
-#### 2.3 Navigation & Wayfinding
-**Current Issues:**
-- Poor breadcrumb navigation
-- Unclear current state indication
-- Missing navigation helpers
+### Color System Refinement
+```swift
+// Enhanced color palette following macOS design patterns
+Colors {
+    // Semantic colors with proper contrast ratios
+    static let primaryText = Color(.labelColor)
+    static let secondaryText = Color(.secondaryLabelColor)
+    static let tertiaryText = Color(.tertiaryLabelColor)
+    
+    // Surface colors using proper materials
+    static let primarySurface = Material.thick
+    static let secondarySurface = Material.regular
+    static let tertiarySurface = Material.thin
+    
+    // Accent colors with accessibility compliance
+    static let accent = Color(.controlAccentColor)
+    static let accentSecondary = Color(.controlAccentColor).opacity(0.8)
+}
+```
 
-**Improvements:**
-- Clear visual hierarchy in sidebar navigation
-- Breadcrumb navigation for folder structures
-- Search result highlighting
-- Quick navigation shortcuts
-- Better selection states and active indicators
+### Typography System
+```swift
+// Refined typography scale
+Typography {
+    // Better hierarchy with consistent line heights
+    static let title1 = Font.largeTitle.weight(.bold).leading(.tight)
+    static let title2 = Font.title.weight(.semibold).leading(.tight)
+    static let headline = Font.headline.weight(.medium).leading(.snug)
+    static let body = Font.body.leading(.relaxed)
+    static let caption = Font.caption.weight(.medium).leading(.snug)
+}
+```
 
-### 3. ♿ Accessibility & Inclusion
+### Animation System
+```swift
+// Sophisticated animation library
+Animation {
+    static let interface = Animation.easeInOut(duration: 0.2)
+    static let modal = Animation.spring(response: 0.4, dampingFraction: 0.8)
+    static let microInteraction = Animation.easeOut(duration: 0.15)
+    static let pageTransition = Animation.easeInOut(duration: 0.3)
+}
+```
 
-#### 3.1 VoiceOver Support
-**Current Issues:**
-- Missing accessibility labels
-- Poor navigation with VoiceOver
-- No semantic markup
+## 6. Micro-Interactions & Feedback
 
-**Improvements:**
-- Comprehensive accessibility labels for all interactive elements
-- Proper heading hierarchy using `.accessibilityAddTraits(.isHeader)`
-- Screen reader friendly navigation
-- Proper focus management
-- Semantic role identification
+### Button States
+- **Proper hover states** with subtle material changes
+- **Press feedback** with appropriate scale transforms
+- **Loading states** with elegant progress indicators
+- **Success/error feedback** with color and icon changes
 
-#### 3.2 Keyboard Navigation
-**Current Issues:**
-- Limited keyboard shortcuts
-- Poor tab order
-- Missing keyboard-only navigation
+### Form Interactions
+- **Focus indicators** with smooth ring animations
+- **Validation feedback** with inline messaging
+- **Auto-completion** with keyboard navigation
+- **Smart defaults** based on user behavior
 
-**Improvements:**
-- Full keyboard navigation support
-- Logical tab order through all interface elements
-- Custom keyboard shortcuts for common actions
-- Escape key handling for modal dismissal
-- Arrow key navigation in lists and grids
+### Drag & Drop
+- **Document import zones** with clear visual feedback
+- **Annotation drag handles** with proper cursor changes
+- **File organization** with smooth animations
+- **Preview thumbnails** during drag operations
 
-#### 3.3 Motor Accessibility
-**Current Issues:**
-- Small touch targets
-- No alternative input methods
+## 7. Accessibility Improvements
 
-**Improvements:**
-- Minimum 44pt touch targets
-- Larger click areas for small elements
-- Support for Switch Control
-- Proper hover states for mouse users
-- Gesture alternative pathways
+### Visual Accessibility
+- **High contrast support** with system preference integration
+- **Reduced motion support** with alternative animations
+- **Text scaling** that maintains layout integrity
+- **Color-blind friendly** indicators and status displays
 
-### 4. 📱 Layout & Responsiveness
+### Keyboard Navigation
+- **Full keyboard control** for all interface elements
+- **Logical tab order** throughout the application
+- **Keyboard shortcuts** prominently displayed and customizable
+- **Focus indicators** that are clearly visible
 
-#### 4.1 Adaptive Layout
-**Current Issues:**
-- Fixed panel widths
-- Poor handling of window resizing
-- No responsive breakpoints
+### Screen Reader Support
+- **Proper semantic markup** for all interface elements
+- **Descriptive labels** for complex UI components
+- **Status announcements** for dynamic content changes
+- **Navigation landmarks** for efficient browsing
 
-**Improvements:**
-- Truly adaptive three-panel layout
-- Collapsible sidebar with proper state persistence
-- Responsive panel sizing with smart defaults
-- Proper minimum window size constraints
-- Layout adaptation for different screen sizes
+## 8. Performance & Polish
 
-#### 4.2 Split View Enhancement
-**Current Issues:**
-- Basic HSplitView implementation
-- Poor divider interaction
-- No panel state persistence
+### Smooth Animations
+- **60fps animations** for all interface transitions
+- **Reduced motion compliance** for accessibility
+- **Smart animation queueing** to prevent visual conflicts
+- **Hardware acceleration** for complex transforms
 
-**Improvements:**
-- Custom split view with better divider styling
-- Panel collapse/expand animations
-- State persistence across app launches
-- Smart panel hiding based on content
-- Proper resize handles and constraints
+### Loading States
+- **Progressive disclosure** of interface elements
+- **Skeleton screens** for content areas
+- **Smart preloading** of commonly accessed documents
+- **Graceful error handling** with retry mechanisms
 
-### 5. 📄 Content Presentation
+### Memory Optimization
+- **Lazy loading** for document thumbnails and previews
+- **Smart caching** for frequently accessed content
+- **Memory pressure handling** with automatic cleanup
+- **Background processing** for non-critical tasks
 
-#### 5.1 Empty States
-**Current Issues:**
-- Basic empty state messaging
-- Missing calls-to-action
-- Poor visual design
+## 9. Platform Integration
 
-**Improvements:**
-- Engaging empty state illustrations
-- Clear calls-to-action with primary actions
-- Contextual help and onboarding
-- Progressive disclosure of features
-- Better error state messaging
+### macOS Integration
+- **System appearance** automatically follows light/dark mode
+- **Window management** with proper restoration and state saving
+- **Menu bar integration** with quick actions and status
+- **Notification center** integration for important events
 
-#### 5.2 Loading States
-**Current Issues:**
-- Basic progress indicators
-- No skeleton loading
-- Poor loading feedback
+### Native Features
+- **Spotlight integration** for document search
+- **Quick Look** integration for file previews
+- **iCloud sync** consideration for document library
 
-**Improvements:**
-- Skeleton loading for content areas
-- Contextual loading indicators
-- Progress feedback for long operations
-- Graceful handling of network failures
-- Smart preloading strategies
+## 10. Future Considerations
 
-#### 5.3 Error Handling
-**Current Issues:**
-- Basic alert dialogs
-- Poor error messaging
-- No recovery options
+### Responsive Design
+- **Window size adaptation** with proper layout adjustments
+- **Split view support** for multitasking scenarios
+- **Full-screen mode** optimizations
 
-**Improvements:**
-- Inline error messages with clear actions
-- Contextual error states
-- Recovery suggestions and help links
-- Better error prevention through validation
-- Graceful degradation strategies
-
-### 6. 🔍 Search & Discovery
-
-#### 6.1 Search Enhancement
-**Current Issues:**
-- Basic text filtering
-- No search highlighting
-- Poor search results presentation
-
-**Improvements:**
-- Real-time search with highlighting
-- Search suggestions and autocomplete
-- Advanced search filters
-- Search history and saved searches
-- Better search result ranking
-
-#### 6.2 Content Organization
-**Current Issues:**
-- Basic folder structure
-- No tagging system
-- Poor sorting options
-
-**Improvements:**
-- Enhanced folder management with drag & drop
-- Tag-based organization system
-- Multiple sorting and filtering options
-- Smart collections and saved searches
-- Better content metadata display
-
-### 7. 💬 Chat Interface Improvements
-
-#### 7.1 Message Design
-**Current Issues:**
-- Basic message bubbles
-- Poor content formatting
-- No message actions
-
-**Improvements:**
-- Better message bubble design with proper shadows
-- Markdown support for rich text formatting
-- Code syntax highlighting
-- Message reactions and actions
-- Better timestamp and status indicators
-
-#### 7.2 Input Enhancement
-**Current Issues:**
-- Basic text input
-- No rich text support
-- Poor send button interaction
-
-**Improvements:**
-- Rich text input with formatting controls
-- Attachment support for document references
-- Auto-expanding input field
-- Better send button states and feedback
-- Draft message persistence
-
-### 8. 📋 Settings & Preferences
-
-#### 8.1 Settings Organization
-**Current Issues:**
-- Single tab interface
-- Poor form layout
-- Limited configuration options
-
-**Improvements:**
-- Multi-tab settings with logical grouping
-- Better form layouts with proper spacing
-- Advanced configuration options
-- Settings search functionality
-- Import/export settings capability
-
-#### 8.2 API Key Management
-**Current Issues:**
-- Basic secure field
-- Poor validation feedback
-- No connection testing
-
-**Improvements:**
-- Enhanced API key input with clear validation
-- Real-time connection testing with status feedback
-- Better error messaging and troubleshooting
-- API usage monitoring and limits
-- Multiple API key support for different models
-
-### 9. 🎯 Annotation System Enhancement
-
-#### 9.1 Annotation Tools
-**Current Issues:**
-- Basic highlight and note tools
-- Poor tool selection interface
-- Limited annotation types
-
-**Improvements:**
-- Enhanced annotation toolbar with better organization
-- More annotation types (arrows, shapes, drawings)
-- Better color selection with accessibility considerations
-- Annotation templates and presets
-- Collaborative annotation features
-
-#### 9.2 Annotation Management
-**Current Issues:**
-- Basic annotation list
-- No organization features
-- Poor annotation search
-
-**Improvements:**
-- Advanced annotation management with filtering
-- Annotation export and sharing
-- Better annotation search and navigation
-- Annotation analytics and insights
-- Bulk annotation operations
-
-### 10. 🚀 Performance & Polish
-
-#### 10.1 Animations & Transitions
-**Current Issues:**
-- Missing view transitions
-- No micro-interactions
-- Poor state change feedback
-
-**Improvements:**
-- Smooth view transitions with proper timing
-- Delightful micro-interactions
-- Better loading and state change animations
-- Consistent animation language
-- Respect for reduced motion preferences
-
-#### 10.2 App Polish
-**Current Issues:**
-- No onboarding experience
-- Missing contextual help
-- Poor app icon and branding
-
-**Improvements:**
-- Comprehensive onboarding flow
-- Contextual help and tooltips
-- Professional app icon and branding
-- Better menu bar integration
-- Spotlight search support
 
 ## Implementation Priority
 
-### Phase 1: Foundation (High Priority) ✅ COMPLETED
-1. ✅ Accessibility improvements (VoiceOver, keyboard navigation)
-2. ✅ Color system and typography implementation  
-3. ✅ Consistent spacing and layout grid
-4. ✅ Error handling and validation improvements
+### Phase 1 (High Impact, Low Effort)
+1. Color system refinement with proper materials
+2. Typography improvements with better hierarchy
+3. Button and form styling enhancements
+4. Improved spacing and layout consistency
 
-#### ✅ Completed Phase 1 Items:
-- **Design System**: Created comprehensive design system with colors, typography, spacing, and animations
-- **Accessibility**: Added proper accessibility labels, hints, and keyboard navigation support
-- **Button Styles**: Implemented Primary, Secondary, and Tertiary button styles with proper states
-- **Text Field Styles**: Created custom text field style with focus states and validation
-- **Chat Interface**: Enhanced with better empty states, status indicators, and improved UX
-- **Document Sidebar**: Improved search, folder organization, and empty states
-- **Settings**: Enhanced API key management with better validation and help content
-- **Keyboard Shortcuts**: Added comprehensive keyboard shortcuts for all major actions
-- **Animations**: Smooth transitions and micro-interactions throughout the app
-- **Status Components**: Created reusable status indicators and error handling
+### Phase 2 (Medium Impact, Medium Effort)
+1. Chat interface modernization
+2. PDF viewer toolbar improvements
+3. Enhanced micro-interactions
+4. Better loading and error states
 
-### Phase 2: Core Experience (Medium Priority)
-1. Enhanced empty and loading states
-2. Better form controls and interactions
-3. Improved search functionality
-4. Settings interface enhancement
+### Phase 3 (High Impact, High Effort)
+1. Complete sidebar redesign
+2. Advanced annotation system
+3. Comprehensive accessibility improvements
+4. Performance optimizations
 
-### Phase 3: Advanced Features (Lower Priority)
-1. Advanced animation system
-2. Enhanced annotation tools
-3. Collaborative features
-4. Analytics and insights
+## Conclusion
 
-### Phase 4: Polish & Optimization (Nice to Have)
-1. Onboarding experience
-2. Advanced theming options
-3. Plugin system architecture
-4. Advanced export features
+These improvements will transform Cerebral from a functional application into a polished, professional macOS app that users will enjoy using daily. The focus on modern design patterns, accessibility, and performance will ensure the app feels native to macOS while providing a superior user experience.
 
-## Success Metrics
-
-- **Accessibility Score**: 100% VoiceOver compatibility
-- **Performance**: Sub-200ms interaction response times
-- **Usability**: 95%+ task completion rate in user testing
-- **Design Quality**: Consistent with Apple HIG standards
-- **User Satisfaction**: Positive feedback on visual design and usability
-
-## Technical Implementation Notes
-
-- Use `@Environment(\.colorScheme)` for dark/light mode adaptation
-- Implement `@Environment(\.dynamicTypeSize)` for accessibility
-- Use `@FocusState` for proper keyboard navigation
-- Leverage `Material` backgrounds for depth and hierarchy
-- Implement proper SwiftUI animation curves and timing
-- Use semantic colors and avoid hard-coded color values
-- Implement proper error boundaries and fallback states
-
-## 🎉 Phase 1 Implementation Summary
-
-### Major Improvements Completed:
-
-#### 🎨 **Visual Design System**
-- **Semantic Color Palette**: Implemented consistent color system using `DesignSystem.Colors` with proper contrast ratios
-- **Typography Scale**: Created comprehensive typography system with proper font weights and sizes  
-- **8pt Grid System**: Consistent spacing using `DesignSystem.Spacing` throughout the app
-- **Material Design**: Using native macOS materials for depth and hierarchy
-
-#### ♿ **Accessibility Excellence** 
-- **VoiceOver Support**: Full screen reader compatibility with proper labels and hints
-- **Keyboard Navigation**: Complete keyboard-only navigation with logical tab order
-- **Touch Targets**: Minimum 44pt touch targets for all interactive elements
-- **Semantic Markup**: Proper heading hierarchy and accessibility traits
-
-#### 🎯 **Enhanced User Experience**
-- **Improved Empty States**: Engaging empty states with clear calls-to-action and helpful guidance
-- **Better Error Handling**: Inline error messages with clear recovery actions
-- **Smooth Animations**: Consistent animation language with proper timing curves
-- **Status Indicators**: Real-time connection status and loading feedback
-
-#### ⌨️ **Keyboard Shortcuts & Menu Integration**
-- **Cmd+O**: Import PDF documents
-- **Cmd+C**: Toggle chat panel
-- **Cmd+A**: Toggle annotations panel  
-- **Cmd+F**: Focus search
-- **Cmd+,**: Open preferences
-- **Enter**: Send chat message
-
-#### 🔧 **Component Improvements**
-- **Custom Button Styles**: Primary, Secondary, and Tertiary with proper states
-- **Enhanced Text Fields**: Custom styling with focus states and validation
-- **Reusable Cards**: Elevation system for visual hierarchy
-- **Status Components**: Consistent status indicators across the app
-
-### Files Modified/Created:
-1. ✅ **cerebral/Views/Common/DesignSystem.swift** - New comprehensive design system
-2. ✅ **cerebral/ContentView.swift** - Enhanced with accessibility and animations
-3. ✅ **cerebral/Views/Chat/ChatView.swift** - Improved empty states and status indicators
-4. ✅ **cerebral/Views/Chat/MessageView.swift** - Better styling and accessibility
-5. ✅ **cerebral/Views/Chat/ChatInputView.swift** - Enhanced input with proper validation
-6. ✅ **cerebral/Views/Sidebar/DocumentSidebar.swift** - Improved search and organization
-7. ✅ **cerebral/Views/Sidebar/DocumentRowView.swift** - Better presentation and context menus
-8. ✅ **cerebral/Views/Settings/APIKeySettingsView.swift** - Enhanced validation and help
-9. ✅ **cerebral/cerebralApp.swift** - Added comprehensive keyboard shortcuts
-
-### ✅ **Additional Phase 1 Improvements Completed:**
-- **Simplified Layout**: Fixed double sidebar issue by removing nested NavigationSplitView
-- **Menu Bar Integration**: Moved settings to proper macOS application menu location
-- **Cleaner Chat Interface**: Removed unnecessary connection status and in-app settings
-- **Streamlined Annotations**: Removed annotations sidebar for cleaner three-panel layout
-- **Focus Management**: Added proper keyboard focus handling for search
-
-### Next Steps (Phase 2):
-- Enhanced loading states with skeleton loading  
-- Improved search functionality with highlighting
-- Better form controls throughout the app
-- Advanced settings organization
-
----
-
-This comprehensive improvement plan will transform Cerebral from a functional prototype into a polished, professional macOS application that users will love to use daily.
+The key is to implement these changes incrementally, testing with users at each phase to ensure the improvements genuinely enhance the user experience rather than simply changing the interface for the sake of change.

@@ -30,11 +30,9 @@ struct GeneralSettingsView: View {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                     Toggle("Launch Cerebral at login", isOn: $launchAtLogin)
                         .toggleStyle(SwitchToggleStyle())
-                        .font(DesignSystem.Typography.body)
                     
                     Toggle("Show welcome screen on startup", isOn: $showWelcomeScreen)
                         .toggleStyle(SwitchToggleStyle())
-                        .font(DesignSystem.Typography.body)
                 }
                 .padding(DesignSystem.Spacing.md)
             }
@@ -43,7 +41,6 @@ struct GeneralSettingsView: View {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                     Toggle("Enable notifications", isOn: $enableNotifications)
                         .toggleStyle(SwitchToggleStyle())
-                        .font(DesignSystem.Typography.body)
                 }
                 .padding(DesignSystem.Spacing.md)
             }

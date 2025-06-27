@@ -37,7 +37,6 @@ struct APIKeySettingsView: View {
                     if isEditing {
                         SecureField("sk-ant-...", text: $tempAPIKey)
                             .textFieldStyle(CerebralTextFieldStyle(isError: !settingsManager.validateAPIKey(tempAPIKey) && !tempAPIKey.isEmpty))
-                            .font(DesignSystem.Typography.monospace)
                             .accessibilityLabel("API key input field")
                             .accessibilityHint("Enter your Claude API key starting with sk-ant-")
                     } else {
@@ -100,8 +99,7 @@ struct APIKeySettingsView: View {
                                 Button("Remove") {
                                     showingConfirmation = true
                                 }
-                                .buttonStyle(TertiaryButtonStyle())
-                                .foregroundColor(DesignSystem.Colors.errorRed)
+                                .buttonStyle(DestructiveButtonStyle())
                                 .accessibleButton(
                                     label: "Remove API key",
                                     hint: "Removes the saved API key from secure storage"

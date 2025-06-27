@@ -11,60 +11,45 @@ import PDFKit
 struct PDFViewerRepresentable: NSViewRepresentable {
     let document: PDFDocument?
     @Binding var currentPage: Int
-    @Binding var selectedText: String?
-    @ObservedObject var annotationManager: AnnotationManager
     
     func makeNSView(context: Context) -> PDFView {
         let pdfView = PDFView()
         
-        // Configure PDF view
-        pdfView.autoScales = true
+        // Configure PDF view with enhanced settings
+        pdfView.autoScales = true // Auto-scale to fit width
         pdfView.displayMode = .singlePageContinuous
         pdfView.displaysPageBreaks = true
         pdfView.displayBox = .mediaBox
         pdfView.interpolationQuality = .high
         
-        // Set up notifications
+        // Enhanced appearance
+        pdfView.backgroundColor = NSColor.controlBackgroundColor
+        
+        // Set document view background using layer approach
+        if let documentView = pdfView.documentView {
+            documentView.wantsLayer = true
+            documentView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        }
+        
+        // Set up notifications with better handling
         NotificationCenter.default.addObserver(
             forName: .PDFViewPageChanged,
             object: pdfView,
             queue: .main
-        ) { _ in
-            if let page = pdfView.currentPage,
-               let pageIndex = pdfView.document?.index(for: page) {
-                currentPage = pageIndex
-            }
+        ) { [weak pdfView] _ in
+            guard let pdfView = pdfView,
+                  let page = pdfView.currentPage,
+                  let pageIndex = pdfView.document?.index(for: page) else { return }
+            currentPage = pageIndex
         }
         
-        NotificationCenter.default.addObserver(
-            forName: .PDFViewSelectionChanged,
-            object: pdfView,
-            queue: .main
-        ) { _ in
-            selectedText = pdfView.currentSelection?.string
-            
-            // Handle highlight creation when text is selected in annotation mode
-            Task { @MainActor in
-                if annotationManager.isAnnotationMode && 
-                   annotationManager.selectedAnnotationTool == .highlight,
-                   let selection = pdfView.currentSelection,
-                   let page = pdfView.currentPage {
-                    let bounds = selection.bounds(for: page)
-                    let pageIndex = pdfView.document?.index(for: page) ?? 0
-                    annotationManager.createHighlightAnnotation(
-                        at: bounds,
-                        on: pageIndex,
-                        selectedText: selection.string
-                    )
-                    pdfView.clearSelection()
-                }
-            }
-        }
+
         
         return pdfView
     }
     
     func updateNSView(_ nsView: PDFView, context: Context) {
+        // Update document if changed
         if nsView.document !== document {
             nsView.document = document
             
@@ -77,15 +62,15 @@ struct PDFViewerRepresentable: NSViewRepresentable {
     }
     
     static func dismantleNSView(_ nsView: PDFView, coordinator: ()) {
-        NotificationCenter.default.removeObserver(nsView)
+        // Clean up all notifications for this specific PDFView instance
+        NotificationCenter.default.removeObserver(nsView, name: .PDFViewPageChanged, object: nil)
+        NotificationCenter.default.removeObserver(nsView, name: .PDFViewScaleChanged, object: nil)
     }
 }
 
 #Preview {
     PDFViewerRepresentable(
         document: nil,
-        currentPage: .constant(0),
-        selectedText: .constant(nil),
-        annotationManager: AnnotationManager()
+        currentPage: .constant(0)
     )
 } 

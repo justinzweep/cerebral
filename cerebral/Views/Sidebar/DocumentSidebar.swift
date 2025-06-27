@@ -9,33 +9,12 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+// Legacy wrapper - keeping for compatibility
 struct DocumentSidebar: View {
     @Binding var selectedDocument: Document?
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Document.dateAdded, order: .reverse) private var documents: [Document]
-    @Query(sort: \Folder.name) private var folders: [Folder]
-    
-    @State private var showingImporter = false
-    @State private var showingNewFolderAlert = false
-    @State private var newFolderName = ""
-    @State private var searchText = ""
-    
-    var filteredDocuments: [Document] {
-        if searchText.isEmpty {
-            return documents
-        } else {
-            return documents.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
-        }
-    }
     
     var body: some View {
-        NavigationSplitView {
-            DocumentSidebarContent(selectedDocument: $selectedDocument)
-        } detail: {
-            if selectedDocument == nil {
-                EmptyDocumentSelectionView(showingImporter: $showingImporter)
-            }
-        }
+        DocumentSidebarContent(selectedDocument: $selectedDocument)
     }
 }
 
@@ -43,127 +22,58 @@ struct DocumentSidebarContent: View {
     @Binding var selectedDocument: Document?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Document.dateAdded, order: .reverse) private var documents: [Document]
-    @Query(sort: \Folder.name) private var folders: [Folder]
     
     @State private var showingImporter = false
-    @State private var showingNewFolderAlert = false
-    @State private var newFolderName = ""
-    @State private var searchText = ""
-    @FocusState private var isSearchFocused: Bool
-    
-    var filteredDocuments: [Document] {
-        if searchText.isEmpty {
-            return documents
-        } else {
-            return documents.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
-        }
-    }
     
     var body: some View {
-            VStack(spacing: 0) {
-                // Search bar
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(DesignSystem.Colors.textTertiary)
-                        .font(DesignSystem.Typography.caption)
-                    TextField("Search documents...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(DesignSystem.Typography.body)
-                        .accessibilityLabel("Search documents")
-                        .accessibilityHint("Type to search through your document library")
-                        .focused($isSearchFocused)
-                }
-                .padding(.horizontal, DesignSystem.Spacing.sm)
-                .padding(.vertical, DesignSystem.Spacing.xs)
-                .background(DesignSystem.Colors.background)
-                .cornerRadius(DesignSystem.CornerRadius.sm)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
-                        .stroke(DesignSystem.Colors.border, lineWidth: 1)
-                )
-                .padding(.horizontal, DesignSystem.Spacing.md)
-                .padding(.bottom, DesignSystem.Spacing.md)
+        VStack(spacing: 0) {
+            // Clean header
+            HStack {
+                Text("Documents")
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
                 
-                // Document list
-                List(selection: $selectedDocument) {
-                    if !folders.isEmpty {
-                        Section {
-                            ForEach(folders.filter { $0.parent == nil }) { folder in
-                                FolderRowView(folder: folder, selectedDocument: $selectedDocument)
-                                    .listRowSeparator(.hidden)
-                            }
-                        } header: {
-                            Text("Folders")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                .textCase(.uppercase)
-                                .accessibleHeading(level: .h3)
-                        }
-                    }
-                    
-                    Section {
-                        ForEach(filteredDocuments.filter { $0.folder == nil }) { document in
+                Spacer()
+                
+                Button {
+                    showingImporter = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(DesignSystem.Colors.accent)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+            }
+            .padding(DesignSystem.Spacing.md)
+            
+            // Document list
+            ScrollView {
+                LazyVStack(spacing: DesignSystem.Spacing.xs) {
+                    if documents.isEmpty {
+                        EmptyDocumentListView(showingImporter: $showingImporter)
+                    } else {
+                        ForEach(documents) { document in
                             DocumentRowView(document: document)
-                                .tag(document)
-                                .listRowSeparator(.hidden)
-                                .accessibilityAddTraits(.isButton)
+                                .onTapGesture {
+                                    selectedDocument = document
+                                }
+                                .background(
+                                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                                        .fill(selectedDocument?.id == document.id ? 
+                                              DesignSystem.Colors.selectedBackground : 
+                                              Color.clear)
+                                )
+                                .animation(DesignSystem.Animation.microInteraction, value: selectedDocument?.id)
                         }
-                        .onDelete(perform: deleteDocuments)
-                    } header: {
-                        Text("Documents")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                            .textCase(.uppercase)
-                            .accessibleHeading(level: .h3)
                     }
                 }
-                .listStyle(.sidebar)
-                .scrollContentBackground(.hidden)
-                .background(DesignSystem.Colors.secondaryBackground)
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.bottom, DesignSystem.Spacing.lg)
             }
-            .navigationTitle("Library")
-            .toolbar {
-                ToolbarItemGroup {
-                    Menu {
-                        Button {
-                            showingImporter = true
-                        } label: {
-                            Label("Import PDF...", systemImage: "doc.badge.plus")
-                        }
-                        .accessibleButton(
-                            label: "Import PDF documents",
-                            hint: "Open file picker to import PDF files"
-                        )
-                        
-                        Divider()
-                        
-                        Button {
-                            showingNewFolderAlert = true
-                        } label: {
-                            Label("New Folder...", systemImage: "folder.badge.plus")
-                        }
-                        .accessibleButton(
-                            label: "Create new folder",
-                            hint: "Create a new folder to organize documents"
-                        )
-                    } label: {
-                        Image(systemName: "plus")
-                            .foregroundColor(DesignSystem.Colors.accent)
-                    }
-                    .menuStyle(.borderlessButton)
-                    .minimumTouchTarget()
-                    .accessibleButton(
-                        label: "Add documents or folders",
-                        hint: "Menu with options to import documents or create folders"
-                    )
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .focusSearch)) { _ in
-                isSearchFocused = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .importPDF)) { _ in
-                showingImporter = true
-            }
+            .scrollIndicators(.never)
+        }
         .fileImporter(
             isPresented: $showingImporter,
             allowedContentTypes: [UTType.pdf],
@@ -171,27 +81,6 @@ struct DocumentSidebarContent: View {
         ) { result in
             importDocuments(result)
         }
-        .alert("New Folder", isPresented: $showingNewFolderAlert) {
-            TextField("Folder Name", text: $newFolderName)
-            Button("Create") {
-                createFolder()
-            }
-            .disabled(newFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Enter a name for the new folder:")
-        }
-    }
-    
-    private func createFolder() {
-        let folderName = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !folderName.isEmpty else { return }
-        
-        let folder = Folder(name: folderName)
-        modelContext.insert(folder)
-        
-        try? modelContext.save()
-        newFolderName = ""
     }
     
     private func importDocuments(_ result: Result<[URL], Error>) {
@@ -241,70 +130,83 @@ struct DocumentSidebarContent: View {
             print("Error importing document: \(error)")
         }
     }
-    
-    private func deleteDocuments(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                let document = filteredDocuments[index]
-                
-                // Delete the actual file
-                try? FileManager.default.removeItem(at: document.filePath)
-                
-                // Delete from SwiftData
-                modelContext.delete(document)
-            }
-            
-            try? modelContext.save()
-        }
-    }
 }
 
-// MARK: - Empty State Component
+// MARK: - Supporting Views
 
-struct EmptyDocumentSelectionView: View {
+struct EmptyDocumentListView: View {
     @Binding var showingImporter: Bool
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            // Icon
             Image(systemName: "doc.text")
-                .font(.system(size: DesignSystem.Spacing.huge))
-                .foregroundColor(DesignSystem.Colors.accent)
-                .accessibilityHidden(true)
+                .font(.system(size: 48))
+                .foregroundColor(DesignSystem.Colors.textTertiary)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
-                // Title
-                Text("Select a document to view")
-                    .font(DesignSystem.Typography.title2)
+                Text("No Documents")
+                    .font(DesignSystem.Typography.headline)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h2)
                 
-                // Description
-                Text("Choose a PDF from your library or import new documents to get started.")
+                Text("Import your first PDF to get started")
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             
-            // Action Button
             Button("Import PDF") {
                 showingImporter = true
             }
             .buttonStyle(PrimaryButtonStyle())
-            .accessibleButton(
-                label: "Import PDF document",
-                hint: "Opens file picker to select and import PDF files"
-            )
         }
-        .frame(maxWidth: 350)
         .padding(DesignSystem.Spacing.xl)
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// Legacy empty selection view - no longer used
+struct EmptyDocumentSelectionView: View {
+    @Binding var showingImporter: Bool
+    
+    var body: some View {
+        VStack(spacing: DesignSystem.Spacing.xl) {
+            Spacer()
+            
+            VStack(spacing: DesignSystem.Spacing.lg) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 64))
+                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                
+                VStack(spacing: DesignSystem.Spacing.sm) {
+                    Text("Welcome to Cerebral")
+                        .font(DesignSystem.Typography.title2)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                    
+                    Text("Import your first PDF to get started.")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                
+                Button {
+                    showingImporter = true
+                } label: {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "doc.badge.plus")
+                        Text("Import PDF")
+                    }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+            }
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DesignSystem.Colors.secondaryBackground)
     }
 }
 
 #Preview {
     DocumentSidebar(selectedDocument: .constant(nil))
-        .modelContainer(for: [Document.self, Folder.self], inMemory: true)
+        .modelContainer(for: [Document.self], inMemory: true)
 }
