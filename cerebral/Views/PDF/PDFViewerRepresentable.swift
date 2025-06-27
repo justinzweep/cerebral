@@ -194,14 +194,23 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         self.highlightPopupPosition = highlightPopupPosition
     }
     
-    private var selectionDebounceTimer: Timer?
+    // MARK: - Performance Optimized Debouncing
+    
+    private var selectionDebounceTimer: Timer? {
+        willSet {
+            // Ensure proper cleanup of existing timer
+            selectionDebounceTimer?.invalidate()
+        }
+    }
     
     func handleSelectionChanged(pdfView: PDFView) {
         // Cancel previous timer to debounce rapid selection changes
         selectionDebounceTimer?.invalidate()
         
-        // Debounce selection changes to prevent feedback loop
-        selectionDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+        // Use weak self to prevent retain cycles
+        selectionDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] timer in
+            defer { timer.invalidate() } // Ensure timer cleanup
+            
             guard let self = self else { return }
             
             guard let selection = pdfView.currentSelection,
@@ -209,53 +218,44 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                   !selectionString.isEmpty,
                   selectionString.count > 1 else { // Ignore single character selections
                 // No meaningful selection
-                DispatchQueue.main.async {
-                    self.selectedText.wrappedValue = nil
-                    self.showHighlightPopup.wrappedValue = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.selectedText.wrappedValue = nil
+                    self?.showHighlightPopup.wrappedValue = false
                 }
                 return
             }
             
             print("📝 Final selection: '\(selectionString.prefix(50))...'")
             
-            // Update state on main queue
-            DispatchQueue.main.async {
-                // Store the selection
+            // Update state on main queue with weak references
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
                 self.selectedText.wrappedValue = selection
                 
-                // Get current mouse position at the time of selection
-                let currentMouseLocation = NSEvent.mouseLocation
-                var cursorPosition = CGPoint.zero
-                
-                if let window = pdfView.window {
-                    let locationInWindow = window.convertPoint(fromScreen: currentMouseLocation)
-                    cursorPosition = pdfView.convert(locationInWindow, from: nil)
+                // Calculate popup position efficiently
+                if let firstPage = selection.pages.first,
+                   let pdfView = pdfView as? PDFView {
+                    let bounds = selection.bounds(for: firstPage)
+                    let convertedBounds = pdfView.convert(bounds, from: firstPage)
+                    
+                    // Position above the selection with safe margins
+                    let popupX = convertedBounds.midX
+                    let popupY = convertedBounds.minY - 10
+                    
+                    self.highlightPopupPosition.wrappedValue = CGPoint(x: popupX, y: popupY)
+                    self.showHighlightPopup.wrappedValue = true
                 } else {
-                    // Fallback to selection bounds if no window
-                    if let page = selection.pages.last {
-                        let bounds = selection.bounds(for: page)
-                        let viewBounds = pdfView.convert(bounds, from: page)
-                        cursorPosition = CGPoint(x: viewBounds.maxX, y: viewBounds.minY)
-                    }
+                    self.showHighlightPopup.wrappedValue = false
                 }
-                
-                // Ensure the popup doesn't go off-screen
-                let pdfViewBounds = pdfView.bounds
-                let popupWidth: CGFloat = 150 // Approximate popup width
-                let popupHeight: CGFloat = 60 // Approximate popup height
-                
-                // Adjust X position to keep popup on screen
-                let adjustedX = min(max(cursorPosition.x, popupWidth / 2), pdfViewBounds.width - popupWidth / 2)
-                
-                // Position popup above cursor with minimal padding, but ensure it stays on screen
-                let adjustedY = max(cursorPosition.y - popupHeight - 2, popupHeight / 2 + 10)
-                
-                print("📍 Popup position at cursor: \(CGPoint(x: adjustedX, y: adjustedY))")
-                
-                self.highlightPopupPosition.wrappedValue = CGPoint(x: adjustedX, y: adjustedY)
-                self.showHighlightPopup.wrappedValue = true
             }
         }
+    }
+    
+    // Cleanup method to prevent memory leaks
+    func cleanup() {
+        selectionDebounceTimer?.invalidate()
+        selectionDebounceTimer = nil
     }
     
     func addHighlight(to selection: PDFSelection, color: NSColor) {

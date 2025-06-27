@@ -125,28 +125,45 @@ final class DocumentService: DocumentServiceProtocol {
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         
         do {
-            let fetch = FetchDescriptor<Document>()
-            let allDocuments = try modelContext.fetch(fetch)
-            
             // Try exact match first
-            if let exactMatch = allDocuments.first(where: { $0.title == cleanName }) {
+            let exactPredicate = #Predicate<Document> { document in
+                document.title == cleanName
+            }
+            let exactFetch = FetchDescriptor<Document>(predicate: exactPredicate)
+            
+            if let exactMatch = try modelContext.fetch(exactFetch).first {
                 return exactMatch
             }
             
-            // Try exact match without .pdf extension
+            // Try exact match without .pdf extension using post-fetch filtering
             let nameWithoutPdf = cleanName.hasSuffix(".pdf") ? String(cleanName.dropLast(4)) : cleanName
-            if let exactMatchNoPdf = allDocuments.first(where: { 
-                let titleWithoutPdf = $0.title.hasSuffix(".pdf") ? String($0.title.dropLast(4)) : $0.title
-                return titleWithoutPdf == nameWithoutPdf
-            }) {
-                return exactMatchNoPdf
+            
+            // Fetch all documents and filter in memory for complex string operations
+            let allFetch = FetchDescriptor<Document>()
+            let allDocuments = try modelContext.fetch(allFetch)
+            
+            // Check for exact match without .pdf extension
+            for document in allDocuments {
+                if document.title == nameWithoutPdf {
+                    return document
+                }
+                // Check if document title without .pdf matches our search
+                if document.title.hasSuffix(".pdf") {
+                    let docTitleWithoutPdf = String(document.title.dropLast(4))
+                    if docTitleWithoutPdf == nameWithoutPdf {
+                        return document
+                    }
+                }
             }
             
             // Try case-insensitive partial match
-            let lowercaseName = cleanName.lowercased()
-            return allDocuments.first { document in
-                document.title.lowercased().contains(lowercaseName)
+            for document in allDocuments {
+                if document.title.localizedStandardContains(cleanName) {
+                    return document
+                }
             }
+            
+            return nil
             
         } catch {
             print("❌ Failed to search for document '\(cleanName)': \(error)")
@@ -158,9 +175,14 @@ final class DocumentService: DocumentServiceProtocol {
         guard let modelContext = modelContext else { return nil }
         
         do {
-            let fetch = FetchDescriptor<Document>()
-            let allDocuments = try modelContext.fetch(fetch)
-            return allDocuments.first { $0.id == id }
+            // Optimized: Use predicate to filter by ID at database level
+            let predicate = #Predicate<Document> { document in
+                document.id == id
+            }
+            var fetch = FetchDescriptor<Document>(predicate: predicate)
+            fetch.fetchLimit = 1 // Only need one result
+            
+            return try modelContext.fetch(fetch).first
         } catch {
             print("❌ Failed to find document by ID \(id): \(error)")
             return nil
@@ -174,13 +196,24 @@ final class DocumentService: DocumentServiceProtocol {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         
+        guard !cleanPattern.isEmpty else { return [] }
+        
         do {
-            let fetch = FetchDescriptor<Document>()
+            // Fetch documents and filter in memory since localizedStandardContains is not supported in predicates
+            let fetch = FetchDescriptor<Document>(
+                sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]
+            )
+            
             let allDocuments = try modelContext.fetch(fetch)
             
-            return allDocuments.filter { document in
-                document.title.lowercased().contains(cleanPattern)
+            // Filter in memory using Swift string operations
+            let matchingDocuments = allDocuments.filter { document in
+                document.title.localizedStandardContains(cleanPattern)
             }
+            
+            // Return first 20 results for performance
+            return Array(matchingDocuments.prefix(20))
+            
         } catch {
             print("❌ Failed to search documents with pattern '\(pattern)': \(error)")
             return []
@@ -191,12 +224,72 @@ final class DocumentService: DocumentServiceProtocol {
         guard let modelContext = modelContext else { return [] }
         
         do {
-            let fetch = FetchDescriptor<Document>(
+            // Optimized: Add fetch limit and proper sorting
+            var fetch = FetchDescriptor<Document>(
                 sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]
             )
+            fetch.fetchLimit = 100 // Reasonable limit for UI performance
+            
             return try modelContext.fetch(fetch)
         } catch {
             print("❌ Failed to fetch all documents: \(error)")
+            return []
+        }
+    }
+    
+    // MARK: - Optimized Queries for Performance
+    
+    /// Get recent documents with limit for better performance
+    func getRecentDocuments(limit: Int = 10) -> [Document] {
+        guard let modelContext = modelContext else { return [] }
+        
+        do {
+            var fetch = FetchDescriptor<Document>(
+                sortBy: [SortDescriptor(\.lastOpened, order: .reverse)]
+            )
+            fetch.fetchLimit = limit
+            
+            return try modelContext.fetch(fetch)
+        } catch {
+            print("❌ Failed to fetch recent documents: \(error)")
+            return []
+        }
+    }
+    
+    /// Search documents with pagination support
+    func searchDocuments(
+        query: String, 
+        offset: Int = 0, 
+        limit: Int = 20
+    ) -> [Document] {
+        guard let modelContext = modelContext else { return [] }
+        
+        let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanQuery.isEmpty else { return [] }
+        
+        do {
+            // Fetch all documents and filter in memory since localizedStandardContains is not supported in predicates
+            let fetch = FetchDescriptor<Document>(
+                sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]
+            )
+            
+            let allDocuments = try modelContext.fetch(fetch)
+            
+            // Filter in memory using Swift string operations
+            let matchingDocuments = allDocuments.filter { document in
+                document.title.localizedStandardContains(cleanQuery)
+            }
+            
+            // Apply pagination manually
+            let startIndex = min(offset, matchingDocuments.count)
+            let endIndex = min(offset + limit, matchingDocuments.count)
+            
+            guard startIndex < endIndex else { return [] }
+            
+            return Array(matchingDocuments[startIndex..<endIndex])
+            
+        } catch {
+            print("❌ Failed to search documents: \(error)")
             return []
         }
     }

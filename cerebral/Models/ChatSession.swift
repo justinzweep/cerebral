@@ -30,7 +30,7 @@ class ChatSession {
     }
 }
 
-struct ChatMessage: Codable, Identifiable {
+struct ChatMessage: Codable, Identifiable, Sendable {
     let id = UUID()
     var text: String
     let isUser: Bool
@@ -67,7 +67,7 @@ struct ChatMessage: Codable, Identifiable {
 }
 
 // Model for text selection chunks that appear as attachments
-struct TextSelectionChunk: Identifiable, Equatable {
+struct TextSelectionChunk: Identifiable, Equatable, Sendable {
     let id = UUID()
     let text: String
     let source: String // Document name where the text came from

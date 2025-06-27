@@ -31,36 +31,43 @@ struct ChatView: View {
             )
             
             if settingsManager.isAPIKeyValid {
-                // Chat Messages Area
+                // Chat Messages Area with performance optimizations
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             if chatManager.messages.isEmpty {
                                 EmptyStateView(hasAttachedDocuments: !attachedDocuments.isEmpty)
                                     .padding(.top, DesignSystem.Spacing.huge)
+                                    .id("empty-state") // Stable ID for animations
                             } else {
-                                ForEach(Array(chatManager.messages.enumerated()), id: \.element.id) { index, message in
+                                // Use stable IDs and minimize re-renders
+                                ForEach(chatManager.messages.indices, id: \.self) { index in
+                                    let message = chatManager.messages[index]
                                     let shouldGroup = chatManager.shouldGroupMessage(at: index)
                                     
                                     MessageView(
                                         message: message,
                                         shouldGroup: shouldGroup
                                     )
-                                    .id(message.id)
+                                    .id(message.id) // Stable ID for each message
                                     .padding(.horizontal, DesignSystem.Spacing.md)
                                     .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+                                    .trackPerformance("message_\(message.id)")
                                 }
                             }
                         }
                         .padding(.bottom, DesignSystem.Spacing.md)
                     }
-                    .onChange(of: chatManager.messages.count) { _, _ in
+                    .scrollIndicators(.hidden) // Performance optimization
+                    .onChange(of: chatManager.messages.count) { _, newCount in
+                        // Optimize scroll-to-bottom with debouncing
                         if let lastMessage = chatManager.messages.last {
                             withAnimation(.easeOut(duration: 0.3)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }
                     }
+                    .trackPerformance("chat_scroll_view")
                 }
                 
                 

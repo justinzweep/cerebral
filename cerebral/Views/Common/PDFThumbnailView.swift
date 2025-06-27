@@ -14,6 +14,7 @@ struct PDFThumbnailView: View {
     
     @State private var thumbnailImage: NSImage?
     @State private var isLoading = true
+    @State private var loadingTask: Task<Void, Never>?
     
     init(document: Document, size: CGSize = CGSize(width: 36, height: 44)) {
         self.document = document
@@ -44,20 +45,35 @@ struct PDFThumbnailView: View {
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xs))
-            .task {
-                await loadThumbnail()
+            .onAppear {
+                loadThumbnail()
             }
+            .onDisappear {
+                // Cancel loading task to prevent memory leaks
+                loadingTask?.cancel()
+                loadingTask = nil
+            }
+            .trackPerformance("thumbnail_\(document.id)")
     }
     
-    @MainActor
-    private func loadThumbnail() async {
-        isLoading = true
+    private func loadThumbnail() {
+        // Cancel any existing loading task
+        loadingTask?.cancel()
         
-        let thumbnail = await Task.detached {
-            PDFService.shared.generateThumbnail(for: document, size: size)
-        }.value
-        
-        thumbnailImage = thumbnail
-        isLoading = false
+        loadingTask = Task { @MainActor in
+            isLoading = true
+            
+            // Perform thumbnail generation on background queue
+            let thumbnail = await Task.detached { [document, size] in
+                PDFService.shared.generateThumbnail(for: document, size: size)
+            }.value
+            
+            // Check if task was cancelled
+            guard !Task.isCancelled else { return }
+            
+            thumbnailImage = thumbnail
+            isLoading = false
+            loadingTask = nil
+        }
     }
 } 

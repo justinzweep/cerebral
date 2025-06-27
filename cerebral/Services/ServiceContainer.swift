@@ -22,6 +22,9 @@ final class ServiceContainer {
     // MARK: - Global State
     let appState = AppState()
     
+    // MARK: - Error Management
+    let errorManager = ErrorManager()
+    
     // MARK: - Core Service Instances
     
     private(set) lazy var pdfService: PDFServiceProtocol = PDFService.shared
@@ -57,6 +60,20 @@ final class ServiceContainer {
     private func setupServices() {
         // Any initial service configuration can go here
         print("🔧 ServiceContainer: Initialized with services")
+        print("📊 Performance monitoring enabled")
+    }
+    
+    // MARK: - Cleanup
+    
+    func cleanup() {
+        // Clean up chat services
+        _chatService = nil
+        _streamingChatService = nil
+        
+        // Clear PDF thumbnail cache
+        pdfService.clearThumbnailCache()
+        
+        print("🧹 ServiceContainer: Cleaned up resources")
     }
     
     // MARK: - Service Replacement (for testing)
@@ -110,41 +127,34 @@ final class ServiceContainer {
         
         return results
     }
-    
-    // MARK: - Error Manager
-    
-    private(set) lazy var errorManager = ErrorManager()
 }
 
 // MARK: - Error Manager
 
-@MainActor
 @Observable
 final class ErrorManager {
-    var currentError: AppError?
+    var currentError: cerebral.AppError?
     var showingError: Bool = false
     
     func handle(_ error: Error) {
-        let appError: AppError
-        
-        // Convert different error types to AppError
-        switch error {
-        case let chatError as ChatError:
-            appError = .chatError(chatError)
-        case let documentError as DocumentError:
-            appError = .documentError(documentError)
-        case let pdfError as PDFError:
-            appError = .pdfError(pdfError)
-        case let settingsError as SettingsError:
-            appError = .settingsError(settingsError)
-        default:
-            appError = .networkFailure(error.localizedDescription)
+        DispatchQueue.main.async { [weak self] in
+            if let appError = error as? cerebral.AppError {
+                self?.currentError = appError
+            } else if let documentError = error as? DocumentError {
+                self?.currentError = cerebral.AppError.documentError(documentError)
+            } else if let chatError = error as? ChatError {
+                self?.currentError = cerebral.AppError.chatError(chatError)
+            } else if let pdfError = error as? PDFError {
+                self?.currentError = cerebral.AppError.pdfError(pdfError)
+            } else {
+                // For unknown errors, wrap in a network failure for now
+                self?.currentError = cerebral.AppError.networkFailure(error.localizedDescription)
+            }
+            self?.showingError = true
         }
         
-        currentError = appError
-        showingError = true
-        
-        print("❌ ErrorManager: \(appError.errorDescription ?? "Unknown error")")
+        // Log error for debugging
+        print("❌ Error handled: \(error.localizedDescription)")
     }
     
     func clearError() {
@@ -152,6 +162,8 @@ final class ErrorManager {
         showingError = false
     }
 }
+
+
 
 // MARK: - App State Management
 

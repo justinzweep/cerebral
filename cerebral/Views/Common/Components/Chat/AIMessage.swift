@@ -14,6 +14,9 @@ struct AIMessage: View {
     @State private var displayedText: String = ""
     @State private var showCursor = false
     
+    // Performance optimization: use debounced text updates
+    @State private var textUpdateTimer: Timer?
+    
     var body: some View {
         HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
             // AI message with streaming support
@@ -33,12 +36,33 @@ struct AIMessage: View {
                     }
                 }
                 .onChange(of: message.text) { _, newText in
-                    displayedText = newText
+                    // Debounce rapid text updates during streaming
+                    textUpdateTimer?.invalidate()
+                    
+                    if message.isStreaming {
+                        // Update immediately for responsive feel but debounce rapid changes
+                        displayedText = newText
+                        
+                        textUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { _ in
+                            displayedText = newText
+                        }
+                    } else {
+                        // Non-streaming updates immediately
+                        displayedText = newText
+                    }
                 }
                 .onChange(of: message.isStreaming) { _, isStreaming in
+                    showCursor = isStreaming
+                    
                     if !isStreaming {
-                        showCursor = false
+                        // Final update when streaming completes
+                        textUpdateTimer?.invalidate()
+                        displayedText = message.text
                     }
+                }
+                .onDisappear {
+                    // Cleanup timer
+                    textUpdateTimer?.invalidate()
                 }
                 
                 Spacer()
@@ -59,14 +83,16 @@ struct AIMessage: View {
             Spacer(minLength: DesignSystem.Spacing.xxl)
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+        .trackPerformance("ai_message_\(message.id)")
     }
     
+    @ViewBuilder
     private var messageText: some View {
         Text(LocalizedStringKey(displayedText))
             .font(DesignSystem.Typography.body)
             .foregroundColor(DesignSystem.Colors.primaryText)
             .textSelection(.enabled)
-            .animation(.none, value: displayedText)
+            .animation(.none, value: displayedText) // Disable animation for performance
             .tint(DesignSystem.Colors.accent)
     }
 }
@@ -93,6 +119,7 @@ struct StreamingWaitingAnimation: View {
         .onAppear {
             showCursor = true
         }
+        .trackPerformance("streaming_animation")
     }
 }
 

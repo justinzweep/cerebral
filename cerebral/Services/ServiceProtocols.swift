@@ -54,6 +54,7 @@ protocol SettingsServiceProtocol {
 // MARK: - Streaming Chat Service Protocol
 
 protocol StreamingChatServiceProtocol {
+    @MainActor
     func sendStreamingMessage(
         _ text: String,
         settingsManager: SettingsManager,
@@ -61,7 +62,10 @@ protocol StreamingChatServiceProtocol {
         hiddenContext: String?,
         conversationHistory: [ChatMessage]
     ) async
+    
     func cancelCurrentStreaming()
+    
+    @MainActor
     func validateAPIConnection(settingsManager: SettingsManager) async -> Bool
 }
 

@@ -1,5 +1,5 @@
 //
-//  ProfileTabView.swift
+//  UserProfileView.swift
 //  cerebral
 //
 //  Created by Justin Zweep on 26/06/2025.
@@ -7,110 +7,125 @@
 
 import SwiftUI
 
-struct ProfileTabView: View {
+struct UserProfileView: View {
     @Environment(SettingsManager.self) var settingsManager: SettingsManager
     @AppStorage("userName") private var userName: String = ""
-    @State private var tempAPIKey: String = ""
-    @State private var isEditingAPIKey: Bool = false
-    @State private var showingAPIKeyConfirmation: Bool = false
+    @State private var tempUserName: String = ""
+    @State private var isEditingName: Bool = false
     
     var body: some View {
-        Form {            
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("Claude API Key")
-                        Text("Required for AI chat functionality")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+                // Header
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("User Profile")
+                        .font(DesignSystem.Typography.headline)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
                     
-                    Spacer()
-                    
-                    if settingsManager.isAPIKeyValid {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    }
+                    Text("Manage your user profile and preferences.")
+                        .font(DesignSystem.Typography.body)
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
                 }
                 
-                if isEditingAPIKey {
-                    SecureField("sk-ant-...", text: $tempAPIKey)
+                // Profile Information
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                    Text("Profile Information")
+                        .font(DesignSystem.Typography.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
                     
-                    HStack {
-                        Button("Save") {
-                            if settingsManager.validateAPIKey(tempAPIKey) {
-                                do {
-                                    try settingsManager.saveAPIKey(tempAPIKey)
-                                    isEditingAPIKey = false
-                                } catch {
-                                    // Error is already handled by SettingsManager and stored in lastError
-                                    print("Failed to save API key: \(error)")
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                        HStack {
+                            Text("Display Name")
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
+                            
+                            Spacer()
+                        }
+                        
+                        if isEditingName {
+                            TextField("Enter your name", text: $tempUserName)
+                                .textFieldStyle(.roundedBorder)
+                            
+                            HStack {
+                                Button("Save") {
+                                    userName = tempUserName
+                                    isEditingName = false
+                                }
+                                .disabled(tempUserName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                
+                                Button("Cancel") {
+                                    tempUserName = userName
+                                    isEditingName = false
+                                }
+                            }
+                        } else {
+                            HStack {
+                                Text(userName.isEmpty ? "No name set" : userName)
+                                    .foregroundColor(userName.isEmpty ? DesignSystem.Colors.secondaryText : DesignSystem.Colors.primaryText)
+                                
+                                Spacer()
+                                
+                                Button(userName.isEmpty ? "Add" : "Edit") {
+                                    tempUserName = userName
+                                    isEditingName = true
                                 }
                             }
                         }
-                        .disabled(!settingsManager.validateAPIKey(tempAPIKey))
-                        
-                        Button("Cancel") {
-                            tempAPIKey = settingsManager.apiKey
-                            isEditingAPIKey = false
-                        }
                     }
+                }
+                .padding(DesignSystem.Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card)
+                        .fill(DesignSystem.Colors.secondaryBackground)
+                )
+                
+                // API Status
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                    Text("API Status")
+                        .font(DesignSystem.Typography.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
                     
-                    if !settingsManager.validateAPIKey(tempAPIKey) && !tempAPIKey.isEmpty {
-                        Text("Invalid API key format")
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-                } else {
                     HStack {
-                        Text(settingsManager.apiKey.isEmpty ? "No API key set" : "••••••••••••••••••••")
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(settingsManager.apiKey.isEmpty ? .secondary : .primary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Claude API")
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.primaryText)
+                            
+                            Text(settingsManager.isAPIKeyValid ? "Connected" : "Not configured")
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundColor(settingsManager.isAPIKeyValid ? DesignSystem.Colors.success : DesignSystem.Colors.error)
+                        }
                         
                         Spacer()
                         
-                        Button(settingsManager.apiKey.isEmpty ? "Add" : "Edit") {
-                            tempAPIKey = settingsManager.apiKey
-                            isEditingAPIKey = true
-                        }
-                        
-                        if !settingsManager.apiKey.isEmpty {
-                            Button("Remove") {
-                                showingAPIKeyConfirmation = true
-                            }
+                        if settingsManager.isAPIKeyValid {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(DesignSystem.Colors.success)
+                        } else {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(DesignSystem.Colors.error)
                         }
                     }
                 }
+                .padding(DesignSystem.Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card)
+                        .fill(DesignSystem.Colors.secondaryBackground)
+                )
                 
-                if let error = settingsManager.lastError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            
-            
-
-        }
-        .formStyle(.grouped)
-        .onAppear {
-            tempAPIKey = settingsManager.apiKey
-        }
-        .confirmationDialog("Remove API Key", isPresented: $showingAPIKeyConfirmation) {
-            Button("Remove", role: .destructive) {
-                do {
-                    try settingsManager.deleteAPIKey()
-                } catch {
-                    // Error is already handled by SettingsManager and stored in lastError
-                    print("Failed to delete API key: \(error)")
-                }
+                Spacer()
             }
-        } message: {
-            Text("Are you sure you want to remove your Claude API key?")
+            .padding(DesignSystem.Spacing.lg)
+        }
+        .onAppear {
+            tempUserName = userName
         }
     }
 }
 
 #Preview {
-    ProfileTabView()
+    UserProfileView()
         .environment(SettingsManager())
-        .frame(width: 500, height: 400)
 } 

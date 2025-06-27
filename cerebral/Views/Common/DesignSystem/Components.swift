@@ -22,7 +22,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .padding(.vertical, DesignSystem.Spacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
-                    .fill(buttonBackgroundColor)
+                    .fill(backgroundFill(isPressed: configuration.isPressed))
             )
             .scaleEffect(scaleValue(isPressed: configuration.isPressed))
             .animation(DesignSystem.Animation.micro, value: configuration.isPressed)
@@ -31,9 +31,9 @@ struct PrimaryButtonStyle: ButtonStyle {
             .onHover { isHovered = $0 }
     }
     
-    private var buttonBackgroundColor: Color {
-        if !isEnabled {
-            return DesignSystem.Colors.secondaryText
+    private func backgroundFill(isPressed: Bool) -> Color {
+        if isPressed {
+            return DesignSystem.Colors.accentPressed
         } else if isHovered {
             return DesignSystem.Colors.accentHover
         } else {
@@ -408,5 +408,59 @@ extension EnvironmentValues {
 private struct OpenSettingsKey: EnvironmentKey {
     static let defaultValue: () -> Void = {
         NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+    }
+}
+
+// MARK: - Performance Monitoring
+
+@Observable
+final class PerformanceMonitor {
+    static let shared = PerformanceMonitor()
+    
+    private var renderTimes: [String: CFTimeInterval] = [:]
+    private var startTimes: [String: CFTimeInterval] = [:]
+    
+    private init() {}
+    
+    func startMeasuring(identifier: String) {
+        startTimes[identifier] = CACurrentMediaTime()
+    }
+    
+    func endMeasuring(identifier: String) {
+        guard let startTime = startTimes[identifier] else { return }
+        let duration = CACurrentMediaTime() - startTime
+        renderTimes[identifier] = duration
+        
+        if duration > 0.016 { // 16ms threshold for 60fps
+            print("⚠️ Performance Warning: \(identifier) took \(String(format: "%.2f", duration * 1000))ms")
+        }
+        
+        startTimes.removeValue(forKey: identifier)
+    }
+    
+    func getAverageRenderTime(for identifier: String) -> CFTimeInterval? {
+        return renderTimes[identifier]
+    }
+}
+
+// MARK: - Performance View Modifier
+
+struct PerformanceTrackingModifier: ViewModifier {
+    let identifier: String
+    
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                PerformanceMonitor.shared.startMeasuring(identifier: identifier)
+            }
+            .onDisappear {
+                PerformanceMonitor.shared.endMeasuring(identifier: identifier)
+            }
+    }
+}
+
+extension View {
+    func trackPerformance(_ identifier: String) -> some View {
+        modifier(PerformanceTrackingModifier(identifier: identifier))
     }
 } 

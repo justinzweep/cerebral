@@ -17,6 +17,9 @@ struct ContentView: View {
     @Environment(SettingsManager.self) var settingsManager: SettingsManager
     @Environment(\.modelContext) private var modelContext
     
+    // Performance monitoring
+    private let performanceMonitor = PerformanceMonitor.shared
+    
     var body: some View {
         HStack(spacing: 0) {
             // Left Pane: Document Sidebar
@@ -25,6 +28,8 @@ struct ContentView: View {
                     .frame(width: sidebarWidth)
                     .background(DesignSystem.Colors.secondaryBackground)
                     .transition(.move(edge: .leading).combined(with: .opacity))
+                    .id("sidebar") // Stable ID for animations
+                    .trackPerformance("document_sidebar")
                 
                 // Resizable divider for sidebar
                 ResizableDivider(
@@ -34,6 +39,7 @@ struct ContentView: View {
                         sidebarWidth = max(200, min(400, newWidth))
                     }
                 )
+                .id("sidebar-divider") // Stable ID
             }
             
             // Middle Pane: PDF Viewer
@@ -41,6 +47,8 @@ struct ContentView: View {
                 PDFViewerView(document: appState.selectedDocument)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .background(DesignSystem.Colors.secondaryBackground)
+                    .id(appState.selectedDocument?.id.uuidString ?? "no-document") // Stable ID based on document
+                    .trackPerformance("pdf_viewer")
             }
             .frame(minWidth: 300)
             .padding(.horizontal, DesignSystem.Spacing.sm)
@@ -54,6 +62,7 @@ struct ContentView: View {
                         chatWidth = max(250, min(500, newWidth))
                     }
                 )
+                .id("chat-divider") // Stable ID
                 
                 // Right Pane: Chat Panel
                 ChatPane(selectedDocument: appState.selectedDocument)
@@ -61,39 +70,59 @@ struct ContentView: View {
                     .background(DesignSystem.Colors.secondaryBackground)
                     .environment(settingsManager)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .id("chat-panel") // Stable ID for animations
+                    .trackPerformance("chat_panel")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .background(DesignSystem.Colors.secondaryBackground)
         .onAppear {
-            if keyboardService == nil {
-                keyboardService = KeyboardShortcutService(appState: appState)
-            }
-            keyboardService?.startMonitoring()
-            setupServices()
+            performanceMonitor.startMeasuring(identifier: "content_view_load")
+            setupApplication()
         }
         .onDisappear {
-            keyboardService?.stopMonitoring()
+            performanceMonitor.endMeasuring(identifier: "content_view_load")
+            cleanupApplication()
         }
         .fileImporter(
             isPresented: $appState.showingImporter,
             allowedContentTypes: [.pdf],
             allowsMultipleSelection: true
         ) { result in
-            Task {
+            Task { @MainActor in
+                performanceMonitor.startMeasuring(identifier: "document_import")
+                
                 do {
                     try await ServiceContainer.shared.documentService.importDocuments(result, to: modelContext)
                 } catch {
                     ServiceContainer.shared.errorManager.handle(error)
                 }
+                
+                performanceMonitor.endMeasuring(identifier: "document_import")
             }
         }
+        .trackPerformance("main_content_view")
     }
     
     // MARK: - Private Methods
     
-
+    private func setupApplication() {
+        if keyboardService == nil {
+            keyboardService = KeyboardShortcutService(appState: appState)
+        }
+        keyboardService?.startMonitoring()
+        setupServices()
+        
+        print("✅ Application setup completed")
+    }
+    
+    private func cleanupApplication() {
+        keyboardService?.stopMonitoring()
+        ServiceContainer.shared.cleanup()
+        
+        print("🧹 Application cleanup completed")
+    }
     
     private func setupServices() {
         ServiceContainer.shared.configureModelContext(modelContext)

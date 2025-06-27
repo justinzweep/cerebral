@@ -90,7 +90,9 @@ import Foundation
     // MARK: - Session Management
     
     func startNewSession(title: String = "Chat") {
-        streamingService.cancelCurrentStreaming()
+        Task { @MainActor in
+            streamingService.cancelCurrentStreaming()
+        }
         
         messages.removeAll()
         currentDocumentContext.removeAll()
@@ -99,7 +101,9 @@ import Foundation
     }
     
     func startNewConversation(with document: Document? = nil) {
-        streamingService.cancelCurrentStreaming()
+        Task { @MainActor in
+            streamingService.cancelCurrentStreaming()
+        }
         
         messages.removeAll()
         resetState()
@@ -131,7 +135,9 @@ import Foundation
     }
     
     func clearMessages() {
-        streamingService.cancelCurrentStreaming()
+        Task { @MainActor in
+            streamingService.cancelCurrentStreaming()
+        }
         messages.removeAll()
         resetState()
     }

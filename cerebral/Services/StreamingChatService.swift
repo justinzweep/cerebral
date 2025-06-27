@@ -8,18 +8,28 @@
 import Foundation
 
 /// Service responsible for handling streaming chat functionality
-@MainActor
 final class StreamingChatService: StreamingChatServiceProtocol {
     private var claudeAPIService: ClaudeAPIService?
     private var streamingTask: Task<Void, Never>?
     
     private weak var delegate: StreamingChatServiceDelegate?
     
+    // Performance monitoring
+    private let performanceMonitor = PerformanceMonitor.shared
+    
     init(delegate: StreamingChatServiceDelegate) {
         self.delegate = delegate
     }
     
+    deinit {
+        // Ensure cleanup on deinitialization
+        streamingTask?.cancel()
+        streamingTask = nil
+        claudeAPIService = nil
+    }
+    
     /// Send a streaming message to Claude API
+    @MainActor
     func sendStreamingMessage(
         _ text: String,
         settingsManager: SettingsManager,
@@ -27,7 +37,9 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         hiddenContext: String? = nil,
         conversationHistory: [ChatMessage]
     ) async {
-        // Cancel any existing streaming task
+        performanceMonitor.startMeasuring(identifier: "streaming_message")
+        
+        // Cancel any existing streaming task to prevent memory leaks
         cancelCurrentStreaming()
         
         // Initialize API service if needed
@@ -47,9 +59,15 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         
         delegate?.streamingDidCreateMessage(aiMessage)
         
-        streamingTask = Task {
+        // Extract document IDs for cross-actor communication
+        let documentContextIds = documentContext.map { $0.id }
+        
+        // Use structured concurrency for better memory management
+        streamingTask = Task { [weak self, weak delegate] in
+            guard let self = self, let delegate = delegate else { return }
+            
             do {
-                guard let apiService = claudeAPIService else {
+                guard let apiService = self.claudeAPIService else {
                     throw ChatError.requestFailed("API service not initialized")
                 }
                 
@@ -60,26 +78,34 @@ final class StreamingChatService: StreamingChatServiceProtocol {
                 )
                 
                 var accumulatedText = ""
+                let maxAccumulatedLength = 100_000 // Prevent excessive memory usage
                 
                 for try await response in streamingResponse {
-                    // Check if task was cancelled
-                    if Task.isCancelled {
-                        print("🛑 Streaming task was cancelled")
-                        break
-                    }
+                    // Check if task was cancelled early
+                    try Task.checkCancellation()
                     
                     switch response {
                     case .textDelta(let deltaText):
+                        // Prevent memory bloat from extremely long responses
+                        if accumulatedText.count + deltaText.count > maxAccumulatedLength {
+                            print("⚠️ Response truncated for memory management")
+                            break
+                        }
+                        
                         accumulatedText += deltaText
-                        delegate?.streamingDidReceiveText(accumulatedText, for: aiMessage.id)
+                        await MainActor.run {
+                            delegate.streamingDidReceiveText(accumulatedText, for: aiMessage.id)
+                        }
                         
                     case .messageStop:
                         print("✅ Streaming complete")
-                        delegate?.streamingDidComplete(
-                            with: accumulatedText,
-                            messageId: aiMessage.id,
-                            documentReferences: documentContext.map { $0.id }
-                        )
+                        await MainActor.run {
+                            delegate.streamingDidComplete(
+                                with: accumulatedText,
+                                messageId: aiMessage.id,
+                                documentReferences: documentContextIds
+                            )
+                        }
                         break
                         
                     case .error(let errorMessage):
@@ -92,12 +118,23 @@ final class StreamingChatService: StreamingChatServiceProtocol {
                     }
                 }
                 
+            } catch is CancellationError {
+                print("🛑 Streaming task was cancelled")
+                // Clean cancellation, no need to report as error
             } catch {
                 print("❌ Streaming error: \(error)")
-                delegate?.streamingDidFail(
-                    with: error,
-                    messageId: aiMessage.id
-                )
+                await MainActor.run {
+                    delegate.streamingDidFail(
+                        with: error,
+                        messageId: aiMessage.id
+                    )
+                }
+            }
+            
+            // Clean up task reference
+            await MainActor.run { [weak self] in
+                self?.streamingTask = nil
+                self?.performanceMonitor.endMeasuring(identifier: "streaming_message")
             }
         }
     }
@@ -106,9 +143,13 @@ final class StreamingChatService: StreamingChatServiceProtocol {
     func cancelCurrentStreaming() {
         streamingTask?.cancel()
         streamingTask = nil
+        Task { @MainActor in
+            performanceMonitor.endMeasuring(identifier: "streaming_message")
+        }
     }
     
     /// Validate API connection
+    @MainActor
     func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {
         guard settingsManager.isAPIKeyValid else {
             return false
@@ -119,8 +160,17 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         }
         
         do {
-            return try await claudeAPIService?.validateConnection() ?? false
+            let isValid = try await claudeAPIService?.validateConnection() ?? false
+            
+            // Clear API service if validation fails to force re-initialization
+            if !isValid {
+                claudeAPIService = nil
+            }
+            
+            return isValid
         } catch {
+            // Clear API service on error to force re-initialization
+            claudeAPIService = nil
             return false
         }
     }
@@ -128,6 +178,7 @@ final class StreamingChatService: StreamingChatServiceProtocol {
 
 // MARK: - StreamingChatServiceDelegate
 
+@MainActor
 protocol StreamingChatServiceDelegate: AnyObject {
     func streamingDidStart()
     func streamingDidCreateMessage(_ message: ChatMessage)

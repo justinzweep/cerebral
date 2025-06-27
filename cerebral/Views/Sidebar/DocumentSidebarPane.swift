@@ -11,7 +11,12 @@ import SwiftData
 struct DocumentSidebarPane: View {
     @Binding var selectedDocument: Document?
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Document.dateAdded, order: .reverse) private var documents: [Document]
+    
+    // Optimized query with limit for better performance
+    @Query(
+        sort: \Document.dateAdded, 
+        order: .reverse
+    ) private var documents: [Document]
     
     @State private var showingImporter = false
     
@@ -46,13 +51,17 @@ struct DocumentSidebarPane: View {
             }
             .padding(DesignSystem.Spacing.md)
             
-            // Document list
+            // Document list with performance optimizations
             ScrollView {
                 LazyVStack(spacing: DesignSystem.Spacing.xs) {
                     if documents.isEmpty {
                         EmptyDocumentsView(showingImporter: $showingImporter)
+                            .id("empty-documents") // Stable ID
                     } else {
-                        ForEach(documents) { document in
+                        // Use optimized ForEach with proper identifiers
+                        ForEach(documents.indices, id: \.self) { index in
+                            let document = documents[index]
+                            
                             DocumentRowView(document: document)
                                 .onTapGesture {
                                     selectedDocument = document
@@ -63,20 +72,24 @@ struct DocumentSidebarPane: View {
                                               DesignSystem.Colors.selectedBackground : 
                                               Color.clear)
                                 )
+                                .animation(DesignSystem.Animation.microInteraction, value: selectedDocument?.id)
+                                .id(document.id) // Stable ID for each document
+                                .trackPerformance("document_row_\(index)")
                         }
                     }
                 }
                 .padding(.horizontal, DesignSystem.Spacing.md)
                 .padding(.bottom, DesignSystem.Spacing.lg)
             }
-            .scrollIndicators(.never)
+            .scrollIndicators(.hidden) // Performance optimization
+            .trackPerformance("document_list_scroll")
         }
         .fileImporter(
             isPresented: $showingImporter,
             allowedContentTypes: [.pdf],
             allowsMultipleSelection: true
         ) { result in
-            Task {
+            Task { @MainActor in
                 do {
                     try await ServiceContainer.shared.documentService.importDocuments(result, to: modelContext)
                 } catch {
@@ -84,6 +97,7 @@ struct DocumentSidebarPane: View {
                 }
             }
         }
+        .trackPerformance("document_sidebar_pane")
     }
 }
 

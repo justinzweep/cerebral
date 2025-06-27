@@ -22,40 +22,6 @@ This plan outlines steps to refactor the Cerebral codebase to follow SwiftUI bes
 
 ## Detailed Cleanup Plan
 
-### 6. State Management Simplification (Priority: MEDIUM)
-
-**Current Issues:**
-- Mixed use of `@State`, `@StateObject`, and `@ObservedObject`
-- Some state could be simplified with `@Observable`
-- Notification-based communication could be improved
-
-**Refactoring Plan:**
-
-#### A. Adopt iOS 17+ Patterns
-```swift
-// Replace @StateObject with @State for new observable types
-@State private var chatManager = ChatManager()
-
-// Use @Observable for simpler state management
-@Observable
-final class DocumentManager {
-    var selectedDocument: Document?
-    var documents: [Document] = []
-}
-```
-
-#### B. Reduce NotificationCenter Usage
-- Replace notifications with proper data flow where possible
-- Keep notifications only for system-level events
-- Use proper parent-child view communication
-
-**Actions:**
-1. Audit current state management patterns
-2. Replace `@StateObject` with `@State` where appropriate
-3. Convert compatible classes to use `@Observable` macro
-4. Reduce notification dependencies with proper data flow
-5. Implement proper view data passing
-
 ### 7. Error Handling Standardization (Priority: MEDIUM)
 
 **Current Issues:**
