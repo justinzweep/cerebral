@@ -8,10 +8,15 @@
 import SwiftUI
 
 struct ChatView: View {
-    let chatManager = ChatManager()
+    let selectedDocument: Document?
+    @State private var chatManager = ChatManager()
     @StateObject private var settingsManager = SettingsManager()
     @State private var inputText = ""
     @State private var attachedDocuments: [Document] = []
+    
+    init(selectedDocument: Document? = nil) {
+        self.selectedDocument = selectedDocument
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -103,7 +108,15 @@ struct ChatView: View {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         let messageText = inputText
-        let documentsToSend = attachedDocuments
+        var documentsToSend = attachedDocuments
+        
+        // ALWAYS append the currently selected document if there is one
+        if let selectedDoc = selectedDocument {
+            // Only add if it's not already in the attached documents
+            if !documentsToSend.contains(where: { $0.id == selectedDoc.id }) {
+                documentsToSend.append(selectedDoc)
+            }
+        }
         
         // Clear input and attachments immediately
         inputText = ""
@@ -233,6 +246,6 @@ struct APIKeyRequiredView: View {
 // accessibleHeading is already defined in DesignSystem.swift
 
 #Preview {
-    ChatView()
+    ChatView(selectedDocument: nil)
         .frame(width: 400, height: 600)
 }

@@ -59,7 +59,7 @@ struct ContentView: View {
                 )
                 
                 // Right Pane: Chat Panel (Fixed width, user-resizable only)
-                ChatPane()
+                ChatPane(selectedDocument: selectedDocument)
                     .frame(width: chatWidth)
                     .background(DesignSystem.Colors.surfaceSecondary)
                     .environmentObject(settingsManager)
@@ -339,8 +339,10 @@ struct DocumentSidebarPane: View {
 // MARK: - Chat Pane (Clean Version)
 
 struct ChatPane: View {
+    let selectedDocument: Document?
+    
     var body: some View {
-        ChatView()
+        ChatView(selectedDocument: selectedDocument)
     }
 }
 
