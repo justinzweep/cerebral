@@ -31,7 +31,7 @@ struct DocumentSidebarContent: View {
             HStack {
                 Text("Documents")
                     .font(DesignSystem.Typography.title3)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
                 
                 Spacer()
                 
@@ -141,16 +141,16 @@ struct EmptyDocumentListView: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "doc.text")
                 .font(.system(size: 48))
-                .foregroundColor(DesignSystem.Colors.textTertiary)
+                .foregroundColor(DesignSystem.Colors.tertiaryText)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
                 Text("No Documents")
                     .font(DesignSystem.Typography.headline)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
                 
                 Text("Import your first PDF to get started")
                     .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
                     .multilineTextAlignment(.center)
             }
             
@@ -175,16 +175,16 @@ struct EmptyDocumentSelectionView: View {
             VStack(spacing: DesignSystem.Spacing.lg) {
                 Image(systemName: "doc.text")
                     .font(.system(size: 64))
-                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
                 
                 VStack(spacing: DesignSystem.Spacing.sm) {
                     Text("Welcome to Cerebral")
                         .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
                     
                     Text("Import your first PDF to get started.")
                         .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
                         .multilineTextAlignment(.center)
                 }
                 

@@ -9,28 +9,41 @@ import Foundation
 
 @MainActor
 @Observable final class ChatManager {
+    // MARK: - Core State
     var messages: [ChatMessage] = []
     var isLoading: Bool = false
     var lastError: String?
     var hasConnectionError: Bool = false
     var currentSessionTitle: String = "Chat"
     
-    private var claudeAPIService: ClaudeAPIService?
+    // MARK: - Streaming State
+    var isStreaming: Bool = false
+    var currentStreamingMessageId: UUID?
+    
+    // MARK: - Document Context
     private var currentDocumentContext: [Document] = []
     
-    func sendMessage(_ text: String, settingsManager: SettingsManager, documentContext: [Document] = []) async {
-        // Extract document references from @mentions in the text
-        let referencedDocuments = await extractDocumentReferences(from: text)
-        let allReferencedUUIDs = referencedDocuments.map { $0.id }
-        
-        // Store the original user message for UI display with document references
-        let userMessage = ChatMessage(
-            text: text, 
-            isUser: true, 
-            documentReferences: allReferencedUUIDs
-        )
-        messages.append(userMessage)
-        
+    // MARK: - Services
+    private var _streamingService: StreamingChatService?
+    private var streamingService: StreamingChatService {
+        if _streamingService == nil {
+            _streamingService = StreamingChatService(delegate: self)
+        }
+        return _streamingService!
+    }
+    private let messageBuilder = MessageBuilder.shared
+    private let documentResolver = DocumentReferenceResolver.shared
+    
+    // MARK: - Public Interface
+    
+    /// Send a message using streaming (main method - non-streaming method removed)
+    func sendMessage(
+        _ text: String,
+        settingsManager: SettingsManager,
+        documentContext: [Document] = [],
+        hiddenContext: String? = nil
+    ) async {
+        // Validate API key
         guard settingsManager.isAPIKeyValid else {
             let errorMessage = ChatMessage(
                 text: "Please configure your Claude API key in Settings to use the chat feature.",
@@ -40,64 +53,56 @@ import Foundation
             return
         }
         
-        // Initialize API service if needed
-        if claudeAPIService == nil {
-            claudeAPIService = ClaudeAPIService(settingsManager: settingsManager)
-        }
+        // Extract document references from @mentions
+        let referencedDocuments = documentResolver.extractDocumentReferences(from: text)
+        let allReferencedUUIDs = documentResolver.getDocumentUUIDs(from: referencedDocuments)
         
-        isLoading = true
-        lastError = nil
-        hasConnectionError = false
+        // Create and store user message
+        let userMessage = ChatMessage(
+            text: text,
+            isUser: true,
+            documentReferences: allReferencedUUIDs,
+            hiddenContext: hiddenContext
+        )
+        messages.append(userMessage)
         
-        // Build the enhanced message for LLM (includes document content)
+        // Prepare document context
         let documentsToProcess = documentContext.isEmpty ? currentDocumentContext : documentContext
-        // Also include any documents referenced via @mentions
-        let allDocumentsToProcess = Array(Set(documentsToProcess + referencedDocuments))
+        let allDocumentsToProcess = documentResolver.combineUniqueDocuments(documentsToProcess, referencedDocuments)
         
-        let enhancedMessageForLLM = await buildEnhancedMessage(userText: text, documents: allDocumentsToProcess)
+        // Build enhanced message for LLM
+        let enhancedMessage = messageBuilder.buildEnhancedMessage(
+            userText: text,
+            documents: allDocumentsToProcess,
+            hiddenContext: hiddenContext
+        )
         
-        do {
-            let response = try await claudeAPIService?.sendMessage(
-                enhancedMessageForLLM,
-                context: [], // Pass empty context since we're including it in the message
-                conversationHistory: filterValidMessages(Array(messages.dropLast())) // Exclude the just-added user message and error messages
-            ) ?? "No response received"
-            
-            let aiMessage = ChatMessage(
-                text: response,
-                isUser: false,
-                documentReferences: allDocumentsToProcess.map { $0.id }
-            )
-            messages.append(aiMessage)
-        } catch {
-            let errorMessage = ChatMessage(
-                text: "Sorry, I encountered an error: \(error.localizedDescription)",
-                isUser: false
-            )
-            messages.append(errorMessage)
-            lastError = error.localizedDescription
-            hasConnectionError = true
-        }
-        
-        isLoading = false
+        // Send streaming message
+        await streamingService.sendStreamingMessage(
+            enhancedMessage,
+            settingsManager: settingsManager,
+            documentContext: allDocumentsToProcess,
+            hiddenContext: hiddenContext,
+            conversationHistory: messageBuilder.filterValidMessages(Array(messages.dropLast(2)))
+        )
     }
     
     // MARK: - Session Management
     
     func startNewSession(title: String = "Chat") {
+        streamingService.cancelCurrentStreaming()
+        
         messages.removeAll()
         currentDocumentContext.removeAll()
         currentSessionTitle = title
-        lastError = nil
-        hasConnectionError = false
-        isLoading = false
+        resetState()
     }
     
     func startNewConversation(with document: Document? = nil) {
+        streamingService.cancelCurrentStreaming()
+        
         messages.removeAll()
-        lastError = nil
-        hasConnectionError = false
-        isLoading = false
+        resetState()
         
         if let document = document {
             setDocumentContext([document])
@@ -117,11 +122,7 @@ import Foundation
     
     func setDocumentContext(_ documents: [Document]) {
         currentDocumentContext = documents
-        if documents.count == 1 {
-            currentSessionTitle = "Chat with \(documents.first!.title)"
-        } else if documents.count > 1 {
-            currentSessionTitle = "Chat with \(documents.count) documents"
-        }
+        updateSessionTitle(for: documents)
     }
     
     func clearDocumentContext() {
@@ -130,13 +131,12 @@ import Foundation
     }
     
     func clearMessages() {
+        streamingService.cancelCurrentStreaming()
         messages.removeAll()
-        lastError = nil
-        hasConnectionError = false
-        isLoading = false
+        resetState()
     }
     
-    // MARK: - Message Grouping
+    // MARK: - Utility Methods
     
     func shouldGroupMessage(at index: Int) -> Bool {
         guard index > 0 && index < messages.count else { return false }
@@ -144,183 +144,100 @@ import Foundation
         let currentMessage = messages[index]
         let previousMessage = messages[index - 1]
         
-        // Same sender
+        // Same sender and within 5 minutes
         guard currentMessage.isUser == previousMessage.isUser else { return false }
-        
-        // Within 5 minutes
         let timeDifference = currentMessage.timestamp.timeIntervalSince(previousMessage.timestamp)
         return timeDifference < 300 // 5 minutes
     }
     
-    // MARK: - Utility Methods
-    
     func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {
-        guard settingsManager.isAPIKeyValid else { 
-            hasConnectionError = true
-            return false 
-        }
-        
-        if claudeAPIService == nil {
-            claudeAPIService = ClaudeAPIService(settingsManager: settingsManager)
-        }
-        
-        do {
-            let isValid = try await claudeAPIService?.validateConnection() ?? false
-            hasConnectionError = !isValid
-            return isValid
-        } catch {
-            lastError = error.localizedDescription
+        guard settingsManager.isAPIKeyValid else {
             hasConnectionError = true
             return false
         }
+        
+        let isValid = await streamingService.validateAPIConnection(settingsManager: settingsManager)
+        hasConnectionError = !isValid
+        
+        if !isValid {
+            lastError = "Failed to connect to Claude API"
+        }
+        
+        return isValid
     }
     
-    private func filterValidMessages(_ messages: [ChatMessage]) -> [ChatMessage] {
-        return messages.filter { message in
-            // Filter out error messages from conversation history
-            !message.text.contains("Sorry, I encountered an error") &&
-            !message.text.contains("Please configure your Claude API key") &&
-            !message.text.contains("Connection failed") &&
-            !message.text.contains("Request failed")
+    // MARK: - Private Helpers
+    
+    private func resetState() {
+        lastError = nil
+        hasConnectionError = false
+        isLoading = false
+        isStreaming = false
+        currentStreamingMessageId = nil
+    }
+    
+    private func updateSessionTitle(for documents: [Document]) {
+        switch documents.count {
+        case 0:
+            currentSessionTitle = "Chat"
+        case 1:
+            currentSessionTitle = "Chat with \(documents.first!.title)"
+        default:
+            currentSessionTitle = "Chat with \(documents.count) documents"
+        }
+    }
+}
+
+// MARK: - StreamingChatServiceDelegate
+
+extension ChatManager: StreamingChatServiceDelegate {
+    func streamingDidStart() {
+        isLoading = true
+        isStreaming = true
+        lastError = nil
+        hasConnectionError = false
+    }
+    
+    func streamingDidCreateMessage(_ message: ChatMessage) {
+        messages.append(message)
+        currentStreamingMessageId = message.id
+    }
+    
+    func streamingDidReceiveText(_ text: String, for messageId: UUID) {
+        if let messageIndex = messages.firstIndex(where: { $0.id == messageId }) {
+            messages[messageIndex].text = text
         }
     }
     
-    // MARK: - Private Helper Methods
-    
-    private func extractDocumentReferences(from text: String) async -> [Document] {
-        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
-        
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return []
+    func streamingDidComplete(with text: String, messageId: UUID, documentReferences: [UUID]) {
+        if let messageIndex = messages.firstIndex(where: { $0.id == messageId }) {
+            messages[messageIndex].text = text
+            messages[messageIndex].completeStreaming()
+            messages[messageIndex].documentReferences = documentReferences
         }
         
-        let nsString = text as NSString
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
-        
-        var referencedDocuments: [Document] = []
-        
-        for match in matches {
-            let fullMatch = nsString.substring(with: match.range)
-            
-            // Extract document name (remove @ and potentially .pdf)
-            var documentName = String(fullMatch.dropFirst()) // Remove @
-            if documentName.hasSuffix(".pdf") {
-                documentName = String(documentName.dropLast(4)) // Remove .pdf
-            }
-            
-            // Try to find the document
-            if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
-                referencedDocuments.append(document)
-                print("✅ Found referenced document: '\(document.title)' for mention: '\(fullMatch)'")
-            } else {
-                print("❌ Document not found for mention: '\(fullMatch)' (looking for: '\(documentName)')")
-                // Show all available documents for debugging
-                let allDocs = DocumentLookupService.shared.getAllDocuments()
-                print("📚 Available documents:")
-                for doc in allDocs.prefix(5) { // Show first 5 for brevity
-                    print("  - '\(doc.title)'")
-                }
-            }
-        }
-        
-        return referencedDocuments
+        isStreaming = false
+        currentStreamingMessageId = nil
+        isLoading = false
     }
     
-    private func buildEnhancedMessage(userText: String, documents: [Document]) async -> String {
-        // First, process @pdf_name.pdf references in the user text
-        let processedText = await processDocumentReferences(in: userText)
-        
-        var enhancedMessage = ""
-        
-        // Add explicitly attached documents
-        if !documents.isEmpty {
-            enhancedMessage += "ATTACHED DOCUMENTS:\n\n"
-            
-            for (index, document) in documents.enumerated() {
-                enhancedMessage += "=== Document \(index + 1): \(document.title) ===\n"
-                
-                // Add metadata
-                if let metadata = PDFTextExtractionService.shared.getDocumentMetadata(from: document) {
-                    if let pageCount = metadata["pageCount"] as? Int {
-                        enhancedMessage += "Pages: \(pageCount)\n"
-                    }
-                    if let author = metadata["author"] as? String, !author.isEmpty {
-                        enhancedMessage += "Author: \(author)\n"
-                    }
-                    if let subject = metadata["subject"] as? String, !subject.isEmpty {
-                        enhancedMessage += "Subject: \(subject)\n"
-                    }
-                }
-                
-                // Extract and add text content
-                if let extractedText = PDFTextExtractionService.shared.extractText(from: document, maxLength: 4000) {
-                    enhancedMessage += "\nDocument Content:\n"
-                    enhancedMessage += extractedText
-                } else {
-                    enhancedMessage += "\nContent: [Unable to extract text from this PDF]\n"
-                }
-                
-                enhancedMessage += "\n" + String(repeating: "=", count: 50) + "\n\n"
-            }
+    func streamingDidFail(with error: Error, messageId: UUID) {
+        // Remove the failed streaming message
+        if let messageIndex = messages.firstIndex(where: { $0.id == messageId }) {
+            messages.remove(at: messageIndex)
         }
         
-        // Add the processed user message (with @references replaced with content)
-        enhancedMessage += processedText.isEmpty ? userText : processedText
+        // Add error message
+        let errorMessage = ChatMessage(
+            text: "Sorry, I encountered an error: \(error.localizedDescription)",
+            isUser: false
+        )
+        messages.append(errorMessage)
         
-        return enhancedMessage
-    }
-    
-    private func processDocumentReferences(in text: String) async -> String {
-        // Regex pattern to match @pdf_name.pdf or @pdf_name (with or without .pdf extension)
-        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
-        
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return text
-        }
-        
-        let nsString = text as NSString
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
-        
-        // Process matches in reverse order to maintain string indices
-        var processedText = text
-        for match in matches.reversed() {
-            let matchRange = match.range
-            let fullMatch = nsString.substring(with: matchRange)
-            
-            // Extract the document name (remove @ and potentially .pdf)
-            var documentName = String(fullMatch.dropFirst()) // Remove @
-            if documentName.hasSuffix(".pdf") {
-                documentName = String(documentName.dropLast(4)) // Remove .pdf
-            }
-            
-            // Try to find the document
-            if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
-                // Extract content from the referenced document
-                if let extractedText = PDFTextExtractionService.shared.extractText(from: document, maxLength: 3000) {
-                    let replacement = """
-                    
-                    [REFERENCED DOCUMENT: \(document.title)]
-                    \(extractedText)
-                    [END REFERENCED DOCUMENT]
-                    
-                    """
-                    
-                    let nsProcessedText = processedText as NSString
-                    processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
-                } else {
-                    // Replace with error message if can't extract content
-                    let replacement = "[REFERENCED DOCUMENT: \(document.title) - Unable to extract content]"
-                    let nsProcessedText = processedText as NSString
-                    processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
-                }
-            } else {
-                // Replace with error message if document not found
-                let replacement = "[DOCUMENT NOT FOUND: \(documentName)]"
-                let nsProcessedText = processedText as NSString
-                processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
-            }
-        }
-        
-        return processedText
+        lastError = error.localizedDescription
+        hasConnectionError = true
+        isStreaming = false
+        currentStreamingMessageId = nil
+        isLoading = false
     }
 } 

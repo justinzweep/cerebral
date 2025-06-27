@@ -54,7 +54,7 @@ struct PDFThumbnailView: View {
         isLoading = true
         
         let thumbnail = await Task.detached {
-            PDFThumbnailService.shared.generateThumbnail(for: document, size: size)
+            PDFService.shared.generateThumbnail(for: document, size: size)
         }.value
         
         thumbnailImage = thumbnail

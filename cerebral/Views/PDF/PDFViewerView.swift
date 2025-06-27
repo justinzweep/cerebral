@@ -15,6 +15,12 @@ struct PDFViewerView: View {
     @State private var currentPage: Int = 0
     @State private var showingError: Bool = false
     @State private var errorMessage: String = ""
+    
+    // Highlighting state
+    @State private var selectedText: PDFSelection?
+    @State private var showHighlightPopup: Bool = false
+    @State private var highlightPopupPosition: CGPoint = .zero
+    @State private var pdfViewCoordinator: PDFViewCoordinator?
 
     @Environment(\.modelContext) private var modelContext
     
@@ -22,14 +28,42 @@ struct PDFViewerView: View {
         Group {
             if let currentDocument = document {
                 if let pdfDocument = pdfDocument {
-                    // PDF Content - top-aligned and constrained
-                    PDFViewerRepresentable(
-                        document: pdfDocument,
-                        currentPage: $currentPage
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .clipped()
-                    .background(DesignSystem.Colors.secondaryBackground)
+                    // PDF Content with highlighting overlay
+                    ZStack {
+                        PDFViewerRepresentable(
+                            document: pdfDocument,
+                            currentPage: $currentPage,
+                            selectedText: $selectedText,
+                            showHighlightPopup: $showHighlightPopup,
+                            highlightPopupPosition: $highlightPopupPosition,
+                            coordinator: $pdfViewCoordinator
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .clipped()
+                        .background(DesignSystem.Colors.secondaryBackground)
+                        .onTapGesture {
+                            // Dismiss highlight popup when tapping outside
+                            if showHighlightPopup {
+                                showHighlightPopup = false
+                                selectedText = nil
+                            }
+                        }
+                        
+                        // Highlight color picker overlay
+                        if showHighlightPopup {
+                            HighlightColorPicker(
+                                position: highlightPopupPosition,
+                                onColorSelected: { color in
+                                    handleHighlightSelection(color: color)
+                                },
+                                onDismiss: {
+                                    showHighlightPopup = false
+                                    selectedText = nil
+                                }
+                            )
+                            .zIndex(1000) // Ensure it appears above everything
+                        }
+                    }
                 } else {
                     // Enhanced Loading State
                     LoadingStateView(message: "Loading PDF...")
@@ -77,9 +111,48 @@ struct PDFViewerView: View {
             showingError = true
         }
     }
+    
+    private func handleHighlightSelection(color: NSColor) {
+        print("🎯 === HANDLE HIGHLIGHT SELECTION ===")
+        print("🎨 Color: \(color)")
+        
+        // Capture the selection and coordinator immediately
+        let currentSelection = selectedText
+        let currentCoordinator = pdfViewCoordinator ?? PDFViewCoordinator.sharedCoordinator
+        
+        print("📄 Current selection exists: \(currentSelection != nil)")
+        print("🔗 Current coordinator exists: \(currentCoordinator != nil)")
+        print("🔗 Shared coordinator exists: \(PDFViewCoordinator.sharedCoordinator != nil)")
+        
+        guard let selection = currentSelection else { 
+            print("❌ Missing selection")
+            showHighlightPopup = false
+            selectedText = nil
+            return 
+        }
+        
+        guard let coordinator = currentCoordinator else {
+            print("❌ Missing coordinator - trying to highlight anyway")
+            showHighlightPopup = false
+            selectedText = nil
+            return
+        }
+        
+        print("✅ Selection text: '\(selection.string?.prefix(50) ?? "nil")...'")
+        print("✅ Selection pages count: \(selection.pages.count)")
+        
+        // Hide popup immediately
+        showHighlightPopup = false
+        
+        // Use the coordinator to add the highlight
+        coordinator.addHighlight(to: selection, color: color)
+        
+        // Clear selection after highlighting
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.selectedText = nil
+        }
+    }
 }
-
-
 
 // MARK: - Loading State
 
@@ -94,7 +167,7 @@ struct LoadingStateView: View {
             
             Text(message)
                 .font(DesignSystem.Typography.title3)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .foregroundColor(DesignSystem.Colors.secondaryText)
         }
         .background(DesignSystem.Colors.secondaryBackground)
     }
@@ -107,16 +180,16 @@ struct EmptyPDFStateView: View {
         VStack(spacing: DesignSystem.Spacing.xl) {
             Image(systemName: "doc.text")
                 .font(.system(size: 64))
-                .foregroundColor(DesignSystem.Colors.textTertiary)
+                .foregroundColor(DesignSystem.Colors.tertiaryText)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
                 Text("No Document Selected")
                     .font(DesignSystem.Typography.title2)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
                 
                 Text("Select a PDF from the sidebar to start reading")
                     .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }

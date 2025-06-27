@@ -13,6 +13,7 @@ struct ChatView: View {
     @StateObject private var settingsManager = SettingsManager()
     @State private var inputText = ""
     @State private var attachedDocuments: [Document] = []
+    @State private var textSelectionChunks: [TextSelectionChunk] = []
     
     init(selectedDocument: Document? = nil) {
         self.selectedDocument = selectedDocument
@@ -66,13 +67,20 @@ struct ChatView: View {
                 ChatInputView(
                     text: $inputText,
                     isLoading: chatManager.isLoading,
+                    isStreaming: chatManager.isStreaming,
                     attachedDocuments: attachedDocuments,
+                    textSelectionChunks: textSelectionChunks,
                     onSend: {
                         sendMessage()
                     },
                     onRemoveDocument: { document in
                         withAnimation(DesignSystem.Animation.smooth) {
                             attachedDocuments.removeAll { $0.id == document.id }
+                        }
+                    },
+                    onRemoveTextChunk: { chunk in
+                        withAnimation(DesignSystem.Animation.smooth) {
+                            textSelectionChunks.removeAll { $0.id == chunk.id }
                         }
                     }
                 )
@@ -93,6 +101,24 @@ struct ChatView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .textSelectionWithTyping)) { notification in
+            if let textChunk = notification.object as? TextSelectionChunk,
+               let typedCharacter = notification.userInfo?["typedCharacter"] as? String {
+                
+                withAnimation(DesignSystem.Animation.smooth) {
+                    // Add the text selection chunk
+                    textSelectionChunks.append(textChunk)
+                    
+                    // Add the typed character to the input text
+                    inputText += typedCharacter
+                }
+                
+                // Focus the chat input (this will be handled by the ChatInputView)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    NotificationCenter.default.post(name: .focusChatInput, object: nil)
+                }
+            }
+        }
         .onAppear {
             if settingsManager.isAPIKeyValid {
                 Task {
@@ -109,6 +135,7 @@ struct ChatView: View {
         
         let messageText = inputText
         var documentsToSend = attachedDocuments
+        let chunksToSend = textSelectionChunks
         
         // ALWAYS append the currently selected document if there is one
         if let selectedDoc = selectedDocument {
@@ -118,25 +145,39 @@ struct ChatView: View {
             }
         }
         
-        // Clear input and attachments immediately
+        // Create hidden context from text selection chunks
+        let hiddenContext = chunksToSend.isEmpty ? nil : createHiddenContext(from: chunksToSend)
+        
+        // Clear input, attachments, and text chunks immediately
         inputText = ""
         withAnimation(DesignSystem.Animation.smooth) {
             attachedDocuments.removeAll()
+            textSelectionChunks.removeAll()
         }
         
         Task {
+            // Use the unified sendMessage method which now handles streaming
             await chatManager.sendMessage(
                 messageText,
                 settingsManager: settingsManager,
-                documentContext: documentsToSend
+                documentContext: documentsToSend,
+                hiddenContext: hiddenContext
             )
         }
+    }
+    
+    private func createHiddenContext(from chunks: [TextSelectionChunk]) -> String {
+        let contextParts = chunks.map { chunk in
+            "From \(chunk.source):\n\(chunk.text)"
+        }
+        return "\n\nAdditional context from selected text:\n" + contextParts.joined(separator: "\n\n")
     }
     
     private func startNewSession() {
         withAnimation(DesignSystem.Animation.smooth) {
             chatManager.startNewSession()
             attachedDocuments.removeAll()
+            textSelectionChunks.removeAll()
             inputText = ""
         }
     }
@@ -153,7 +194,7 @@ struct ChatHeaderView: View {
             if hasMessages {
                 Text("Conversation active")
                     .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
             }
             
             Spacer()
@@ -165,7 +206,7 @@ struct ChatHeaderView: View {
                         .font(.system(size: 14, weight: .medium))
                 }
                 .buttonStyle(.borderless)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .foregroundColor(DesignSystem.Colors.secondaryText)
             }
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
@@ -186,6 +227,8 @@ extension Notification.Name {
     static let documentAddedToChat = Notification.Name("documentAddedToChat")
     static let importPDF = Notification.Name("importPDF")
     static let toggleChatPanel = Notification.Name("toggleChatPanel")
+    static let textSelectionWithTyping = Notification.Name("textSelectionWithTyping")
+    static let focusChatInput = Notification.Name("focusChatInput")
 }
 
 // MARK: - Empty State Components
@@ -214,12 +257,12 @@ struct APIKeyRequiredView: View {
                 // Title
                 Text("API Key Required")
                     .font(DesignSystem.Typography.title3)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
                 
                 // Description
                 Text("Configure your Claude API key in Settings to use AI chat functionality.")
                     .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
                     .multilineTextAlignment(.center)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
@@ -234,7 +277,7 @@ struct APIKeyRequiredView: View {
                 
                 Text("Or press ⌘, to open settings")
                     .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textTertiary)
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
             }
         }
         .frame(maxWidth: 280)

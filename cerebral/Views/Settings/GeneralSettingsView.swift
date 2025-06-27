@@ -18,11 +18,11 @@
 //             VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
 //                 Text("General Settings")
 //                     .font(DesignSystem.Typography.title2)
-//                     .foregroundColor(DesignSystem.Colors.textPrimary)
+//                     .foregroundColor(DesignSystem.Colors.primaryText)
                 
 //                 Text("Configure general application behavior and preferences.")
 //                     .font(DesignSystem.Typography.body)
-//                     .foregroundColor(DesignSystem.Colors.textSecondary)
+//                     .foregroundColor(DesignSystem.Colors.secondaryText)
 //             }
             
 //             GroupBox("Startup") {
@@ -50,15 +50,15 @@
 //                         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
 //                             Text("Cerebral")
 //                                 .font(DesignSystem.Typography.title3)
-//                                 .foregroundColor(DesignSystem.Colors.textPrimary)
+//                                 .foregroundColor(DesignSystem.Colors.primaryText)
                             
 //                             Text("AI-powered PDF reader and chat assistant")
 //                                 .font(DesignSystem.Typography.body)
-//                                 .foregroundColor(DesignSystem.Colors.textSecondary)
+//                                 .foregroundColor(DesignSystem.Colors.secondaryText)
                             
 //                             Text("Version 1.0.0")
 //                                 .font(DesignSystem.Typography.caption)
-//                                 .foregroundColor(DesignSystem.Colors.textTertiary)
+//                                 .foregroundColor(DesignSystem.Colors.tertiaryText)
 //                         }
                         
 //                         Spacer()

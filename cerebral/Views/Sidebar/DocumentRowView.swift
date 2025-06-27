@@ -24,7 +24,7 @@ struct DocumentRowView: View {
                 Text(document.title)
                     .font(DesignSystem.Typography.body)
                     .fontWeight(.medium)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
                     .lineLimit(2)
                     .truncationMode(.tail)
             }

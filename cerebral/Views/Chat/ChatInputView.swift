@@ -10,11 +10,13 @@ import SwiftUI
 struct ChatInputView: View {
     @Binding var text: String
     let isLoading: Bool
+    let isStreaming: Bool
     let attachedDocuments: [Document]
+    let textSelectionChunks: [TextSelectionChunk]
     let onSend: () -> Void
     let onRemoveDocument: (Document) -> Void
+    let onRemoveTextChunk: (TextSelectionChunk) -> Void
     
-    @FocusState private var isTextFieldFocused: Bool
     @State private var isHovered = false
     
     // Autocomplete state
@@ -31,99 +33,57 @@ struct ChatInputView: View {
     init(
         text: Binding<String>,
         isLoading: Bool,
+        isStreaming: Bool = false,
         attachedDocuments: [Document] = [],
+        textSelectionChunks: [TextSelectionChunk] = [],
         onSend: @escaping () -> Void,
-        onRemoveDocument: @escaping (Document) -> Void = { _ in }
+        onRemoveDocument: @escaping (Document) -> Void = { _ in },
+        onRemoveTextChunk: @escaping (TextSelectionChunk) -> Void = { _ in }
     ) {
         self._text = text
         self.isLoading = isLoading
+        self.isStreaming = isStreaming
         self.attachedDocuments = attachedDocuments
+        self.textSelectionChunks = textSelectionChunks
         self.onSend = onSend
         self.onRemoveDocument = onRemoveDocument
+        self.onRemoveTextChunk = onRemoveTextChunk
     }
     
     var body: some View {
         VStack(spacing: 8) {
             // Attachment preview area
-            if !attachedDocuments.isEmpty {
-                AttachmentPreviewView(
-                    documents: attachedDocuments,
-                    onRemove: onRemoveDocument
-                )
-                .padding(.horizontal, 16)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
+            AttachmentList(
+                documents: attachedDocuments,
+                textChunks: textSelectionChunks,
+                onRemoveDocument: onRemoveDocument,
+                onRemoveTextChunk: onRemoveTextChunk
+            )
             
             // Input container with integrated send button
             HStack(spacing: 0) {
                 // Integrated text field with send button
                 ZStack(alignment: .trailing) {
-                                            // Enhanced text input with overlay highlighting
-                    ZStack(alignment: .topLeading) {
-                        // Highlight overlay for @mentions only
-                        HighlightOverlay(text: text)
-                            .allowsHitTesting(false)
-                            .padding(.leading, 16)
-                            .padding(.trailing, 48)
-                            .padding(.vertical, 12)
-                        
-                        // Actual text field (normal colors)
-                        TextField("Message...", text: $text, axis: .vertical)
-                            .textFieldStyle(.plain)
-                            .background(Color.clear)
-                            .font(.system(size: 16))
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                            .focused($isTextFieldFocused)
-                            .padding(.leading, 16)
-                            .padding(.trailing, 48) // Make room for send button
-                            .padding(.vertical, 12)
-                            .onSubmit {
-                                if !showingAutocomplete && canSend && !isLoading {
-                                    onSend()
-                                }
+                    // Enhanced text input with overlay highlighting
+                    ChatTextEditor(
+                        text: $text,
+                        isDisabled: isLoading || isStreaming,
+                        onSubmit: {
+                            if !showingAutocomplete && canSend && !isLoading && !isStreaming {
+                                onSend()
                             }
-                            .onChange(of: text) { _, newValue in
-                                handleTextChange(newValue)
-                            }
-                            .disabled(isLoading)
-                    }
-                    .frame(minHeight: minHeight)
-                    .background(
-                        RoundedRectangle(cornerRadius: 22)
-                            .fill(DesignSystem.Colors.background)
-                            .stroke(
-                                isTextFieldFocused ? DesignSystem.Colors.accent.opacity(0.5) : DesignSystem.Colors.border.opacity(0.3),
-                                lineWidth: 1
-                            )
+                        },
+                        onTextChange: handleTextChange
                     )
-                    .animation(.easeInOut(duration: 0.2), value: isTextFieldFocused)
                     
                     // Send button positioned inside text field
-                    Button(action: onSend) {
-                        ZStack {
-                            if isLoading {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                                    .tint(DesignSystem.Colors.accent)
-                            } else {
-                                Image(systemName: "arrow.up")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(canSend && !isLoading ? DesignSystem.Colors.accent : DesignSystem.Colors.textTertiary.opacity(0.3))
-                        )
-                        .scaleEffect(canSend && !isLoading ? 1.0 : 0.9)
-                        .animation(.easeInOut(duration: 0.15), value: canSend)
-                        .animation(.easeInOut(duration: 0.15), value: isLoading)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canSend || isLoading)
-                    .keyboardShortcut(.return, modifiers: [])
-                    .padding(.trailing, 8) // Position inside the text field
+                    ChatActions(
+                        canSend: canSend,
+                        isLoading: isLoading,
+                        isStreaming: isStreaming,
+                        onSend: onSend
+                    )
+                    .padding(.trailing, 8)
                 }
             }
             .padding(.horizontal, 16)
@@ -160,12 +120,9 @@ struct ChatInputView: View {
                 }
             }
         }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isTextFieldFocused = true
-            }
-        }
+
         .animation(.easeInOut(duration: 0.2), value: attachedDocuments.count)
+        .animation(.easeInOut(duration: 0.2), value: textSelectionChunks.count)
         .animation(.easeInOut(duration: 0.15), value: showingAutocomplete)
         .onKeyPress(KeyEquivalent.tab) {
             if showingAutocomplete && !autocompleteDocuments.isEmpty {
@@ -346,7 +303,7 @@ struct AutocompleteDropdown: View {
                         
                         Text(document.title)
                             .font(.system(size: 14))
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         
@@ -448,86 +405,32 @@ struct HighlightOverlay: View {
     }
 }
 
-// MARK: - Attachment Preview
 
-struct AttachmentPreviewView: View {
-    let documents: [Document]
-    let onRemove: (Document) -> Void
-    
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(documents, id: \.id) { document in
-                    AttachmentPillView(document: document) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            onRemove(document)
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-        .frame(height: 32)
-    }
-}
-
-struct AttachmentPillView: View {
-    let document: Document
-    let onRemove: () -> Void
-    @State private var isHovered = false
-    
-    var body: some View {
-        HStack(spacing: 6) {
-            // Document icon
-            Image(systemName: "doc.text")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(DesignSystem.Colors.accent)
-            
-            // Document title
-            Text(document.title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            
-            // Remove button
-            Button(action: onRemove) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-            }
-            .buttonStyle(.plain)
-            .frame(width: 14, height: 14)
-            .contentShape(Circle())
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(DesignSystem.Colors.background)
-                .stroke(DesignSystem.Colors.border.opacity(0.3), lineWidth: 1)
-        )
-        .scaleEffect(isHovered ? 0.98 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .onHover { isHovered = $0 }
-    }
-}
 
 #Preview {
-    VStack {
+    @State var inputText = "Hello @document.pdf"
+    
+    return VStack {
         Spacer()
         
         ChatInputView(
-            text: .constant(""),
+            text: $inputText,
             isLoading: false,
+            isStreaming: false,
             attachedDocuments: [
                 Document(title: "Sample Document.pdf", filePath: URL(fileURLWithPath: "/path/to/document.pdf")),
                 Document(title: "Research Paper.pdf", filePath: URL(fileURLWithPath: "/path/to/research.pdf"))
+            ],
+            textSelectionChunks: [
+                TextSelectionChunk(text: "This is a sample text selection from a PDF document.", source: "Sample Document"),
+                TextSelectionChunk(text: "Another text selection example that demonstrates the feature.", source: "Research Paper")
             ]
         ) {
             print("Send message")
         } onRemoveDocument: { document in
             print("Remove document: \(document.title)")
+        } onRemoveTextChunk: { chunk in
+            print("Remove text chunk: \(chunk.previewText)")
         }
     }
     .frame(width: 600, height: 400)
