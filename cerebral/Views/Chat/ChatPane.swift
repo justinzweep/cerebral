@@ -17,7 +17,7 @@ struct ChatPane: View {
 
 #Preview {
     ChatPane(selectedDocument: nil)
-        .environmentObject(SettingsManager())
+        .environment(SettingsManager())
         .modelContainer(for: [Document.self, ChatSession.self], inMemory: true)
         .frame(width: 320, height: 600)
 } 

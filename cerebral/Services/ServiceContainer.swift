@@ -7,8 +7,10 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 
 /// Dependency injection container for managing service instances
+/// Consolidated to reduce redundancy and improve maintainability
 @MainActor
 final class ServiceContainer {
     static let shared = ServiceContainer()
@@ -17,7 +19,10 @@ final class ServiceContainer {
         setupServices()
     }
     
-    // MARK: - Service Instances
+    // MARK: - Global State
+    let appState = AppState()
+    
+    // MARK: - Core Service Instances
     
     private(set) lazy var pdfService: PDFServiceProtocol = PDFService.shared
     private(set) lazy var documentService: DocumentServiceProtocol = DocumentService.shared
@@ -47,9 +52,6 @@ final class ServiceContainer {
     
     func configureModelContext(_ context: ModelContext) {
         documentService.setModelContext(context)
-        
-        // Update DocumentLookupService for backward compatibility
-        DocumentLookupService.shared.setModelContext(context)
     }
     
     private func setupServices() {
@@ -135,18 +137,6 @@ final class ErrorManager {
             appError = .pdfError(pdfError)
         case let settingsError as SettingsError:
             appError = .settingsError(settingsError)
-        case let apiError as APIError:
-            // Convert legacy APIError to ChatError
-            switch apiError {
-            case .noAPIKey:
-                appError = .chatError(.noAPIKey)
-            case .connectionFailed(let message):
-                appError = .chatError(.connectionFailed(message))
-            case .requestFailed(let message):
-                appError = .chatError(.requestFailed(message))
-            case .invalidResponse(let message):
-                appError = .chatError(.invalidResponse(message))
-            }
         default:
             appError = .networkFailure(error.localizedDescription)
         }
@@ -160,5 +150,79 @@ final class ErrorManager {
     func clearError() {
         currentError = nil
         showingError = false
+    }
+}
+
+// MARK: - App State Management
+
+@MainActor
+@Observable
+final class AppState {
+    // Document state
+    var selectedDocument: Document?
+    
+    // UI state
+    var showingChat = true
+    var showingSidebar = true
+    var showingImporter = false
+    
+    // Document import
+    var pendingDocumentImport = false
+    
+    // Text selection for chat
+    var textSelectionChunks: [TextSelectionChunk] = []
+    
+    // Chat focus state
+    var shouldFocusChatInput = false
+    
+    // Documents to add to chat
+    var documentToAddToChat: Document?
+    
+    // Text input from selections
+    var pendingInputText = ""
+    
+    // Methods for state management
+    func selectDocument(_ document: Document?) {
+        withAnimation(DesignSystem.Animation.smooth) {
+            selectedDocument = document
+        }
+    }
+    
+    func toggleChatPanel() {
+        withAnimation(DesignSystem.Animation.smooth) {
+            showingChat.toggle()
+        }
+    }
+    
+    func toggleSidebar() {
+        withAnimation(DesignSystem.Animation.smooth) {
+            showingSidebar.toggle()
+        }
+    }
+    
+    func requestDocumentImport() {
+        showingImporter = true
+    }
+    
+    func addDocumentToChat(_ document: Document) {
+        documentToAddToChat = document
+    }
+    
+    func addTextSelection(_ chunk: TextSelectionChunk, withTypedCharacter character: String) {
+        textSelectionChunks.append(chunk)
+        pendingInputText += character
+        shouldFocusChatInput = true
+    }
+    
+    func clearTextSelections() {
+        textSelectionChunks.removeAll()
+    }
+    
+    func focusChatInput() {
+        shouldFocusChatInput = true
+    }
+    
+    func resetChatInputFocus() {
+        shouldFocusChatInput = false
     }
 } 

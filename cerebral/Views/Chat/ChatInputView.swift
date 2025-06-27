@@ -209,7 +209,7 @@ struct ChatInputView: View {
     }
     
     private func showAutocomplete(for query: String) {
-        let allDocuments = DocumentLookupService.shared.getAllDocuments()
+        let allDocuments = ServiceContainer.shared.documentService.getAllDocuments()
         
         if query.isEmpty {
             autocompleteDocuments = Array(allDocuments.prefix(5)) // Show first 5 documents
@@ -260,7 +260,7 @@ struct ChatInputView: View {
             let documentName = extractDocumentName(from: fullMatch)
             
             // Check if document exists
-            let foundDocument = DocumentLookupService.shared.findDocument(byName: documentName)
+            let foundDocument = ServiceContainer.shared.documentService.findDocument(byName: documentName)
             if foundDocument == nil {
                 return false // Invalid reference found
             }
@@ -364,7 +364,7 @@ struct HighlightOverlay: View {
             let documentName = extractDocumentName(from: matchText)
             
             // Check if document exists to determine highlight color
-            let documentExists = DocumentLookupService.shared.findDocument(byName: documentName) != nil
+            let documentExists = ServiceContainer.shared.documentService.findDocument(byName: documentName) != nil
             
             // Convert NSRange to AttributedString range using proper conversion
             let utf16Range = match.range

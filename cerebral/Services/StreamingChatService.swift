@@ -50,7 +50,7 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         streamingTask = Task {
             do {
                 guard let apiService = claudeAPIService else {
-                    throw APIError.requestFailed("API service not initialized")
+                    throw ChatError.requestFailed("API service not initialized")
                 }
                 
                 let streamingResponse = apiService.sendMessageStream(
@@ -84,7 +84,7 @@ final class StreamingChatService: StreamingChatServiceProtocol {
                         
                     case .error(let errorMessage):
                         print("❌ Streaming error: \(errorMessage)")
-                        throw APIError.requestFailed(errorMessage)
+                        throw ChatError.requestFailed(errorMessage)
                         
                     default:
                         // Handle other streaming events (messageStart, contentBlockStart, etc.)

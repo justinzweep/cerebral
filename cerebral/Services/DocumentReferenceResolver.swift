@@ -37,13 +37,13 @@ final class DocumentReferenceResolver: DocumentReferenceServiceProtocol {
             }
             
             // Try to find the document
-            if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
+            if let document = ServiceContainer.shared.documentService.findDocument(byName: documentName) {
                 referencedDocuments.append(document)
                 print("✅ Found referenced document: '\(document.title)' for mention: '\(fullMatch)'")
             } else {
                 print("❌ Document not found for mention: '\(fullMatch)' (looking for: '\(documentName)')")
                 // Show all available documents for debugging
-                let allDocs = DocumentLookupService.shared.getAllDocuments()
+                let allDocs = ServiceContainer.shared.documentService.getAllDocuments()
                 print("📚 Available documents:")
                 for doc in allDocs.prefix(5) { // Show first 5 for brevity
                     print("  - '\(doc.title)'")

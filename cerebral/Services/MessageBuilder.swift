@@ -140,7 +140,14 @@ final class MessageBuilder: MessageBuilderServiceProtocol {
     /// Process @document references in text and replace them with document content
     @MainActor
     private func processDocumentReferences(in text: String) -> String {
-        // Regex pattern to match @pdf_name.pdf or @pdf_name (with or without .pdf extension)
+        // Use the DocumentReferenceResolver service for consistency
+        let referencedDocuments = ServiceContainer.shared.documentReferenceService.extractDocumentReferences(from: text)
+        
+        if referencedDocuments.isEmpty {
+            return text
+        }
+        
+        // Build replacement content for each referenced document
         let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
         
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
@@ -162,8 +169,8 @@ final class MessageBuilder: MessageBuilderServiceProtocol {
                 documentName = String(documentName.dropLast(4)) // Remove .pdf
             }
             
-            // Try to find the document
-            if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
+            // Try to find the document using the service
+            if let document = ServiceContainer.shared.documentService.findDocument(byName: documentName) {
                 // Extract content from the referenced document
                 if let extractedText = PDFService.shared.extractText(from: document, maxLength: 3000) {
                     let replacement = """

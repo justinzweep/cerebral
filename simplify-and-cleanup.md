@@ -22,46 +22,6 @@ This plan outlines steps to refactor the Cerebral codebase to follow SwiftUI bes
 
 ## Detailed Cleanup Plan
 
-### 5. Service Layer Improvements (Priority: MEDIUM)
-
-**Current Issues:**
-- Some services mixing concerns
-- Inconsistent error handling patterns
-- Missing dependency injection
-
-**Refactoring Plan:**
-
-#### A. Service Protocol Definitions
-```swift
-protocol ChatServiceProtocol {
-    func sendMessage(_ text: String) async throws -> String
-    func sendStreamingMessage(_ text: String) -> AsyncThrowingStream<ChatResponse, Error>
-}
-
-protocol DocumentServiceProtocol {
-    func importDocument(from url: URL) async throws -> Document
-    func searchDocuments(_ query: String) -> [Document]
-}
-
-protocol SettingsServiceProtocol {
-    var apiKey: String { get set }
-    var isAPIKeyValid: Bool { get }
-    func validateSettings() async -> Bool
-}
-```
-
-#### B. Service Consolidation
-- Merge related services where appropriate
-- Add proper error types instead of strings
-- Implement consistent async/await patterns
-
-**Actions:**
-1. Define service protocols for better testability
-2. Consolidate `PDFTextExtractionService` and `PDFThumbnailService` into `PDFService`
-3. Create `DocumentImportService` from extracted ContentView logic
-4. Add proper error types: `ChatError`, `DocumentError`, `APIError`
-5. Implement dependency injection container
-
 ### 6. State Management Simplification (Priority: MEDIUM)
 
 **Current Issues:**

@@ -10,7 +10,7 @@ import SwiftData
 
 @main
 struct CerebralApp: App {
-    @StateObject private var settingsManager = SettingsManager()
+    @State private var settingsManager = SettingsManager()
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Document.self, ChatSession.self])
@@ -26,20 +26,20 @@ struct CerebralApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(settingsManager)
+                .environment(settingsManager)
         }
         .modelContainer(sharedModelContainer)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Import PDF...") {
-                    NotificationCenter.default.post(name: .importPDF, object: nil)
+                    ServiceContainer.shared.appState.requestDocumentImport()
                 }
                 .keyboardShortcut("o", modifiers: [.command])
             }
             
             CommandGroup(after: .toolbar) {
                 Button("Toggle Chat Panel") {
-                    NotificationCenter.default.post(name: .toggleChatPanel, object: nil)
+                    ServiceContainer.shared.appState.toggleChatPanel()
                 }
                 .keyboardShortcut("c", modifiers: [.command])
             }
@@ -47,7 +47,7 @@ struct CerebralApp: App {
         
         Settings {
             SettingsView()
-                .environmentObject(settingsManager)
+                .environment(settingsManager)
         }
     }
 }

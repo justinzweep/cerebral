@@ -369,8 +369,6 @@ enum StreamingResponse {
 
 // MARK: - Data Models for Claude API
 
-
-
 struct ClaudeStreamRequest: Codable {
     let model: String
     let maxTokens: Int
@@ -402,23 +400,5 @@ struct ClaudeMessage: Codable {
 
 
 
-enum APIError: LocalizedError {
-    case noAPIKey
-    case connectionFailed(String)
-    case requestFailed(String)
-    case invalidResponse(String)
-    
-    var errorDescription: String? {
-        switch self {
-        case .noAPIKey:
-            return "No API key configured. Please add your Claude API key in Settings."
-        case .connectionFailed(let message):
-            return "Connection failed: \(message)"
-        case .requestFailed(let message):
-            return "Request failed: \(message)"
-        case .invalidResponse(let message):
-            return "Invalid response from Claude API: \(message)"
-        }
-    }
-} 
+// APIError has been consolidated into ChatError in AppErrors.swift
 

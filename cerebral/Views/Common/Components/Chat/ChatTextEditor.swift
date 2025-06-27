@@ -10,6 +10,7 @@ import SwiftUI
 struct ChatTextEditor: View {
     @Binding var text: String
     @FocusState private var isFocused: Bool
+    @State private var appState = ServiceContainer.shared.appState
     let isDisabled: Bool
     let onSubmit: () -> Void
     let onTextChange: (String) -> Void
@@ -69,9 +70,12 @@ struct ChatTextEditor: View {
                 isFocused = true
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .focusChatInput)) { _ in
-            DispatchQueue.main.async {
-                isFocused = true
+        .onChange(of: appState.shouldFocusChatInput) { _, shouldFocus in
+            if shouldFocus {
+                DispatchQueue.main.async {
+                    isFocused = true
+                }
+                appState.resetChatInputFocus()
             }
         }
     }

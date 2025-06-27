@@ -10,10 +10,11 @@ import SwiftUI
 struct ChatView: View {
     let selectedDocument: Document?
     @State private var chatManager = ChatManager()
-    @StateObject private var settingsManager = SettingsManager()
+    @State private var settingsManager = SettingsManager()
     @State private var inputText = ""
     @State private var attachedDocuments: [Document] = []
     @State private var textSelectionChunks: [TextSelectionChunk] = []
+    @State private var appState = ServiceContainer.shared.appState
     
     init(selectedDocument: Document? = nil) {
         self.selectedDocument = selectedDocument
@@ -91,32 +92,34 @@ struct ChatView: View {
                 APIKeyRequiredView()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .documentAddedToChat)) { notification in
-            if let document = notification.object as? Document {
+        .onChange(of: appState.documentToAddToChat) { _, newDocument in
+            if let document = newDocument {
                 withAnimation(DesignSystem.Animation.smooth) {
                     // Add to attached documents instead of replacing
                     if !attachedDocuments.contains(where: { $0.id == document.id }) {
                         attachedDocuments.append(document)
                     }
                 }
+                // Clear the trigger
+                appState.documentToAddToChat = nil
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .textSelectionWithTyping)) { notification in
-            if let textChunk = notification.object as? TextSelectionChunk,
-               let typedCharacter = notification.userInfo?["typedCharacter"] as? String {
-                
+        .onChange(of: appState.textSelectionChunks) { oldChunks, newChunks in
+            if newChunks.count > oldChunks.count {
+                let newChunk = newChunks.last!
                 withAnimation(DesignSystem.Animation.smooth) {
                     // Add the text selection chunk
-                    textSelectionChunks.append(textChunk)
-                    
-                    // Add the typed character to the input text
-                    inputText += typedCharacter
+                    textSelectionChunks.append(newChunk)
                 }
                 
-                // Focus the chat input (this will be handled by the ChatInputView)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    NotificationCenter.default.post(name: .focusChatInput, object: nil)
-                }
+                // Focus the chat input
+                appState.focusChatInput()
+            }
+        }
+        .onChange(of: appState.pendingInputText) { _, newText in
+            if !newText.isEmpty {
+                inputText += newText
+                appState.pendingInputText = ""
             }
         }
         .onAppear {
@@ -221,15 +224,7 @@ struct ChatHeaderView: View {
     }
 }
 
-// Notification for document selection
-extension Notification.Name {
-    static let documentSelected = Notification.Name("documentSelected")
-    static let documentAddedToChat = Notification.Name("documentAddedToChat")
-    static let importPDF = Notification.Name("importPDF")
-    static let toggleChatPanel = Notification.Name("toggleChatPanel")
-    static let textSelectionWithTyping = Notification.Name("textSelectionWithTyping")
-    static let focusChatInput = Notification.Name("focusChatInput")
-}
+// Note: Notification system has been replaced with AppState for better data flow
 
 // MARK: - Empty State Components
 

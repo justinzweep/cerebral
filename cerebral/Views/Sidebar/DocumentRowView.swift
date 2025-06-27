@@ -34,10 +34,7 @@ struct DocumentRowView: View {
             // Add to Chat button (subtle, only shown on hover)
             if isHovered {
                 Button {
-                    NotificationCenter.default.post(
-                        name: .documentAddedToChat,
-                        object: document
-                    )
+                    ServiceContainer.shared.appState.addDocumentToChat(document)
                 } label: {
                     Image(systemName: "message")
                         .font(.system(size: 12, weight: .medium))

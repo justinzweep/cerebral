@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject var settingsManager: SettingsManager
+    @Environment(SettingsManager.self) var settingsManager: SettingsManager
     
     var body: some View {
         TabView {
@@ -16,7 +16,7 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
                 }
-                .environmentObject(settingsManager)
+                .environment(settingsManager)
             // PreferencesTabView()
             //     .tabItem {
             //         Label("Preferences", systemImage: "gearshape")
@@ -33,5 +33,5 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
-        .environmentObject(SettingsManager())
+        .environment(SettingsManager())
 } 

@@ -8,10 +8,11 @@
 import Foundation
 
 @MainActor
-class SettingsManager: ObservableObject, SettingsServiceProtocol {
-    @Published var apiKey: String = ""
-    @Published var isAPIKeyValid: Bool = false
-    @Published var lastError: String?
+@Observable
+final class SettingsManager: SettingsServiceProtocol {
+    var apiKey: String = ""
+    var isAPIKeyValid: Bool = false
+    var lastError: String?
     
     private let keychainService = KeychainService.shared
     

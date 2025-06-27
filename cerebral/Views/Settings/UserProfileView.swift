@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ProfileTabView: View {
-    @EnvironmentObject var settingsManager: SettingsManager
+    @Environment(SettingsManager.self) var settingsManager: SettingsManager
     @AppStorage("userName") private var userName: String = ""
     @State private var tempAPIKey: String = ""
     @State private var isEditingAPIKey: Bool = false
@@ -111,6 +111,6 @@ struct ProfileTabView: View {
 
 #Preview {
     ProfileTabView()
-        .environmentObject(SettingsManager())
+        .environment(SettingsManager())
         .frame(width: 500, height: 400)
 } 

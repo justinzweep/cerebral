@@ -75,7 +75,7 @@ struct FlowMessageText: View {
     
     private func loadReferencedDocuments() {
         referencedDocuments = documentReferences.compactMap { uuid in
-            DocumentLookupService.shared.findDocument(byId: uuid)
+            ServiceContainer.shared.documentService.findDocument(byId: uuid)
         }
         
         print("📚 Loaded \(referencedDocuments.count) referenced documents for message")
@@ -85,7 +85,7 @@ struct FlowMessageText: View {
         
         if documentReferences.count != referencedDocuments.count {
             print("⚠️ Missing documents - looking for \(documentReferences.count) but found \(referencedDocuments.count)")
-            let allDocs = DocumentLookupService.shared.getAllDocuments()
+            let allDocs = ServiceContainer.shared.documentService.getAllDocuments()
             print("📋 Available documents (\(allDocs.count)):")
             for doc in allDocs.prefix(5) {
                 print("  - '\(doc.title)' (ID: \(doc.id))")
@@ -107,7 +107,7 @@ struct FlowMessageText: View {
             return found
         }
         
-        return DocumentLookupService.shared.findDocument(byName: documentName)
+        return ServiceContainer.shared.documentService.findDocument(byName: documentName)
     }
     
     private func parseTextParts() {
@@ -203,11 +203,8 @@ struct MentionPillButton: View {
         }
         
         print("🔍 Opening document: '\(document.title)' (ID: \(document.id))")
-        NotificationCenter.default.post(
-            name: .documentSelected,
-            object: document
-        )
-        print("📤 Posted .documentSelected notification")
+        ServiceContainer.shared.appState.selectDocument(document)
+        print("📤 Updated AppState with selected document")
     }
 }
 

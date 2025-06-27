@@ -182,13 +182,9 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         // Clear the selection to prevent further typing events
         pdfView?.clearSelection()
         
-        // Send notification to focus chat input with the text chunk and typed character
+        // Use AppState to handle text selection with typing
         DispatchQueue.main.async {
-            NotificationCenter.default.post(
-                name: .textSelectionWithTyping,
-                object: textChunk,
-                userInfo: ["typedCharacter": typedCharacter]
-            )
+            ServiceContainer.shared.appState.addTextSelection(textChunk, withTypedCharacter: typedCharacter)
         }
     }
     
