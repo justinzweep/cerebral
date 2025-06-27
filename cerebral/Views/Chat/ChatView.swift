@@ -103,13 +103,19 @@ struct ChatView: View {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         let messageText = inputText
+        let documentsToSend = attachedDocuments
+        
+        // Clear input and attachments immediately
         inputText = ""
+        withAnimation(DesignSystem.Animation.smooth) {
+            attachedDocuments.removeAll()
+        }
         
         Task {
             await chatManager.sendMessage(
                 messageText,
                 settingsManager: settingsManager,
-                documentContext: attachedDocuments
+                documentContext: documentsToSend
             )
         }
     }

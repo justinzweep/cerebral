@@ -19,8 +19,16 @@ import Foundation
     private var currentDocumentContext: [Document] = []
     
     func sendMessage(_ text: String, settingsManager: SettingsManager, documentContext: [Document] = []) async {
-        // Store the original user message for UI display (clean, without document content)
-        let userMessage = ChatMessage(text: text, isUser: true)
+        // Extract document references from @mentions in the text
+        let referencedDocuments = await extractDocumentReferences(from: text)
+        let allReferencedUUIDs = referencedDocuments.map { $0.id }
+        
+        // Store the original user message for UI display with document references
+        let userMessage = ChatMessage(
+            text: text, 
+            isUser: true, 
+            documentReferences: allReferencedUUIDs
+        )
         messages.append(userMessage)
         
         guard settingsManager.isAPIKeyValid else {
@@ -43,7 +51,10 @@ import Foundation
         
         // Build the enhanced message for LLM (includes document content)
         let documentsToProcess = documentContext.isEmpty ? currentDocumentContext : documentContext
-        let enhancedMessageForLLM = await buildEnhancedMessage(userText: text, documents: documentsToProcess)
+        // Also include any documents referenced via @mentions
+        let allDocumentsToProcess = Array(Set(documentsToProcess + referencedDocuments))
+        
+        let enhancedMessageForLLM = await buildEnhancedMessage(userText: text, documents: allDocumentsToProcess)
         
         do {
             let response = try await claudeAPIService?.sendMessage(
@@ -55,7 +66,7 @@ import Foundation
             let aiMessage = ChatMessage(
                 text: response,
                 isUser: false,
-                documentReferences: documentsToProcess.map { $0.id }
+                documentReferences: allDocumentsToProcess.map { $0.id }
             )
             messages.append(aiMessage)
         } catch {
@@ -175,6 +186,45 @@ import Foundation
     }
     
     // MARK: - Private Helper Methods
+    
+    private func extractDocumentReferences(from text: String) async -> [Document] {
+        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return []
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        var referencedDocuments: [Document] = []
+        
+        for match in matches {
+            let fullMatch = nsString.substring(with: match.range)
+            
+            // Extract document name (remove @ and potentially .pdf)
+            var documentName = String(fullMatch.dropFirst()) // Remove @
+            if documentName.hasSuffix(".pdf") {
+                documentName = String(documentName.dropLast(4)) // Remove .pdf
+            }
+            
+            // Try to find the document
+            if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
+                referencedDocuments.append(document)
+                print("✅ Found referenced document: '\(document.title)' for mention: '\(fullMatch)'")
+            } else {
+                print("❌ Document not found for mention: '\(fullMatch)' (looking for: '\(documentName)')")
+                // Show all available documents for debugging
+                let allDocs = DocumentLookupService.shared.getAllDocuments()
+                print("📚 Available documents:")
+                for doc in allDocs.prefix(5) { // Show first 5 for brevity
+                    print("  - '\(doc.title)'")
+                }
+            }
+        }
+        
+        return referencedDocuments
+    }
     
     private func buildEnhancedMessage(userText: String, documents: [Document]) async -> String {
         // First, process @pdf_name.pdf references in the user text

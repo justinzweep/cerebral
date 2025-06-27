@@ -22,175 +22,399 @@ struct MessageView: View {
             if message.isUser {
                 Spacer(minLength: DesignSystem.Spacing.xxl)
                 
-                VStack(alignment: .trailing, spacing: shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs) {
-                    // Message bubble
-                    HStack {
-                        Text(message.text)
-                            .font(DesignSystem.Typography.body)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, DesignSystem.Spacing.md)
-                            .padding(.vertical, DesignSystem.Spacing.sm)
-                            .background(
-                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                                    .fill(DesignSystem.Colors.accent)
-                                    .shadow(
-                                        color: DesignSystem.Colors.accent.opacity(0.3),
-                                        radius: 4,
-                                        x: 0,
-                                        y: 2
-                                    )
-                            )
-                            .animation(DesignSystem.Animation.microInteraction, value: isHovered)
-                    }
-                    
-                    // Timestamp and status
-                    if !shouldGroup {
-                        HStack(spacing: DesignSystem.Spacing.xs) {
-                            Text(message.timestamp, style: .time)
-                                .font(DesignSystem.Typography.caption2)
-                                .foregroundColor(DesignSystem.Colors.textTertiary)
-                            
-                            // Status indicator (delivered/read)
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(DesignSystem.Colors.accent.opacity(0.6))
-                        }
-                        .opacity(isHovered ? 1.0 : 0.7)
-                        .animation(DesignSystem.Animation.microInteraction, value: isHovered)
-                    }
-                }
-                
-                // User Avatar (only show if not grouped)
-                if !shouldGroup {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [DesignSystem.Colors.accent, DesignSystem.Colors.accentSecondary],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 32, height: 32)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .foregroundColor(.white)
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .shadow(
-                            color: DesignSystem.Shadows.light,
-                            radius: 2,
-                            y: 1
-                        )
-                } else {
-                    // Spacer to maintain alignment when grouped
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: 32, height: 32)
-                }
-            } else {
-                // AI Avatar (only show if not grouped)
-                if !shouldGroup {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    DesignSystem.Colors.accentTertiary,
-                                    DesignSystem.Colors.accentSecondary
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 32, height: 32)
-                        .overlay {
-                            Image(systemName: "brain.head.profile")
-                                .foregroundColor(.white)
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .shadow(
-                            color: DesignSystem.Shadows.light,
-                            radius: 2,
-                            y: 1
-                        )
-                } else {
-                    // Spacer to maintain alignment when grouped
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: 32, height: 32)
-                }
-                
-                VStack(alignment: .leading, spacing: shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs) {
-                    // Message bubble
-                    HStack {
-                        Text(message.text)
-                            .font(DesignSystem.Typography.body)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                            .padding(.horizontal, DesignSystem.Spacing.md)
-                            .padding(.vertical, DesignSystem.Spacing.sm)
-                            .textSelection(.enabled)
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                            .fill(Material.thin)
-                            .shadow(
-                                color: DesignSystem.Shadows.subtle,
-                                radius: isHovered ? 3 : 1,
-                                x: 0,
-                                y: isHovered ? 2 : 0.5
-                            )
-                    )
+                // User message with inline clickable @mentions
+                FlowMessageText(text: message.text, documentReferences: message.documentReferences)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
                     .animation(DesignSystem.Animation.microInteraction, value: isHovered)
-                    
-                    // Timestamp and document references
-                    if !shouldGroup {
-                        HStack(spacing: DesignSystem.Spacing.xs) {
-                            Text(message.timestamp, style: .time)
-                                .font(DesignSystem.Typography.caption2)
-                                .foregroundColor(DesignSystem.Colors.textTertiary)
-                            
-                            if !message.documentReferences.isEmpty {
-                                HStack(spacing: DesignSystem.Spacing.xxxs) {
-                                    Image(systemName: "doc.text")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(DesignSystem.Colors.accent)
-                                    
-                                    Text("\(message.documentReferences.count)")
-                                        .font(DesignSystem.Typography.caption2)
-                                        .foregroundColor(DesignSystem.Colors.accent)
-                                }
-                                .padding(.horizontal, DesignSystem.Spacing.xs)
-                                .padding(.vertical, DesignSystem.Spacing.xxxs)
-                                .background(
-                                    Capsule()
-                                        .fill(DesignSystem.Colors.accent.opacity(0.1))
-                                )
-                            }
+                    .onHover { isHovered = $0 }
+                    .contextMenu {
+                        Button("Copy Message") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(message.text, forType: .string)
                         }
-                        .opacity(isHovered ? 1.0 : 0.7)
-                        .animation(DesignSystem.Animation.microInteraction, value: isHovered)
                     }
-                }
+            } else {
+                // AI message - no background with white text
+                Text(message.text)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                    .textSelection(.enabled)
+                    .onHover { isHovered = $0 }
+                    .contextMenu {
+                        Button("Copy Message") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(message.text, forType: .string)
+                        }
+                        
+                        Divider()
+                        
+                        Button("Regenerate Response") {
+                            // TODO: Implement regenerate functionality
+                        }
+                    }
                 
                 Spacer(minLength: DesignSystem.Spacing.xxl)
             }
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
-        .onHover { isHovered = $0 }
-        .contextMenu {
-            Button("Copy Message") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(message.text, forType: .string)
+    }
+}
+
+// MARK: - Inline Message Text with Clickable Pills
+
+struct InlineMessageText: View {
+    let text: String
+    @State private var textParts: [TextPart] = []
+    
+    var body: some View {
+        // Use Text with AttributedString to keep everything inline
+        Text(buildClickableAttributedString())
+            .font(DesignSystem.Typography.body)
+            .foregroundColor(.white)
+            .textSelection(.enabled)
+            .onAppear {
+                parseTextParts()
+            }
+    }
+    
+    private func buildClickableAttributedString() -> AttributedString {
+        var result = AttributedString()
+        
+        for part in textParts {
+            var partString = AttributedString(part.text)
+            
+            if part.isMention {
+                // Style as clickable pill
+                partString.backgroundColor = .blue.opacity(0.4)
+                partString.foregroundColor = .white
+                partString.font = .system(size: 14, weight: .medium)
+                
+                // Add click handler - this is where we'll handle the tap
+                partString.link = URL(string: "mention://\(part.documentName)")
+                
+                // Add some padding-like effect with spaces
+                partString = AttributedString(" ") + partString + AttributedString(" ")
             }
             
-            if !message.isUser {
-                Divider()
-                
-                Button("Regenerate Response") {
-                    // TODO: Implement regenerate functionality
+            result += partString
+        }
+        
+        return result
+    }
+    
+    private func parseTextParts() {
+        textParts = []
+        
+        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_\.]+)"#
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            textParts = [TextPart(text: text, isMention: false, documentName: "")]
+            return
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        var lastLocation = 0
+        
+        for match in matches {
+            // Add text before mention
+            if match.range.location > lastLocation {
+                let beforeText = nsString.substring(with: NSRange(location: lastLocation, length: match.range.location - lastLocation))
+                if !beforeText.isEmpty {
+                    textParts.append(TextPart(text: beforeText, isMention: false, documentName: ""))
                 }
+            }
+            
+            // Add mention
+            let mentionText = nsString.substring(with: match.range)
+            var documentName = String(mentionText.dropFirst())
+            if documentName.hasSuffix(".pdf") {
+                documentName = String(documentName.dropLast(4))
+            }
+            
+            textParts.append(TextPart(text: mentionText, isMention: true, documentName: documentName))
+            
+            lastLocation = match.range.location + match.range.length
+        }
+        
+        // Add remaining text
+        if lastLocation < nsString.length {
+            let remainingText = nsString.substring(from: lastLocation)
+            if !remainingText.isEmpty {
+                textParts.append(TextPart(text: remainingText, isMention: false, documentName: ""))
             }
         }
     }
+    
+    private func extractDocumentName(from matchText: String) -> String {
+        // Remove the @ symbol
+        var documentName = String(matchText.dropFirst())
+        
+        // If it ends with .pdf, remove only the final .pdf extension
+        if documentName.lowercased().hasSuffix(".pdf") {
+            documentName = String(documentName.dropLast(4))
+        }
+        
+        return documentName
+    }
+}
+
+// MARK: - Alternative Implementation with Proper Inline Layout
+
+struct FlowMessageText: View {
+    let text: String
+    let documentReferences: [UUID]
+    @State private var textParts: [TextPart] = []
+    @State private var referencedDocuments: [Document] = []
+    
+    var body: some View {
+                        InlineFlowLayout(alignment: .leading, spacing: 2) {
+            ForEach(Array(textParts.enumerated()), id: \.offset) { index, part in
+                if part.isMention {
+                    MentionPillButton(
+                        text: part.text,
+                        documentName: part.documentName,
+                        document: findReferencedDocument(for: part.documentName)
+                    )
+                } else {
+                    // Split text by spaces and newlines for proper flow
+                    ForEach(part.text.components(separatedBy: .whitespacesAndNewlines), id: \.self) { word in
+                        if !word.isEmpty {
+                            Text(word + " ")
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear {
+            loadReferencedDocuments()
+            parseTextParts()
+        }
+    }
+    
+    private func loadReferencedDocuments() {
+        // Convert UUIDs to actual Document objects using the improved lookup service
+        referencedDocuments = documentReferences.compactMap { uuid in
+            DocumentLookupService.shared.findDocument(byId: uuid)
+        }
+        
+        print("📚 Loaded \(referencedDocuments.count) referenced documents for message")
+        for doc in referencedDocuments {
+            print("  - '\(doc.title)' (ID: \(doc.id))")
+        }
+        
+        // Debug: Print all document references and available documents
+        if documentReferences.count != referencedDocuments.count {
+            print("⚠️ Missing documents - looking for \(documentReferences.count) but found \(referencedDocuments.count)")
+            let allDocs = DocumentLookupService.shared.getAllDocuments()
+            print("📋 Available documents (\(allDocs.count)):")
+            for doc in allDocs.prefix(5) {
+                print("  - '\(doc.title)' (ID: \(doc.id))")
+            }
+        }
+    }
+    
+    private func findReferencedDocument(for documentName: String) -> Document? {
+        // First try to find in the referenced documents list
+        let foundInReferences = referencedDocuments.first { document in
+            // Try exact match first
+            if document.title.lowercased() == documentName.lowercased() {
+                return true
+            }
+            // Try without .pdf extension
+            let titleWithoutPdf = document.title.hasSuffix(".pdf") ? 
+                String(document.title.dropLast(4)) : document.title
+            return titleWithoutPdf.lowercased() == documentName.lowercased()
+        }
+        
+        if let found = foundInReferences {
+            return found
+        }
+        
+        // Fallback: try to find in all available documents
+        return DocumentLookupService.shared.findDocument(byName: documentName)
+    }
+    
+    private func parseTextParts() {
+        textParts = []
+        
+        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_\.]+)"#
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            textParts = [TextPart(text: text, isMention: false, documentName: "")]
+            return
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        var lastLocation = 0
+        
+        for match in matches {
+            // Add text before mention
+            if match.range.location > lastLocation {
+                let beforeText = nsString.substring(with: NSRange(location: lastLocation, length: match.range.location - lastLocation))
+                if !beforeText.isEmpty {
+                    textParts.append(TextPart(text: beforeText, isMention: false, documentName: ""))
+                }
+            }
+            
+            // Add mention
+            let mentionText = nsString.substring(with: match.range)
+            var documentName = String(mentionText.dropFirst())
+            if documentName.hasSuffix(".pdf") {
+                documentName = String(documentName.dropLast(4))
+            }
+            
+            textParts.append(TextPart(text: mentionText, isMention: true, documentName: documentName))
+            
+            lastLocation = match.range.location + match.range.length
+        }
+        
+        // Add remaining text
+        if lastLocation < nsString.length {
+            let remainingText = nsString.substring(from: lastLocation)
+            if !remainingText.isEmpty {
+                textParts.append(TextPart(text: remainingText, isMention: false, documentName: ""))
+            }
+        }
+    }
+    
+    private func extractDocumentName(from matchText: String) -> String {
+        // Remove the @ symbol
+        var documentName = String(matchText.dropFirst())
+        
+        // If it ends with .pdf, remove only the final .pdf extension
+        if documentName.lowercased().hasSuffix(".pdf") {
+            documentName = String(documentName.dropLast(4))
+        }
+        
+        return documentName
+    }
+}
+
+// MARK: - Mention Pill Button
+
+struct MentionPillButton: View {
+    let text: String
+    let documentName: String
+    let document: Document?
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: {
+            openDocument()
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: "doc.fill")
+                    .font(.system(size: 10, weight: .medium))
+                
+                Text(text)
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(document != nil ? Color.blue.opacity(0.6) : Color.gray.opacity(0.6))
+                    .overlay(
+                        Capsule()
+                            .stroke(document != nil ? Color.blue.opacity(0.8) : Color.gray.opacity(0.8), lineWidth: 1)
+                    )
+            )
+            .scaleEffect(isHovered ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: isHovered)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help(document != nil ? "Click to open \(documentName).pdf" : "Document '\(documentName)' not found")
+        .disabled(document == nil)
+    }
+    
+    private func openDocument() {
+        guard let document = document else {
+            print("❌ No document available to open for: '\(documentName)'")
+            return
+        }
+        
+        print("🔍 Opening document: '\(document.title)' (ID: \(document.id))")
+        NotificationCenter.default.post(
+            name: .documentSelected,
+            object: document
+        )
+        print("📤 Posted .documentSelected notification")
+    }
+}
+
+// MARK: - Inline Flow Layout for Text Elements
+
+struct InlineFlowLayout: Layout {
+    let alignment: Alignment
+    let spacing: CGFloat
+    
+    init(alignment: Alignment = .center, spacing: CGFloat = 8) {
+        self.alignment = alignment
+        self.spacing = spacing
+    }
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var height: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var currentX: CGFloat = 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            
+            if currentX + size.width > width {
+                height += lineHeight + spacing
+                lineHeight = size.height
+                currentX = size.width + spacing
+            } else {
+                lineHeight = max(lineHeight, size.height)
+                currentX += size.width + spacing
+            }
+        }
+        
+        height += lineHeight
+        return CGSize(width: width, height: height)
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var currentX: CGFloat = bounds.minX
+        var currentY: CGFloat = bounds.minY
+        var lineHeight: CGFloat = 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            
+            if currentX + size.width > bounds.maxX && currentX > bounds.minX {
+                currentY += lineHeight + spacing
+                currentX = bounds.minX
+                lineHeight = 0
+            }
+            
+            subview.place(at: CGPoint(x: currentX, y: currentY), proposal: ProposedViewSize(size))
+            
+            currentX += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+    }
+}
+
+// MARK: - Text Part Model
+
+struct TextPart {
+    let text: String
+    let isMention: Bool
+    let documentName: String
 }
 
 #Preview {
@@ -201,7 +425,7 @@ struct MessageView: View {
         ))
         
         MessageView(message: ChatMessage(
-            text: "Can you help me understand this PDF?",
+            text: "Can you help me understand @document.pdf and also reference @research_paper.pdf in this longer message?",
             isUser: true
         ))
         
@@ -218,4 +442,5 @@ struct MessageView: View {
     }
     .padding()
     .frame(width: 400)
+    .background(.black) // Dark background to see white text
 } 

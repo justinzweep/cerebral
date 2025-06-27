@@ -35,11 +35,29 @@ class DocumentLookupService {
             return exactMatch
         }
         
+        // Try exact match without .pdf extension
+        let nameWithoutPdf = cleanName.hasSuffix(".pdf") ? String(cleanName.dropLast(4)) : cleanName
+        if let exactMatchNoPdf = allDocuments.first(where: { 
+            let titleWithoutPdf = $0.title.hasSuffix(".pdf") ? String($0.title.dropLast(4)) : $0.title
+            return titleWithoutPdf == nameWithoutPdf
+        }) {
+            return exactMatchNoPdf
+        }
+        
         // Try case-insensitive partial match
         let lowercaseName = cleanName.lowercased()
         return allDocuments.first { document in
             document.title.lowercased().contains(lowercaseName)
         }
+    }
+    
+    func findDocument(byId id: UUID) -> Document? {
+        guard let modelContext = modelContext else { return nil }
+        
+        let fetch = FetchDescriptor<Document>()
+        guard let allDocuments = try? modelContext.fetch(fetch) else { return nil }
+        
+        return allDocuments.first { $0.id == id }
     }
     
     func findDocuments(matching pattern: String) -> [Document] {

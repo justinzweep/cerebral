@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var sidebarWidth: CGFloat = 280
     @State private var chatWidth: CGFloat = 320
     @State private var keyMonitor: Any?
+    @State private var showingImporter = false
     @EnvironmentObject var settingsManager: SettingsManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
@@ -68,13 +69,22 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .background(DesignSystem.Colors.secondaryBackground)
+        .onReceive(NotificationCenter.default.publisher(for: .importPDF)) { _ in
+            showingImporter = true
+        }
         .onReceive(NotificationCenter.default.publisher(for: .toggleChatPanel)) { _ in
             withAnimation(DesignSystem.Animation.smooth) {
                 showingChat.toggle()
             }
         }
-        .focusable()
-        .focusEffectDisabled()
+        .onReceive(NotificationCenter.default.publisher(for: .documentSelected)) { notification in
+            if let document = notification.object as? Document {
+                withAnimation(DesignSystem.Animation.smooth) {
+                    selectedDocument = document
+                }
+                print("🎯 ContentView: Document selected via notification: '\(document.title)'")
+            }
+        }
         .onAppear {
             setupKeyboardMonitoring()
         }
@@ -90,6 +100,63 @@ struct ContentView: View {
         .task {
             // Initialize DocumentLookupService on app launch
             DocumentLookupService.shared.setModelContext(modelContext)
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: true
+        ) { result in
+            importDocuments(result)
+        }
+    }
+    
+    // MARK: - Import Methods
+    
+    private func importDocuments(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            for url in urls {
+                importDocument(from: url)
+            }
+        case .failure(let error):
+            print("Error importing documents: \(error)")
+        }
+    }
+    
+    private func importDocument(from url: URL) {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+        
+        // Create documents directory if it doesn't exist
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let cerebralDocsPath = documentsPath.appendingPathComponent("Cerebral Documents")
+        try? FileManager.default.createDirectory(at: cerebralDocsPath, withIntermediateDirectories: true)
+        
+        // Copy file to app's documents directory
+        let fileName = url.lastPathComponent
+        let destinationURL = cerebralDocsPath.appendingPathComponent(fileName)
+        
+        // Handle duplicates by appending a number
+        var finalURL = destinationURL
+        var counter = 1
+        while FileManager.default.fileExists(atPath: finalURL.path) {
+            let nameWithoutExt = (fileName as NSString).deletingPathExtension
+            let ext = (fileName as NSString).pathExtension
+            finalURL = cerebralDocsPath.appendingPathComponent("\(nameWithoutExt) \(counter).\(ext)")
+            counter += 1
+        }
+        
+        do {
+            try FileManager.default.copyItem(at: url, to: finalURL)
+            
+            // Create document model
+            let title = finalURL.deletingPathExtension().lastPathComponent
+            let document = Document(title: title, filePath: finalURL)
+            modelContext.insert(document)
+            
+            try modelContext.save()
+        } catch {
+            print("Error importing document: \(error)")
         }
     }
     

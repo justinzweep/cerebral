@@ -17,6 +17,14 @@ struct ChatInputView: View {
     @FocusState private var isTextFieldFocused: Bool
     @State private var isHovered = false
     
+    // Autocomplete state
+    @State private var showingAutocomplete = false
+    @State private var autocompleteDocuments: [Document] = []
+    @State private var selectedAutocompleteIndex = 0
+    @State private var currentAtMentionRange: Range<String.Index>?
+    @State private var cursorPosition: Int = 0
+    @State private var showAutocompleteAbove = false
+    
     private let maxHeight: CGFloat = 120
     private let minHeight: CGFloat = 66 // Height for 2 lines of text
     
@@ -50,15 +58,16 @@ struct ChatInputView: View {
             HStack(spacing: 0) {
                 // Integrated text field with send button
                 ZStack(alignment: .trailing) {
-                    // Enhanced text input with highlighting overlay
+                                            // Enhanced text input with overlay highlighting
                     ZStack(alignment: .topLeading) {
-                        // Background highlighting for @pdf_name.pdf patterns
+                        // Highlight overlay for @mentions only
                         HighlightOverlay(text: text)
+                            .allowsHitTesting(false)
                             .padding(.leading, 16)
                             .padding(.trailing, 48)
                             .padding(.vertical, 12)
                         
-                        // Original TextField (restored exactly)
+                        // Actual text field (normal colors)
                         TextField("Message...", text: $text, axis: .vertical)
                             .textFieldStyle(.plain)
                             .background(Color.clear)
@@ -69,9 +78,12 @@ struct ChatInputView: View {
                             .padding(.trailing, 48) // Make room for send button
                             .padding(.vertical, 12)
                             .onSubmit {
-                                if canSend && !isLoading {
+                                if !showingAutocomplete && canSend && !isLoading {
                                     onSend()
                                 }
+                            }
+                            .onChange(of: text) { _, newValue in
+                                handleTextChange(newValue)
                             }
                             .disabled(isLoading)
                     }
@@ -116,6 +128,37 @@ struct ChatInputView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+            .overlay(alignment: .topLeading) {
+                // Autocomplete dropdown overlay - completely independent of input layout
+                if showingAutocomplete && !autocompleteDocuments.isEmpty {
+                    AutocompleteDropdown(
+                        documents: autocompleteDocuments,
+                        selectedIndex: selectedAutocompleteIndex,
+                        onSelect: { document in
+                            insertDocumentReference(document)
+                        }
+                    )
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear {
+                                    // Calculate optimal position based on screen space
+                                    let dropdownHeight: CGFloat = CGFloat(min(autocompleteDocuments.count, 5)) * 40 + 16
+                                    let globalFrame = geometry.frame(in: .global)
+                                    let screenHeight = NSScreen.main?.frame.height ?? 800
+                                    let spaceBelow = screenHeight - globalFrame.minY - 50
+                                    
+                                    showAutocompleteAbove = spaceBelow < dropdownHeight
+                                }
+                        }
+                    )
+                    .offset(
+                        x: 16,
+                        y: showAutocompleteAbove ? -(CGFloat(min(autocompleteDocuments.count, 5)) * 40 + 24) : (minHeight + 8)
+                    )
+                    .zIndex(1000)
+                }
+            }
         }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -123,61 +166,285 @@ struct ChatInputView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: attachedDocuments.count)
+        .animation(.easeInOut(duration: 0.15), value: showingAutocomplete)
+        .onKeyPress(KeyEquivalent.tab) {
+            if showingAutocomplete && !autocompleteDocuments.isEmpty {
+                insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(KeyEquivalent.return) {
+            if showingAutocomplete && !autocompleteDocuments.isEmpty {
+                insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(KeyEquivalent.upArrow) {
+            if showingAutocomplete {
+                selectedAutocompleteIndex = max(0, selectedAutocompleteIndex - 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(KeyEquivalent.downArrow) {
+            if showingAutocomplete {
+                selectedAutocompleteIndex = min(autocompleteDocuments.count - 1, selectedAutocompleteIndex + 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(KeyEquivalent.escape) {
+            if showingAutocomplete {
+                hideAutocomplete()
+                return .handled
+            }
+            return .ignored
+        }
     }
     
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return false }
+        
+        // Check if all @ references are valid
+        return areAllDocumentReferencesValid(in: trimmedText)
+    }
+    
+    // MARK: - Autocomplete Logic
+    
+    private func handleTextChange(_ newValue: String) {
+        // Find @ mentions and trigger autocomplete
+        checkForAtMention(in: newValue)
+    }
+    
+    private func checkForAtMention(in text: String) {
+        // Find the current cursor position (approximation - we'll use the end of text for simplicity)
+        let cursorIndex = text.endIndex
+        
+        // Look backwards from cursor to find @ symbol
+        var searchIndex = cursorIndex
+        var foundAt = false
+        var mentionStart: String.Index?
+        
+        while searchIndex > text.startIndex {
+            searchIndex = text.index(before: searchIndex)
+            let char = text[searchIndex]
+            
+            if char == "@" {
+                foundAt = true
+                mentionStart = searchIndex
+                break
+            } else if char.isWhitespace || char.isNewline {
+                // Stop searching if we hit whitespace
+                break
+            }
+        }
+        
+        if foundAt, let start = mentionStart {
+            let mentionText = String(text[text.index(after: start)..<cursorIndex])
+            currentAtMentionRange = start..<cursorIndex
+            showAutocomplete(for: mentionText)
+        } else {
+            hideAutocomplete()
+        }
+    }
+    
+    private func showAutocomplete(for query: String) {
+        let allDocuments = DocumentLookupService.shared.getAllDocuments()
+        
+        if query.isEmpty {
+            autocompleteDocuments = Array(allDocuments.prefix(5)) // Show first 5 documents
+        } else {
+            autocompleteDocuments = allDocuments.filter { document in
+                document.title.lowercased().contains(query.lowercased())
+            }.prefix(5).map { $0 } // Limit to 5 results
+        }
+        
+        selectedAutocompleteIndex = 0
+        showingAutocomplete = !autocompleteDocuments.isEmpty
+        
+        // Reset positioning - will be recalculated in onAppear
+        showAutocompleteAbove = false
+    }
+    
+    private func hideAutocomplete() {
+        showingAutocomplete = false
+        autocompleteDocuments = []
+        currentAtMentionRange = nil
+        selectedAutocompleteIndex = 0
+    }
+    
+    private func insertDocumentReference(_ document: Document) {
+        guard let range = currentAtMentionRange else { return }
+        
+        let beforeAt = String(text[..<range.lowerBound])
+        let afterMention = String(text[range.upperBound...])
+        let documentReference = "@\(document.title)"
+        
+        text = beforeAt + documentReference + afterMention
+        hideAutocomplete()
+    }
+    
+    private func areAllDocumentReferencesValid(in text: String) -> Bool {
+        // Use the same improved pattern that handles dots correctly
+        let pattern = #"@([a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*\.pdf|[a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*)"#
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return true // If regex fails, allow sending
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        for match in matches {
+            let fullMatch = nsString.substring(with: match.range)
+            let documentName = extractDocumentName(from: fullMatch)
+            
+            // Check if document exists
+            let foundDocument = DocumentLookupService.shared.findDocument(byName: documentName)
+            if foundDocument == nil {
+                return false // Invalid reference found
+            }
+        }
+        
+        return true // All references are valid
+    }
+    
+    private func extractDocumentName(from matchText: String) -> String {
+        // Remove the @ symbol
+        var documentName = String(matchText.dropFirst())
+        
+        // If it ends with .pdf, remove only the final .pdf extension
+        if documentName.lowercased().hasSuffix(".pdf") {
+            documentName = String(documentName.dropLast(4))
+        }
+        
+        return documentName
     }
 }
 
-// MARK: - Highlight Overlay
+// MARK: - Autocomplete Dropdown
+
+struct AutocompleteDropdown: View {
+    let documents: [Document]
+    let selectedIndex: Int
+    let onSelect: (Document) -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(documents.enumerated()), id: \.element.id) { index, document in
+                Button(action: {
+                    onSelect(document)
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(DesignSystem.Colors.accent)
+                            .frame(width: 16)
+                        
+                        Text(document.title)
+                            .font(.system(size: 14))
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(index == selectedIndex ? DesignSystem.Colors.accent.opacity(0.1) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(DesignSystem.Colors.background)
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        )
+        .frame(maxWidth: 300)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(DesignSystem.Colors.border.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Highlight Overlay for @mentions
 
 struct HighlightOverlay: View {
     let text: String
     
     var body: some View {
-        Text(text)
-            .font(.system(size: 16))
-            .foregroundColor(.clear) // Make text invisible
-            .background(
-                // Custom text renderer that only shows highlights
-                HighlightedTextBackground(text: text)
-            )
-    }
-}
-
-struct HighlightedTextBackground: View {
-    let text: String
-    
-    var body: some View {
-        Text(buildAttributedString())
+        Text(buildHighlightedAttributedString())
             .font(.system(size: 16))
     }
     
-    private func buildAttributedString() -> AttributedString {
-        // Create NSAttributedString first (easier to work with)
-        let nsAttributedString = NSMutableAttributedString(string: text)
+    private func buildHighlightedAttributedString() -> AttributedString {
+        var result = AttributedString(text)
         
-        // Make all text transparent first
-        let fullRange = NSRange(location: 0, length: text.count)
-        nsAttributedString.addAttribute(.foregroundColor, value: NSColor.clear, range: fullRange)
+        // Make ALL text completely transparent - no foreground text at all
+        result.foregroundColor = Color.clear
         
-        // Find @pdf_name.pdf patterns
-        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
+        // Improved regex pattern to handle filenames with dots better
+        // Matches @filename.pdf (with any number of dots in filename)
+        let pattern = #"@([a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*\.pdf|[a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*)"#
         
-        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
-            let matches = regex.matches(in: text, options: [], range: fullRange)
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return result
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        for match in matches {
+            let matchText = nsString.substring(with: match.range)
+            let documentName = extractDocumentName(from: matchText)
             
-            // Apply highlighting to matches
-            for match in matches {
-                nsAttributedString.addAttribute(.backgroundColor, value: NSColor.systemYellow.withAlphaComponent(0.3), range: match.range)
-                nsAttributedString.addAttribute(.foregroundColor, value: NSColor.systemOrange, range: match.range)
-                nsAttributedString.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 16), range: match.range)
+            // Check if document exists to determine highlight color
+            let documentExists = DocumentLookupService.shared.findDocument(byName: documentName) != nil
+            
+            // Convert NSRange to AttributedString range using proper conversion
+            let utf16Range = match.range
+            let utf16Start = String.Index(utf16Offset: utf16Range.location, in: text)
+            let utf16End = String.Index(utf16Offset: utf16Range.location + utf16Range.length, in: text)
+            
+            // Convert to AttributedString indices
+            if let attrStart = AttributedString.Index(utf16Start, within: result),
+               let attrEnd = AttributedString.Index(utf16End, within: result) {
+                let attributedRange = attrStart..<attrEnd
+                
+                // Only add background color, keep text transparent
+                if documentExists {
+                    // Valid reference - blue background only
+                    result[attributedRange].backgroundColor = Color.blue.opacity(0.2)
+                } else {
+                    // Invalid reference - red background only
+                    result[attributedRange].backgroundColor = Color.red.opacity(0.2)
+                }
+                // Keep foregroundColor transparent - no text rendering
+                result[attributedRange].foregroundColor = Color.clear
             }
         }
         
-        // Convert to AttributedString
-        return AttributedString(nsAttributedString)
+        return result
+    }
+    
+    private func extractDocumentName(from matchText: String) -> String {
+        // Remove the @ symbol
+        var documentName = String(matchText.dropFirst())
+        
+        // If it ends with .pdf, remove only the final .pdf extension
+        if documentName.lowercased().hasSuffix(".pdf") {
+            documentName = String(documentName.dropLast(4))
+        }
+        
+        return documentName
     }
 }
 
@@ -266,3 +533,4 @@ struct AttachmentPillView: View {
     .frame(width: 600, height: 400)
     .background(Color(NSColor.windowBackgroundColor))
 }
+
