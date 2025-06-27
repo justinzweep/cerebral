@@ -7,9 +7,11 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct DocumentSidebarPane: View {
     @Binding var selectedDocument: Document?
+    @Binding var showingImporter: Bool
     @Environment(\.modelContext) private var modelContext
     
     // Optimized query with limit for better performance
@@ -17,8 +19,6 @@ struct DocumentSidebarPane: View {
         sort: \Document.dateAdded, 
         order: .reverse
     ) private var documents: [Document]
-    
-    @State private var showingImporter = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -39,15 +39,7 @@ struct DocumentSidebarPane: View {
                 }
                 .buttonStyle(.plain)
                 .frame(width: 32, height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
-                        .fill(DesignSystem.Colors.hoverBackground.opacity(0))
-                )
-                .onHover { isHovered in
-                    withAnimation(DesignSystem.Animation.microInteraction) {
-                        // Hover effect handled by button style
-                    }
-                }
+                .contentShape(Rectangle())
             }
             .padding(DesignSystem.Spacing.md)
             
@@ -82,24 +74,14 @@ struct DocumentSidebarPane: View {
             }
             .scrollIndicators(.hidden) // Performance optimization
         }
-        .fileImporter(
-            isPresented: $showingImporter,
-            allowedContentTypes: [.pdf],
-            allowsMultipleSelection: true
-        ) { result in
-            Task { @MainActor in
-                do {
-                    try await ServiceContainer.shared.documentService.importDocuments(result, to: modelContext)
-                } catch {
-                                            ServiceContainer.shared.errorManager.handle(error, context: "document_import_ui")
-                }
-            }
-        }
     }
 }
 
 #Preview {
-    DocumentSidebarPane(selectedDocument: .constant(nil))
-        .modelContainer(for: [Document.self, ChatSession.self], inMemory: true)
-        .frame(width: 280, height: 600)
+    DocumentSidebarPane(
+        selectedDocument: .constant(nil),
+        showingImporter: .constant(false)
+    )
+    .modelContainer(for: [Document.self, ChatSession.self], inMemory: true)
+    .frame(width: 280, height: 600)
 } 

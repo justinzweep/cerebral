@@ -24,7 +24,10 @@ struct ContentView: View {
         HStack(spacing: 0) {
             // Left Pane: Document Sidebar
             if appState.showingSidebar {
-                DocumentSidebarPane(selectedDocument: $appState.selectedDocument)
+                DocumentSidebarPane(
+                    selectedDocument: $appState.selectedDocument,
+                    showingImporter: $appState.showingImporter
+                )
                     .frame(width: sidebarWidth)
                     .background(DesignSystem.Colors.secondaryBackground)
                     .transition(.move(edge: .leading).combined(with: .opacity))

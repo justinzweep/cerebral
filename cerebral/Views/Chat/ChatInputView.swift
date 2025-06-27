@@ -238,7 +238,15 @@ struct ChatInputView: View {
         
         let beforeAt = String(text[..<range.lowerBound])
         let afterMention = String(text[range.upperBound...])
-        let documentReference = "@\(document.title)"
+        
+        // Ensure the document reference includes the .pdf extension
+        let documentTitle = document.title
+        let documentReference: String
+        if documentTitle.lowercased().hasSuffix(".pdf") {
+            documentReference = "@\(documentTitle)"
+        } else {
+            documentReference = "@\(documentTitle).pdf"
+        }
         
         text = beforeAt + documentReference + afterMention
         hideAutocomplete()

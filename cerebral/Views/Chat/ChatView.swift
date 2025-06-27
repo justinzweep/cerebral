@@ -41,8 +41,7 @@ struct ChatView: View {
                                     .id("empty-state") // Stable ID for animations
                             } else {
                                 // Use stable IDs and minimize re-renders
-                                ForEach(chatManager.messages.indices, id: \.self) { index in
-                                    let message = chatManager.messages[index]
+                                ForEach(Array(chatManager.messages.enumerated()), id: \.element.id) { index, message in
                                     let shouldGroup = chatManager.shouldGroupMessage(at: index)
                                     
                                     MessageView(
@@ -182,8 +181,10 @@ struct ChatView: View {
     }
     
     private func startNewSession() {
+        // Clear messages immediately to prevent index out of range
+        chatManager.startNewSession()
+        
         withAnimation(DesignSystem.Animation.smooth) {
-            chatManager.startNewSession()
             attachedDocuments.removeAll()
             textSelectionChunks.removeAll()
             inputText = ""
