@@ -19,7 +19,6 @@ struct APIKeySettingsView: View {
                 Text("Claude API Configuration")
                     .font(DesignSystem.Typography.title2)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h1)
                 
                 Text("Enter your Anthropic Claude API key to enable AI chat functionality.")
                     .font(DesignSystem.Typography.body)
@@ -31,14 +30,11 @@ struct APIKeySettingsView: View {
                 Text("API Key")
                     .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h2)
                 
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     if isEditing {
                         SecureField("sk-ant-...", text: $tempAPIKey)
                             .textFieldStyle(CerebralTextFieldStyle(isError: !settingsManager.validateAPIKey(tempAPIKey) && !tempAPIKey.isEmpty))
-                            .accessibilityLabel("API key input field")
-                            .accessibilityHint("Enter your Claude API key starting with sk-ant-")
                     } else {
                         HStack(spacing: DesignSystem.Spacing.sm) {
                             Text(settingsManager.apiKey.isEmpty ? "No API key set" : "••••••••••••••••••••")
@@ -50,7 +46,6 @@ struct APIKeySettingsView: View {
                             if settingsManager.isAPIKeyValid {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(DesignSystem.Colors.successGreen)
-                                    .accessibilityLabel("API key is valid")
                             }
                         }
                         .padding(.horizontal, DesignSystem.Spacing.sm)
@@ -73,37 +68,24 @@ struct APIKeySettingsView: View {
                             }
                             .buttonStyle(PrimaryButtonStyle())
                             .disabled(!settingsManager.validateAPIKey(tempAPIKey))
-                            .accessibleButton(
-                                label: "Save API key",
-                                hint: "Saves the entered API key securely"
-                            )
                             
                             Button("Cancel") {
                                 tempAPIKey = settingsManager.apiKey
                                 isEditing = false
                             }
                             .buttonStyle(SecondaryButtonStyle())
-                            .accessibleButton(label: "Cancel editing", hint: "Discards changes and stops editing")
                         } else {
                             Button(settingsManager.apiKey.isEmpty ? "Add" : "Edit") {
                                 tempAPIKey = settingsManager.apiKey
                                 isEditing = true
                             }
                             .buttonStyle(SecondaryButtonStyle())
-                            .accessibleButton(
-                                label: settingsManager.apiKey.isEmpty ? "Add API key" : "Edit API key",
-                                hint: "Opens the API key input field for editing"
-                            )
                             
                             if !settingsManager.apiKey.isEmpty {
                                 Button("Remove") {
                                     showingConfirmation = true
                                 }
                                 .buttonStyle(DestructiveButtonStyle())
-                                .accessibleButton(
-                                    label: "Remove API key",
-                                    hint: "Removes the saved API key from secure storage"
-                                )
                             }
                         }
                     }
@@ -115,28 +97,22 @@ struct APIKeySettingsView: View {
                 HStack(spacing: DesignSystem.Spacing.xs) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(DesignSystem.Colors.errorRed)
-                        .accessibilityHidden(true)
                     
                     Text("Invalid API key format. Claude API keys should start with 'sk-ant-'")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.errorRed)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Error: Invalid API key format")
             }
             
             if let error = settingsManager.lastError {
                 HStack(spacing: DesignSystem.Spacing.xs) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(DesignSystem.Colors.errorRed)
-                        .accessibilityHidden(true)
                     
                     Text(error)
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.errorRed)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Error: \(error)")
             }
             
             // Help Section
@@ -144,7 +120,6 @@ struct APIKeySettingsView: View {
                 Text("How to get your API key:")
                     .font(DesignSystem.Typography.subheadline)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h3)
                 
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
                     HelpStepView(step: "1", text: "Visit console.anthropic.com")
@@ -197,8 +172,6 @@ struct HelpStepView: View {
                 .font(DesignSystem.Typography.caption)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Step \(step): \(text)")
     }
 }
 

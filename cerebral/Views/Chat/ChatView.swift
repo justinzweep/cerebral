@@ -12,19 +12,14 @@ struct ChatView: View {
     @StateObject private var settingsManager = SettingsManager()
     @State private var inputText = ""
     @State private var attachedDocuments: [Document] = []
-    @State private var showingNewSessionAlert = false
     
     var body: some View {
         VStack(spacing: 0) {
             // Chat Header with session info and actions
             ChatHeaderView(
-                sessionTitle: chatManager.currentSessionTitle,
                 hasMessages: !chatManager.messages.isEmpty,
                 onNewSession: {
-                    showingNewSessionAlert = true
-                },
-                onExportMessages: {
-                    exportMessages()
+                    startNewSession()
                 }
             )
             
@@ -47,7 +42,6 @@ struct ChatView: View {
                                     .id(message.id)
                                     .padding(.horizontal, DesignSystem.Spacing.md)
                                     .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
-                                    .accessibilityElement(children: .combine)
                                 }
                             }
                         }
@@ -62,10 +56,6 @@ struct ChatView: View {
                     }
                 }
                 
-                // Input divider
-                Rectangle()
-                    .fill(DesignSystem.Colors.border.opacity(0.3))
-                    .frame(height: 1)
                 
                 // Enhanced Chat Input
                 ChatInputView(
@@ -87,14 +77,6 @@ struct ChatView: View {
                 // API Key Required State
                 APIKeyRequiredView()
             }
-        }
-        .alert("Start New Chat Session", isPresented: $showingNewSessionAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Start New Session") {
-                startNewSession()
-            }
-        } message: {
-            Text("This will clear the current conversation. Are you sure you want to continue?")
         }
         .onReceive(NotificationCenter.default.publisher(for: .documentAddedToChat)) { notification in
             if let document = notification.object as? Document {
@@ -139,88 +121,43 @@ struct ChatView: View {
             inputText = ""
         }
     }
-    
-    private func exportMessages() {
-        let exportText = chatManager.exportMessages()
-        
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.plainText]
-        savePanel.nameFieldStringValue = "Chat Export - \(Date().formatted(date: .abbreviated, time: .shortened)).txt"
-        
-        if savePanel.runModal() == .OK {
-            if let url = savePanel.url {
-                do {
-                    try exportText.write(to: url, atomically: true, encoding: .utf8)
-                } catch {
-                    print("Failed to export messages: \(error)")
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Chat Header
 
 struct ChatHeaderView: View {
-    let sessionTitle: String
     let hasMessages: Bool
     let onNewSession: () -> Void
-    let onExportMessages: () -> Void
     
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
-                Text(sessionTitle)
-                    .font(DesignSystem.Typography.headline)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .lineLimit(1)
-                
-                if hasMessages {
-                    Text("Conversation active")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
+            if hasMessages {
+                Text("Conversation active")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
             }
             
             Spacer()
             
             HStack(spacing: DesignSystem.Spacing.xs) {
-                // Export button
-                if hasMessages {
-                    Button(action: onExportMessages) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .accessibleButton(
-                        label: "Export conversation",
-                        hint: "Exports the current conversation to a text file"
-                    )
-                }
-                
                 // New session button
                 Button(action: onNewSession) {
-                    Image(systemName: "plus.square")
+                    Image(systemName: "plus.circle.fill")
                         .font(.system(size: 14, weight: .medium))
                 }
                 .buttonStyle(.borderless)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
-                .accessibleButton(
-                    label: "New chat session",
-                    hint: "Starts a new clean chat session"
-                )
             }
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
         .padding(.vertical, DesignSystem.Spacing.sm)
-        .background(Material.thin)
-        .overlay(
-            Rectangle()
-                .fill(DesignSystem.Colors.border.opacity(0.3))
-                .frame(height: 1),
-            alignment: .bottom
-        )
+        // .background(Material.thin)
+        // .overlay(
+        //     Rectangle()
+        //         .fill(DesignSystem.Colors.border.opacity(0.3))
+        //         .frame(height: 1),
+        //     alignment: .bottom
+        // )
     }
 }
 
@@ -238,51 +175,9 @@ struct EmptyStateView: View {
     let hasAttachedDocuments: Bool
     
     var body: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            // Icon
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 42))
-                .foregroundColor(DesignSystem.Colors.accent.opacity(0.6))
-                .accessibilityHidden(true)
-            
-            // Title & Description
-            VStack(spacing: DesignSystem.Spacing.sm) {
-                Text("Start a conversation")
-                    .font(DesignSystem.Typography.title3)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h3)
-                
-                Text(hasAttachedDocuments ? 
-                     "Ask me questions about your attached documents or anything else you'd like to know." :
-                     "Ask me anything about your documents or any topic you'd like to discuss.")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            
-            // Suggestions
-            if hasAttachedDocuments {
-                VStack(spacing: DesignSystem.Spacing.xs) {
-                    Text("Try asking:")
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textTertiary)
-                    
-                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                        Text("• \"Summarize these documents\"")
-                        Text("• \"What are the main points?\"")
-                        Text("• \"Compare the key concepts\"")
-                    }
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
-                .padding(.top, DesignSystem.Spacing.sm)
-            }
+        VStack(spacing: DesignSystem.Spacing.lg) {                  
         }
         .frame(maxWidth: 320)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Chat is empty. \(hasAttachedDocuments ? "Ask me questions about your attached documents or anything else you'd like to know." : "Ask me anything about your documents or any topic you'd like to discuss.")")
     }
 }
 
@@ -295,14 +190,12 @@ struct APIKeyRequiredView: View {
             Image(systemName: "key.slash")
                 .font(.system(size: 42))
                 .foregroundColor(DesignSystem.Colors.warningOrange)
-                .accessibilityHidden(true)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
                 // Title
                 Text("API Key Required")
                     .font(DesignSystem.Typography.title3)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h2)
                 
                 // Description
                 Text("Configure your Claude API key in Settings to use AI chat functionality.")
@@ -318,10 +211,7 @@ struct APIKeyRequiredView: View {
                     openSettings()
                 }
                 .buttonStyle(PrimaryButtonStyle())
-                .accessibleButton(
-                    label: "Open settings to configure API key",
-                    hint: "Opens the settings window where you can add your Claude API key"
-                )
+
                 
                 Text("Or press ⌘, to open settings")
                     .font(DesignSystem.Typography.caption)
@@ -331,11 +221,8 @@ struct APIKeyRequiredView: View {
         .frame(maxWidth: 280)
         .padding(DesignSystem.Spacing.xl)
         .frame(maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - Accessibility Extensions
 
 // accessibleHeading is already defined in DesignSystem.swift
 

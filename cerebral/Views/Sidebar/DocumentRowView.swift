@@ -13,15 +13,11 @@ struct DocumentRowView: View {
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
-            // PDF Icon with subtle styling
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xs)
-                .fill(DesignSystem.Colors.accent.opacity(0.1))
-                .frame(width: 36, height: 44)
-                .overlay(
-                    Image(systemName: "doc.text.fill")
-                        .foregroundColor(DesignSystem.Colors.accent)
-                        .font(.system(size: 16, weight: .medium))
-                )
+            // PDF Thumbnail
+            PDFThumbnailView(
+                document: document,
+                size: CGSize(width: 36, height: 44)
+            )
             
             // Document info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
@@ -31,28 +27,6 @@ struct DocumentRowView: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .lineLimit(2)
                     .truncationMode(.tail)
-                
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    if let lastOpened = document.lastOpened {
-                        Text(relativeDateString(from: lastOpened))
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                    } else {
-                        Text(relativeDateString(from: document.dateAdded))
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textTertiary)
-                    }
-                    
-                    if document.lastOpened != nil {
-                        Circle()
-                            .fill(DesignSystem.Colors.textTertiary)
-                            .frame(width: 2, height: 2)
-                        
-                        Text("Recent")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.accent)
-                    }
-                }
             }
             
             Spacer()
@@ -76,18 +50,9 @@ struct DocumentRowView: View {
                         .fill(DesignSystem.Colors.accent.opacity(0.1))
                 )
                 .contentShape(Circle())
-                .accessibilityLabel("Add to chat")
-                .accessibilityHint("Add this document to the chat context")
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
-            
-            // Subtle indicator
-            if isHovered {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(DesignSystem.Colors.textTertiary)
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            }
+        
         }
         .padding(.horizontal, DesignSystem.Spacing.sm)
         .padding(.vertical, DesignSystem.Spacing.sm)
@@ -101,9 +66,6 @@ struct DocumentRowView: View {
             }
         }
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("PDF document: \(document.title)")
-        .accessibilityHint("Tap to open document")
     }
     
     private func relativeDateString(from date: Date) -> String {

@@ -43,10 +43,11 @@ class ClaudeAPIService: ObservableObject {
             messages.append(ClaudeMessage(role: role, content: historyMessage.text))
         }
         
-        // Build the current message with document context
+        // Add the current message (which may already include document content)
         var currentMessageContent = message
         
-        if !context.isEmpty {
+        // Only add separate document context if there are documents and the message doesn't already contain them
+        if !context.isEmpty && !message.contains("ATTACHED DOCUMENTS:") {
             let contextInfo = buildDocumentContext(from: context)
             currentMessageContent = """
             Document Context:
@@ -162,7 +163,13 @@ class ClaudeAPIService: ObservableObject {
         3. Assist with research and provide insights
         4. Be helpful, accurate, and concise in your responses
         
-        When document context is provided, prioritize information from those documents in your responses. If asked about content not in the provided documents, clearly state that and offer general knowledge if helpful.
+        When a user message contains "ATTACHED DOCUMENTS:" followed by document content, prioritize information from those documents in your responses. The document content will be clearly marked with document titles and metadata.
+        
+        The user message format may include:
+        - ATTACHED DOCUMENTS: (document content and metadata)
+        - USER MESSAGE: (the actual user question)
+        
+        Focus on the user's actual question while using the attached document content to provide accurate, relevant answers. If asked about content not in the provided documents, clearly state that and offer general knowledge if helpful.
         
         Keep responses conversational and helpful while being precise about document-specific information.
         """

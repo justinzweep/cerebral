@@ -81,7 +81,6 @@ struct MessageView: View {
                             radius: 2,
                             y: 1
                         )
-                        .accessibilityLabel("User message")
                 } else {
                     // Spacer to maintain alignment when grouped
                     Rectangle()
@@ -113,7 +112,6 @@ struct MessageView: View {
                             radius: 2,
                             y: 1
                         )
-                        .accessibilityLabel("AI Assistant message")
                 } else {
                     // Spacer to maintain alignment when grouped
                     Rectangle()
@@ -178,15 +176,11 @@ struct MessageView: View {
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
         .onHover { isHovered = $0 }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(message.isUser ? "You" : "AI Assistant") said: \(message.text)")
-        .accessibilityHint("Message sent at \(message.timestamp, style: .time)")
         .contextMenu {
             Button("Copy Message") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(message.text, forType: .string)
             }
-            .accessibleButton(label: "Copy message text", hint: "Copies the message text to clipboard")
             
             if !message.isUser {
                 Divider()
@@ -194,7 +188,6 @@ struct MessageView: View {
                 Button("Regenerate Response") {
                     // TODO: Implement regenerate functionality
                 }
-                .accessibleButton(label: "Regenerate AI response", hint: "Asks the AI to provide a new response")
             }
         }
     }

@@ -343,22 +343,16 @@ struct CerebralTextFieldStyle: TextFieldStyle {
     }
 }
 
-// MARK: - Accessibility Helpers
 
 extension View {
     /// Adds proper accessibility labeling for buttons
     func accessibleButton(label: String, hint: String? = nil) -> some View {
         self
-            .accessibilityLabel(label)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint(hint ?? "")
     }
     
     /// Adds proper accessibility labeling for headings
     func accessibleHeading(level: AccessibilityHeadingLevel = .h1) -> some View {
         self
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityHeading(level)
     }
     
     /// Adds minimum touch target size for accessibility
@@ -442,8 +436,6 @@ struct StatusIndicator: View {
                 .font(DesignSystem.Typography.caption)
                 .foregroundColor(status.color)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Connection status: \(status.text)")
     }
 }
 

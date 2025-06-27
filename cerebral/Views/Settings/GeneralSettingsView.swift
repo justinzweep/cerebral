@@ -19,7 +19,6 @@ struct GeneralSettingsView: View {
                 Text("General Settings")
                     .font(DesignSystem.Typography.title2)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h1)
                 
                 Text("Configure general application behavior and preferences.")
                     .font(DesignSystem.Typography.body)

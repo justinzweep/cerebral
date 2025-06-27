@@ -22,21 +22,26 @@ struct PDFViewerView: View {
         Group {
             if let currentDocument = document {
                 if let pdfDocument = pdfDocument {
-                    // PDF Content only - no header
+                    // PDF Content - top-aligned and constrained
                     PDFViewerRepresentable(
                         document: pdfDocument,
                         currentPage: $currentPage
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .clipped()
                     .background(DesignSystem.Colors.secondaryBackground)
                 } else {
                     // Enhanced Loading State
                     LoadingStateView(message: "Loading PDF...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 // Enhanced Empty State
                 EmptyPDFStateView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: document) { oldDocument, newDocument in
             loadPDF()
         }
@@ -91,7 +96,6 @@ struct LoadingStateView: View {
                 .font(DesignSystem.Typography.title3)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.Colors.secondaryBackground)
     }
 }
@@ -117,7 +121,6 @@ struct EmptyPDFStateView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.Colors.secondaryBackground.opacity(0.5))
     }
 }

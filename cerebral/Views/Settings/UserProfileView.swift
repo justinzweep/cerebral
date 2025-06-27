@@ -19,7 +19,6 @@ struct UserProfileView: View {
                 Text("User Profile")
                     .font(DesignSystem.Typography.title2)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .accessibleHeading(level: .h1)
                 
                 Text("Manage your personal information and preferences.")
                     .font(DesignSystem.Typography.body)

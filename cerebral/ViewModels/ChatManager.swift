@@ -13,12 +13,13 @@ import Foundation
     var isLoading: Bool = false
     var lastError: String?
     var hasConnectionError: Bool = false
-    var currentSessionTitle: String = "New Chat"
+    var currentSessionTitle: String = "Chat"
     
     private var claudeAPIService: ClaudeAPIService?
     private var currentDocumentContext: [Document] = []
     
     func sendMessage(_ text: String, settingsManager: SettingsManager, documentContext: [Document] = []) async {
+        // Store the original user message for UI display (clean, without document content)
         let userMessage = ChatMessage(text: text, isUser: true)
         messages.append(userMessage)
         
@@ -40,19 +41,21 @@ import Foundation
         lastError = nil
         hasConnectionError = false
         
+        // Build the enhanced message for LLM (includes document content)
+        let documentsToProcess = documentContext.isEmpty ? currentDocumentContext : documentContext
+        let enhancedMessageForLLM = await buildEnhancedMessage(userText: text, documents: documentsToProcess)
+        
         do {
             let response = try await claudeAPIService?.sendMessage(
-                text,
-                context: documentContext.isEmpty ? currentDocumentContext : documentContext,
+                enhancedMessageForLLM,
+                context: [], // Pass empty context since we're including it in the message
                 conversationHistory: filterValidMessages(Array(messages.dropLast())) // Exclude the just-added user message and error messages
             ) ?? "No response received"
             
             let aiMessage = ChatMessage(
                 text: response,
                 isUser: false,
-                documentReferences: documentContext.isEmpty ? 
-                    currentDocumentContext.map { $0.id } : 
-                    documentContext.map { $0.id }
+                documentReferences: documentsToProcess.map { $0.id }
             )
             messages.append(aiMessage)
         } catch {
@@ -70,7 +73,7 @@ import Foundation
     
     // MARK: - Session Management
     
-    func startNewSession(title: String = "New Chat") {
+    func startNewSession(title: String = "Chat") {
         messages.removeAll()
         currentDocumentContext.removeAll()
         currentSessionTitle = title
@@ -97,7 +100,7 @@ import Foundation
             messages.append(welcomeMessage)
         } else {
             clearDocumentContext()
-            currentSessionTitle = "New Chat"
+            currentSessionTitle = "Chat"
         }
     }
     
@@ -112,7 +115,7 @@ import Foundation
     
     func clearDocumentContext() {
         currentDocumentContext.removeAll()
-        currentSessionTitle = "New Chat"
+        currentSessionTitle = "Chat"
     }
     
     func clearMessages() {
@@ -161,14 +164,6 @@ import Foundation
         }
     }
     
-    func exportMessages() -> String {
-        return messages.map { message in
-            let sender = message.isUser ? "User" : "Assistant"
-            let timestamp = message.timestamp.formatted(date: .abbreviated, time: .shortened)
-            return "[\(timestamp)] \(sender): \(message.text)"
-        }.joined(separator: "\n\n")
-    }
-    
     private func filterValidMessages(_ messages: [ChatMessage]) -> [ChatMessage] {
         return messages.filter { message in
             // Filter out error messages from conversation history
@@ -177,5 +172,105 @@ import Foundation
             !message.text.contains("Connection failed") &&
             !message.text.contains("Request failed")
         }
+    }
+    
+    // MARK: - Private Helper Methods
+    
+    private func buildEnhancedMessage(userText: String, documents: [Document]) async -> String {
+        // First, process @pdf_name.pdf references in the user text
+        let processedText = await processDocumentReferences(in: userText)
+        
+        var enhancedMessage = ""
+        
+        // Add explicitly attached documents
+        if !documents.isEmpty {
+            enhancedMessage += "ATTACHED DOCUMENTS:\n\n"
+            
+            for (index, document) in documents.enumerated() {
+                enhancedMessage += "=== Document \(index + 1): \(document.title) ===\n"
+                
+                // Add metadata
+                if let metadata = PDFTextExtractionService.shared.getDocumentMetadata(from: document) {
+                    if let pageCount = metadata["pageCount"] as? Int {
+                        enhancedMessage += "Pages: \(pageCount)\n"
+                    }
+                    if let author = metadata["author"] as? String, !author.isEmpty {
+                        enhancedMessage += "Author: \(author)\n"
+                    }
+                    if let subject = metadata["subject"] as? String, !subject.isEmpty {
+                        enhancedMessage += "Subject: \(subject)\n"
+                    }
+                }
+                
+                // Extract and add text content
+                if let extractedText = PDFTextExtractionService.shared.extractText(from: document, maxLength: 4000) {
+                    enhancedMessage += "\nDocument Content:\n"
+                    enhancedMessage += extractedText
+                } else {
+                    enhancedMessage += "\nContent: [Unable to extract text from this PDF]\n"
+                }
+                
+                enhancedMessage += "\n" + String(repeating: "=", count: 50) + "\n\n"
+            }
+        }
+        
+        // Add the processed user message (with @references replaced with content)
+        enhancedMessage += processedText.isEmpty ? userText : processedText
+        
+        return enhancedMessage
+    }
+    
+    private func processDocumentReferences(in text: String) async -> String {
+        // Regex pattern to match @pdf_name.pdf or @pdf_name (with or without .pdf extension)
+        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return text
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        // Process matches in reverse order to maintain string indices
+        var processedText = text
+        for match in matches.reversed() {
+            let matchRange = match.range
+            let fullMatch = nsString.substring(with: matchRange)
+            
+            // Extract the document name (remove @ and potentially .pdf)
+            var documentName = String(fullMatch.dropFirst()) // Remove @
+            if documentName.hasSuffix(".pdf") {
+                documentName = String(documentName.dropLast(4)) // Remove .pdf
+            }
+            
+            // Try to find the document
+            if let document = DocumentLookupService.shared.findDocument(byName: documentName) {
+                // Extract content from the referenced document
+                if let extractedText = PDFTextExtractionService.shared.extractText(from: document, maxLength: 3000) {
+                    let replacement = """
+                    
+                    [REFERENCED DOCUMENT: \(document.title)]
+                    \(extractedText)
+                    [END REFERENCED DOCUMENT]
+                    
+                    """
+                    
+                    let nsProcessedText = processedText as NSString
+                    processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
+                } else {
+                    // Replace with error message if can't extract content
+                    let replacement = "[REFERENCED DOCUMENT: \(document.title) - Unable to extract content]"
+                    let nsProcessedText = processedText as NSString
+                    processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
+                }
+            } else {
+                // Replace with error message if document not found
+                let replacement = "[DOCUMENT NOT FOUND: \(documentName)]"
+                let nsProcessedText = processedText as NSString
+                processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
+            }
+        }
+        
+        return processedText
     }
 } 
