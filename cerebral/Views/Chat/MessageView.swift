@@ -35,10 +35,10 @@ struct MessageView: View {
                         }
                     }
             } else {
-                // AI message - no background with white text
+                // AI message - no background with system text color
                 Text(message.text)
                     .font(DesignSystem.Typography.body)
-                    .foregroundColor(.white)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.vertical, DesignSystem.Spacing.sm)
                     .textSelection(.enabled)
@@ -73,7 +73,7 @@ struct InlineMessageText: View {
         // Use Text with AttributedString to keep everything inline
         Text(buildClickableAttributedString())
             .font(DesignSystem.Typography.body)
-            .foregroundColor(.white)
+            .foregroundColor(DesignSystem.Colors.textPrimary)
             .textSelection(.enabled)
             .onAppear {
                 parseTextParts()
@@ -89,7 +89,7 @@ struct InlineMessageText: View {
             if part.isMention {
                 // Style as clickable pill
                 partString.backgroundColor = .blue.opacity(0.4)
-                partString.foregroundColor = .white
+                partString.foregroundColor = Color(DesignSystem.Colors.textOnAccent)
                 partString.font = .system(size: 14, weight: .medium)
                 
                 // Add click handler - this is where we'll handle the tap
@@ -186,7 +186,7 @@ struct FlowMessageText: View {
                         if !word.isEmpty {
                             Text(word + " ")
                                 .font(DesignSystem.Typography.body)
-                                .foregroundColor(.white)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
                         }
                     }
                 }
@@ -318,7 +318,7 @@ struct MentionPillButton: View {
                 Text(text)
                     .font(.system(size: 13, weight: .medium))
             }
-            .foregroundColor(.white)
+            .foregroundColor(DesignSystem.Colors.textOnAccent)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
@@ -442,5 +442,5 @@ struct TextPart {
     }
     .padding()
     .frame(width: 400)
-    .background(.black) // Dark background to see white text
+    .background(DesignSystem.Colors.background) // Use system background
 } 

@@ -81,4 +81,27 @@ struct GeneralSettingsView: View {
     GeneralSettingsView()
         .environmentObject(SettingsManager())
         .frame(width: 500, height: 400)
+}
+
+//
+//  PreferencesTabView.swift
+//  cerebral
+//
+//  Created by Justin Zweep on 26/06/2025.
+//
+
+import SwiftUI
+
+struct PreferencesTabView: View {
+    var body: some View {
+        VStack {
+            // Empty preferences view
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+#Preview {
+    PreferencesTabView()
+        .frame(width: 500, height: 400)
 } 

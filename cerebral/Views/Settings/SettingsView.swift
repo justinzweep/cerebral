@@ -12,26 +12,22 @@ struct SettingsView: View {
     
     var body: some View {
         TabView {
-            APIKeySettingsView()
+            ProfileTabView()
                 .tabItem {
-                    Label("API Key", systemImage: "key.fill")
+                    Label("Profile", systemImage: "person.circle")
                 }
                 .environmentObject(settingsManager)
+            // PreferencesTabView()
+            //     .tabItem {
+            //         Label("Preferences", systemImage: "gearshape")
+            //     }
             
-            UserProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.fill")
-                }
-                .environmentObject(settingsManager)
-            
-            GeneralSettingsView()
-                .tabItem {
-                    Label("General", systemImage: "gearshape.fill")
-                }
-                .environmentObject(settingsManager)
+            // AboutTabView()
+            //     .tabItem {
+            //         Label("About", systemImage: "info.circle")
+            //     }
         }
-        .frame(width: 500, height: 450)
-        .navigationTitle("Settings")
+        .frame(width: 500, height: 400)
     }
 }
 

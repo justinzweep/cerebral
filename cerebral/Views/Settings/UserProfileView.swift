@@ -1,5 +1,5 @@
 //
-//  UserProfileView.swift
+//  ProfileTabView.swift
 //  cerebral
 //
 //  Created by Justin Zweep on 26/06/2025.
@@ -7,100 +7,100 @@
 
 import SwiftUI
 
-struct UserProfileView: View {
+struct ProfileTabView: View {
     @EnvironmentObject var settingsManager: SettingsManager
-    @State private var userName: String = ""
-    @State private var userEmail: String = ""
-    @State private var isEditing: Bool = false
+    @AppStorage("userName") private var userName: String = ""
+    @State private var tempAPIKey: String = ""
+    @State private var isEditingAPIKey: Bool = false
+    @State private var showingAPIKeyConfirmation: Bool = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-                Text("User Profile")
-                    .font(DesignSystem.Typography.title2)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                
-                Text("Manage your personal information and preferences.")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-            }
-            
-            GroupBox {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-                    // User Name
-                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                        Text("Name")
-                            .font(DesignSystem.Typography.bodyMedium)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                        
-                        if isEditing {
-                            TextField("Enter your name", text: $userName)
-                                .textFieldStyle(CerebralTextFieldStyle())
-                        } else {
-                            Text(userName.isEmpty ? "Not set" : userName)
-                                .font(DesignSystem.Typography.body)
-                                .foregroundColor(userName.isEmpty ? DesignSystem.Colors.textTertiary : DesignSystem.Colors.textPrimary)
-                        }
+        Form {            
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("Claude API Key")
+                        Text("Required for AI chat functionality")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     
-                    // User Email
-                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                        Text("Email")
-                            .font(DesignSystem.Typography.bodyMedium)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                        
-                        if isEditing {
-                            TextField("Enter your email", text: $userEmail)
-                                .textFieldStyle(CerebralTextFieldStyle())
-                        } else {
-                            Text(userEmail.isEmpty ? "Not set" : userEmail)
-                                .font(DesignSystem.Typography.body)
-                                .foregroundColor(userEmail.isEmpty ? DesignSystem.Colors.textTertiary : DesignSystem.Colors.textPrimary)
-                        }
-                    }
+                    Spacer()
                     
-                    // Action Buttons
-                    HStack {
-                        if isEditing {
-                            Button("Save") {
-                                // Save to settings manager
-                                // TODO: Implement save functionality in SettingsManager
-                                isEditing = false
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            
-                            Button("Cancel") {
-                                // Restore original values
-                                // TODO: Load from settings manager
-                                isEditing = false
-                            }
-                            .buttonStyle(SecondaryButtonStyle())
-                        } else {
-                            Button("Edit") {
-                                isEditing = true
-                            }
-                            .buttonStyle(SecondaryButtonStyle())
-                        }
-                        
-                        Spacer()
+                    if settingsManager.isAPIKeyValid {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
                     }
                 }
-                .padding(DesignSystem.Spacing.md)
-            }
+                
+                if isEditingAPIKey {
+                    SecureField("sk-ant-...", text: $tempAPIKey)
+                    
+                    HStack {
+                        Button("Save") {
+                            if settingsManager.validateAPIKey(tempAPIKey) {
+                                settingsManager.saveAPIKey(tempAPIKey)
+                                isEditingAPIKey = false
+                            }
+                        }
+                        .disabled(!settingsManager.validateAPIKey(tempAPIKey))
+                        
+                        Button("Cancel") {
+                            tempAPIKey = settingsManager.apiKey
+                            isEditingAPIKey = false
+                        }
+                    }
+                    
+                    if !settingsManager.validateAPIKey(tempAPIKey) && !tempAPIKey.isEmpty {
+                        Text("Invalid API key format")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                } else {
+                    HStack {
+                        Text(settingsManager.apiKey.isEmpty ? "No API key set" : "••••••••••••••••••••")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(settingsManager.apiKey.isEmpty ? .secondary : .primary)
+                        
+                        Spacer()
+                        
+                        Button(settingsManager.apiKey.isEmpty ? "Add" : "Edit") {
+                            tempAPIKey = settingsManager.apiKey
+                            isEditingAPIKey = true
+                        }
+                        
+                        if !settingsManager.apiKey.isEmpty {
+                            Button("Remove") {
+                                showingAPIKeyConfirmation = true
+                            }
+                        }
+                    }
+                }
+                
+                if let error = settingsManager.lastError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             
-            Spacer()
+            
+
         }
-        .padding(DesignSystem.Spacing.lg)
+        .formStyle(.grouped)
         .onAppear {
-            // TODO: Load user profile from settings manager
-            // userName = settingsManager.userName
-            // userEmail = settingsManager.userEmail
+            tempAPIKey = settingsManager.apiKey
+        }
+        .confirmationDialog("Remove API Key", isPresented: $showingAPIKeyConfirmation) {
+            Button("Remove", role: .destructive) {
+                settingsManager.deleteAPIKey()
+            }
+        } message: {
+            Text("Are you sure you want to remove your Claude API key?")
         }
     }
 }
 
 #Preview {
-    UserProfileView()
+    ProfileTabView()
         .environmentObject(SettingsManager())
         .frame(width: 500, height: 400)
 } 
