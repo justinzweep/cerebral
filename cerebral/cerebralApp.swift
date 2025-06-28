@@ -10,8 +10,6 @@ import SwiftData
 
 @main
 struct CerebralApp: App {
-    @State private var settingsManager = SettingsManager()
-    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Document.self, ChatSession.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -26,7 +24,7 @@ struct CerebralApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(settingsManager)
+                .environment(SettingsManager.shared)
         }
         .modelContainer(sharedModelContainer)
         .commands {
@@ -47,7 +45,7 @@ struct CerebralApp: App {
         
         Settings {
             SettingsView()
-                .environment(settingsManager)
+                .environment(SettingsManager.shared)
         }
     }
 }

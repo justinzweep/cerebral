@@ -22,6 +22,7 @@ import Foundation
     
     // MARK: - Document Context
     private var currentDocumentContext: [Document] = []
+    private var currentContextBundle = ChatContextBundle(sessionId: UUID(), contexts: [])
     
     // MARK: - Services
     private var _streamingService: StreamingChatService?
@@ -31,60 +32,128 @@ import Foundation
         }
         return _streamingService!
     }
-    private let messageBuilder = MessageBuilder.shared
+    private let enhancedMessageBuilder = EnhancedMessageBuilder.shared
+    private let contextService = ContextManagementService.shared
+    // Legacy MessageBuilder is now part of EnhancedMessageBuilder
     private let documentResolver = DocumentReferenceResolver.shared
     
     // MARK: - Public Interface
     
-    /// Send a message using streaming (main method - non-streaming method removed)
+    /// Send a message using streaming with new context system
     func sendMessage(
         _ text: String,
         settingsManager: SettingsManager,
         documentContext: [Document] = [],
-        hiddenContext: String? = nil
+        hiddenContext: String? = nil,
+        explicitContexts: [DocumentContext] = []
     ) async {
         // Validate API key
         guard settingsManager.isAPIKeyValid else {
             let errorMessage = ChatMessage(
                 text: "Please configure your Claude API key in Settings to use the chat feature.",
-                isUser: false
+                isUser: false,
+                contexts: []
             )
             messages.append(errorMessage)
             return
         }
         
-        // Extract document references from @mentions
-        let referencedDocuments = documentResolver.extractDocumentReferences(from: text)
-        let allReferencedUUIDs = documentResolver.getDocumentUUIDs(from: referencedDocuments)
-        
-        // Create and store user message
-        let userMessage = ChatMessage(
-            text: text,
-            isUser: true,
-            documentReferences: allReferencedUUIDs,
-            hiddenContext: hiddenContext
-        )
-        messages.append(userMessage)
-        
-        // Prepare document context
-        let documentsToProcess = documentContext.isEmpty ? currentDocumentContext : documentContext
-        let allDocumentsToProcess = documentResolver.combineUniqueDocuments(documentsToProcess, referencedDocuments)
-        
-        // Build enhanced message for LLM
-        let enhancedMessage = messageBuilder.buildEnhancedMessage(
-            userText: text,
-            documents: allDocumentsToProcess,
-            hiddenContext: hiddenContext
-        )
-        
-        // Send streaming message
-        await streamingService.sendStreamingMessage(
-            enhancedMessage,
+        do {
+            // Add explicit contexts to bundle
+            currentContextBundle.contexts.append(contentsOf: explicitContexts)
+            
+            // Convert legacy document context to new format if needed
+            if !documentContext.isEmpty || hiddenContext != nil {
+                for doc in documentContext {
+                    if let context = try? await contextService.createContext(
+                        from: doc,
+                        type: .fullDocument,
+                        selection: nil
+                    ) {
+                        currentContextBundle.addContext(context)
+                    }
+                }
+            }
+            
+            // Build message with new context system
+            let (processedText, contexts) = try await enhancedMessageBuilder.buildMessage(
+                userInput: text,
+                contextBundle: currentContextBundle,
+                sessionId: currentContextBundle.sessionId
+            )
+            
+            // Create user message with contexts
+            let userMessage = ChatMessage(
+                text: text,  // Store original text for display
+                isUser: true,
+                hiddenContext: hiddenContext, contexts: contexts // Keep for backward compatibility
+            )
+            messages.append(userMessage)
+            
+            // Format for LLM
+            let llmMessage = enhancedMessageBuilder.formatForLLM(
+                text: processedText,
+                contexts: contexts
+            )
+            
+            // Send to streaming service
+            await streamingService.sendStreamingMessage(
+                llmMessage,
+                settingsManager: settingsManager,
+                documentContext: documentContext,
+                hiddenContext: nil, // Already included in contexts
+                conversationHistory: filterValidMessages(Array(messages.dropLast(2))),
+                contexts: contexts
+            )
+            
+        } catch {
+            // Handle error
+            let errorMessage = ChatMessage(
+                text: "Failed to process message: \(error.localizedDescription)",
+                isUser: false,
+                contexts: []
+            )
+            messages.append(errorMessage)
+            lastError = error.localizedDescription
+        }
+    }
+    
+    // Legacy support - redirect to new method
+    func sendMessageLegacy(
+        _ text: String,
+        settingsManager: SettingsManager,
+        documentContext: [Document] = [],
+        hiddenContext: String? = nil
+    ) async {
+        await sendMessage(
+            text,
             settingsManager: settingsManager,
-            documentContext: allDocumentsToProcess,
+            documentContext: documentContext,
             hiddenContext: hiddenContext,
-            conversationHistory: messageBuilder.filterValidMessages(Array(messages.dropLast(2)))
+            explicitContexts: []
         )
+    }
+    
+    // MARK: - Context Management
+    
+    func addContext(_ context: DocumentContext) {
+        currentContextBundle.addContext(context)
+    }
+    
+    func removeContext(_ context: DocumentContext) {
+        currentContextBundle.removeContext(context)
+    }
+    
+    func clearContext() {
+        currentContextBundle.clearContexts()
+    }
+    
+    func getActiveContexts() -> [DocumentContext] {
+        currentContextBundle.contexts
+    }
+    
+    func getContextTokenCount() -> Int {
+        currentContextBundle.tokenCount()
     }
     
     // MARK: - Session Management
@@ -96,6 +165,7 @@ import Foundation
         
         messages.removeAll()
         currentDocumentContext.removeAll()
+        currentContextBundle = ChatContextBundle(sessionId: UUID(), contexts: [])
         currentSessionTitle = title
         resetState()
     }
@@ -154,6 +224,18 @@ import Foundation
         guard currentMessage.isUser == previousMessage.isUser else { return false }
         let timeDifference = currentMessage.timestamp.timeIntervalSince(previousMessage.timestamp)
         return timeDifference < 300 // 5 minutes
+    }
+    
+    /// Filter out error messages from conversation history
+    private func filterValidMessages(_ messages: [ChatMessage]) -> [ChatMessage] {
+        return messages.filter { message in
+            // Filter out error messages from conversation history
+            !message.text.contains("Sorry, I encountered an error") &&
+            !message.text.contains("Please configure your Claude API key") &&
+            !message.text.contains("Connection failed") &&
+            !message.text.contains("Request failed") &&
+            !message.text.contains("Failed to process message")
+        }
     }
     
     func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {

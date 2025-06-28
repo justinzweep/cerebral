@@ -18,58 +18,85 @@ struct ContentView: View {
     @Environment(SettingsManager.self) var settingsManager: SettingsManager
     @Environment(\.modelContext) private var modelContext
     
-    // Performance monitoring
+    // Layout constraints
+    private let sidebarWidthRange: ClosedRange<CGFloat> = 200...400
+    private let chatWidthRange: ClosedRange<CGFloat> = 250...500
+    private let centerMinWidth: CGFloat = 300
     
     var body: some View {
-        HStack(spacing: 0) {
-            // Left Pane: Document Sidebar
-            if appState.showingSidebar {
-                DocumentSidebarPane(
-                    selectedDocument: $appState.selectedDocument,
-                    showingImporter: $appState.showingImporter
-                )
-                    .frame(width: sidebarWidth)
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                // Left Pane: Document Sidebar
+                if appState.showingSidebar {
+                    DocumentSidebarPane(
+                        selectedDocument: $appState.selectedDocument,
+                        showingImporter: $appState.showingImporter
+                    )
+                    .frame(width: constrainedSidebarWidth(for: geometry.size.width))
                     .background(DesignSystem.Colors.secondaryBackground)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                    .id("sidebar") // Stable ID for animations
-                
-                // Resizable divider for sidebar
-                ResizableDivider(
-                    orientation: .vertical,
-                    onDrag: { delta in
-                        let newWidth = sidebarWidth + delta
-                        sidebarWidth = max(200, min(400, newWidth))
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+                    .id("sidebar")
+                    
+                    // Resizable divider for sidebar
+                    ResizableDivider(orientation: .vertical) { delta in
+                        updateSidebarWidth(delta: delta, availableWidth: geometry.size.width)
                     }
-                )
-                .id("sidebar-divider") // Stable ID
+                    .id("sidebar-divider")
+                }
+                
+                // Center Pane: PDF Viewer
+                PDFViewerView(document: appState.selectedDocument)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .frame(minWidth: centerMinWidth)
+                    .background(DesignSystem.Colors.secondaryBackground)
+                    .id(appState.selectedDocument?.id.uuidString ?? "no-document")
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                
+                // Right divider and pane
+                if appState.showingChat {
+                    ResizableDivider(orientation: .vertical) { delta in
+                        updateChatWidth(delta: -delta, availableWidth: geometry.size.width)
+                    }
+                    .id("chat-divider")
+                    
+                    // Right Pane: Chat Panel
+                    ChatPane(selectedDocument: appState.selectedDocument)
+                        .frame(width: constrainedChatWidth(for: geometry.size.width))
+                        .background(DesignSystem.Colors.secondaryBackground)
+                        .environment(settingsManager)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .trailing).combined(with: .opacity)
+                        ))
+                        .id("chat-panel")
+                }
             }
-            
-            // Middle Pane: PDF Viewer
-            PDFViewerView(document: appState.selectedDocument)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(DesignSystem.Colors.secondaryBackground)
-                .id(appState.selectedDocument?.id.uuidString ?? "no-document") // Stable ID based on document
-            .frame(minWidth: 300)
-            .padding(.horizontal, DesignSystem.Spacing.sm)
-            
-            // Resizable divider for chat
-            if appState.showingChat {
-                ResizableDivider(
-                    orientation: .vertical,
-                    onDrag: { delta in
-                        let newWidth = chatWidth - delta
-                        chatWidth = max(250, min(500, newWidth))
+            .animation(.easeInOut(duration: 0.25), value: appState.showingSidebar)
+            .animation(.easeInOut(duration: 0.25), value: appState.showingChat)
+            .onChange(of: appState.showingSidebar) { _, _ in
+                handlePanelToggle()
+            }
+            .onChange(of: appState.showingChat) { _, _ in
+                handlePanelToggle()
+            }
+            .onChange(of: geometry.size.width) { oldWidth, newWidth in
+                // Handle significant window size changes that could affect PDF layout
+                if abs(newWidth - (oldWidth ?? 0)) > 50 { // Only for significant changes
+                    NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutWillChange"), object: nil)
+                    
+                    // Validate pane sizes first
+                    validatePaneSizes(for: newWidth)
+                    
+                    // Schedule layout change notification
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutDidChange"), object: nil)
                     }
-                )
-                .id("chat-divider") // Stable ID
-                
-                // Right Pane: Chat Panel
-                ChatPane(selectedDocument: appState.selectedDocument)
-                    .frame(width: chatWidth)
-                    .background(DesignSystem.Colors.secondaryBackground)
-                    .environment(settingsManager)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .id("chat-panel") // Stable ID for animations
+                } else {
+                    validatePaneSizes(for: newWidth)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -112,6 +139,48 @@ struct ContentView: View {
                 openSettingsWindow()
             }
         )
+    }
+    
+    // MARK: - Layout Helper Methods
+    
+    private func constrainedSidebarWidth(for totalWidth: CGFloat) -> CGFloat {
+        let maxAllowed = totalWidth - centerMinWidth - (appState.showingChat ? chatWidthRange.lowerBound : 0) - 16 // divider space
+        return min(max(sidebarWidth, sidebarWidthRange.lowerBound), min(sidebarWidthRange.upperBound, maxAllowed))
+    }
+    
+    private func constrainedChatWidth(for totalWidth: CGFloat) -> CGFloat {
+        let maxAllowed = totalWidth - centerMinWidth - (appState.showingSidebar ? sidebarWidthRange.lowerBound : 0) - 16 // divider space
+        return min(max(chatWidth, chatWidthRange.lowerBound), min(chatWidthRange.upperBound, maxAllowed))
+    }
+    
+    private func updateSidebarWidth(delta: CGFloat, availableWidth: CGFloat) {
+        let newWidth = sidebarWidth + delta
+        let maxAllowed = availableWidth - centerMinWidth - (appState.showingChat ? chatWidthRange.lowerBound : 0) - 16
+        sidebarWidth = min(max(newWidth, sidebarWidthRange.lowerBound), min(sidebarWidthRange.upperBound, maxAllowed))
+    }
+    
+    private func updateChatWidth(delta: CGFloat, availableWidth: CGFloat) {
+        let newWidth = chatWidth + delta
+        let maxAllowed = availableWidth - centerMinWidth - (appState.showingSidebar ? sidebarWidthRange.lowerBound : 0) - 16
+        chatWidth = min(max(newWidth, chatWidthRange.lowerBound), min(chatWidthRange.upperBound, maxAllowed))
+    }
+    
+    private func validatePaneSizes(for totalWidth: CGFloat) {
+        // Ensure pane sizes are within bounds when window is resized
+        sidebarWidth = constrainedSidebarWidth(for: totalWidth)
+        chatWidth = constrainedChatWidth(for: totalWidth)
+    }
+    
+    // MARK: - Panel Management
+    
+    private func handlePanelToggle() {
+        // Notify that layout will change due to panel toggle
+        NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutWillChange"), object: nil)
+        
+        // Schedule notification that layout changed after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // 0.3s to account for 0.25s animation + buffer
+            NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutDidChange"), object: nil)
+        }
     }
     
     // MARK: - Private Methods
@@ -164,6 +233,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .environment(SettingsManager())
+        .environment(SettingsManager.shared)
         .modelContainer(for: [Document.self, ChatSession.self], inMemory: true)
 }

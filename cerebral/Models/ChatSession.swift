@@ -35,19 +35,41 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     var text: String
     let isUser: Bool
     let timestamp: Date
-    var documentReferences: [UUID]
-    let hiddenContext: String? // Context that's sent to LLM but not displayed
-    var isStreaming: Bool // Indicates if the message is still being streamed
-    var streamingComplete: Bool // Indicates if the streaming is complete
+    var documentReferences: [UUID]  // Kept for backward compatibility
+    let hiddenContext: String?      // Kept for backward compatibility
+    var contexts: [DocumentContext] // New structured contexts
+    var isStreaming: Bool
+    var streamingComplete: Bool
     
-    init(text: String, isUser: Bool, documentReferences: [UUID] = [], hiddenContext: String? = nil, isStreaming: Bool = false) {
+    init(
+        text: String,
+        isUser: Bool,
+        documentReferences: [UUID] = [],
+        hiddenContext: String? = nil,
+        contexts: [DocumentContext] = [],
+        isStreaming: Bool = false
+    ) {
         self.text = text
         self.isUser = isUser
         self.timestamp = Date()
         self.documentReferences = documentReferences
         self.hiddenContext = hiddenContext
+        self.contexts = contexts
         self.isStreaming = isStreaming
         self.streamingComplete = !isStreaming
+    }
+    
+    // Computed properties for context management
+    var referencedDocumentIds: [UUID] {
+        Array(Set(contexts.map { $0.documentId }))
+    }
+    
+    var totalTokenCount: Int {
+        contexts.reduce(0) { $0 + $1.metadata.tokenCount }
+    }
+    
+    var hasContext: Bool {
+        !contexts.isEmpty || !documentReferences.isEmpty || hiddenContext != nil
     }
     
     // Helper methods for streaming
@@ -63,5 +85,16 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     mutating func completeStreaming() {
         isStreaming = false
         streamingComplete = true
+    }
+    
+    // Context management methods
+    mutating func addContext(_ context: DocumentContext) {
+        if !contexts.contains(where: { $0.id == context.id }) {
+            contexts.append(context)
+        }
+    }
+    
+    mutating func removeContext(_ context: DocumentContext) {
+        contexts.removeAll { $0.id == context.id }
     }
 } 

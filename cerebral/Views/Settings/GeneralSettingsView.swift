@@ -9,5 +9,5 @@ struct GeneralSettingsView: View {
 
 #Preview {
     GeneralSettingsView()
-        .environment(SettingsManager())
+        .environment(SettingsManager.shared)
 } 

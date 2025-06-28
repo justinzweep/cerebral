@@ -17,6 +17,11 @@ struct ResizableDivider: View {
     
     @State private var isDragging = false
     @State private var isHovered = false
+    @State private var lastDragValue: CGFloat = 0
+    
+    private let dragAreaSize: CGFloat = 8
+    private let visualLineThickness: CGFloat = 0.5
+    private let activeLineThickness: CGFloat = 2
     
     var body: some View {
         ZStack {
@@ -24,61 +29,88 @@ struct ResizableDivider: View {
             Rectangle()
                 .fill(Color.clear)
                 .frame(
-                    width: orientation == .vertical ? 16 : nil,
-                    height: orientation == .horizontal ? 16 : nil
+                    width: orientation == .vertical ? dragAreaSize : nil,
+                    height: orientation == .horizontal ? dragAreaSize : nil
                 )
                 .contentShape(Rectangle())
-                .cursor(orientation == .vertical ? .resizeLeftRight : .resizeUpDown)
                 .onHover { hovering in
-                    isHovered = hovering
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isHovered = hovering
+                    }
+                    
+                    // Better cursor management
+                    if hovering {
+                        DispatchQueue.main.async {
+                            if orientation == .vertical {
+                                NSCursor.resizeLeftRight.set()
+                            } else {
+                                NSCursor.resizeUpDown.set()
+                            }
+                        }
+                    } else if !isDragging {
+                        DispatchQueue.main.async {
+                            NSCursor.arrow.set()
+                        }
+                    }
                 }
                 .gesture(
-                    DragGesture()
+                    DragGesture(minimumDistance: 0)
                         .onChanged { value in
                             if !isDragging {
                                 isDragging = true
+                                lastDragValue = orientation == .vertical ? value.translation.width : value.translation.height
+                                
+                                // Notify that layout is about to change
+                                NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutWillChange"), object: nil)
                             }
-                            let delta = orientation == .vertical ? value.translation.width : value.translation.height
+                            
+                            let currentValue = orientation == .vertical ? value.translation.width : value.translation.height
+                            let delta = currentValue - lastDragValue
+                            lastDragValue = currentValue
+                            
                             onDrag(delta)
                         }
                         .onEnded { _ in
+                            let wasDragging = isDragging
                             isDragging = false
+                            lastDragValue = 0
+                            
+                            // Notify that layout has changed
+                            if wasDragging {
+                                NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutDidChange"), object: nil)
+                            }
+                            
+                            // Reset cursor if not hovering
+                            if !isHovered {
+                                DispatchQueue.main.async {
+                                    NSCursor.arrow.set()
+                                }
+                            }
                         }
                 )
             
             // Visual divider line
             Rectangle()
-                .fill(DesignSystem.Colors.border.opacity(0.3))
+                .fill(dividerColor)
                 .frame(
-                    width: orientation == .vertical ? 1 : nil,
-                    height: orientation == .horizontal ? 1 : nil
+                    width: orientation == .vertical ? (isActive ? activeLineThickness : visualLineThickness) : nil,
+                    height: orientation == .horizontal ? (isActive ? activeLineThickness : visualLineThickness) : nil
                 )
-            
-            // Hover/drag indicator
-            if isHovered || isDragging {
-                Rectangle()
-                    .fill(DesignSystem.Colors.accent.opacity(isDragging ? 0.4 : 0.2))
-                    .frame(
-                        width: orientation == .vertical ? 3 : nil,
-                        height: orientation == .horizontal ? 3 : nil
-                    )
-                    .animation(DesignSystem.Animation.microInteraction, value: isDragging)
-                    .animation(DesignSystem.Animation.microInteraction, value: isHovered)
-            }
+                .animation(.easeInOut(duration: 0.2), value: isActive)
         }
     }
-}
-
-// MARK: - NSCursor Extension for Custom Cursors
-
-extension View {
-    func cursor(_ cursor: NSCursor) -> some View {
-        self.onHover { hovering in
-            if hovering {
-                cursor.push()
-            } else {
-                NSCursor.pop()
-            }
+    
+    private var isActive: Bool {
+        isHovered || isDragging
+    }
+    
+    private var dividerColor: Color {
+        if isDragging {
+            return DesignSystem.Colors.accent.opacity(0.6)
+        } else if isHovered {
+            return DesignSystem.Colors.accent.opacity(0.3)
+        } else {
+            return DesignSystem.Colors.border.opacity(0.3)
         }
     }
 }

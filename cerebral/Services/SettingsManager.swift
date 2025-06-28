@@ -6,18 +6,56 @@
 //
 
 import Foundation
+import SwiftUI
 
 @MainActor
 @Observable
 final class SettingsManager: SettingsServiceProtocol {
+    static let shared = SettingsManager()
+    
     var apiKey: String = ""
     var isAPIKeyValid: Bool = false
     var lastError: String?
     
     private let keychainService = KeychainService.shared
     
-    init() {
+    private init() {
         loadAPIKey()
+    }
+    
+    // UI Settings - using UserDefaults directly to avoid @AppStorage conflicts
+    var selectedTheme: String {
+        get { UserDefaults.standard.string(forKey: "selectedTheme") ?? "system" }
+        set { UserDefaults.standard.set(newValue, forKey: "selectedTheme") }
+    }
+    
+    var fontSize: Double {
+        get { UserDefaults.standard.double(forKey: "fontSize") != 0 ? UserDefaults.standard.double(forKey: "fontSize") : 14.0 }
+        set { UserDefaults.standard.set(newValue, forKey: "fontSize") }
+    }
+    
+    var enableMarkdown: Bool {
+        get { UserDefaults.standard.object(forKey: "enableMarkdown") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "enableMarkdown") }
+    }
+    
+    // Context management settings
+    var includeActiveDocumentByDefault: Bool {
+        get { UserDefaults.standard.bool(forKey: "includeActiveDocumentByDefault") }
+        set { UserDefaults.standard.set(newValue, forKey: "includeActiveDocumentByDefault") }
+    }
+    
+    var contextTokenLimit: Int {
+        get { 
+            let value = UserDefaults.standard.integer(forKey: "contextTokenLimit")
+            return value == 0 ? 50_000 : value
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "contextTokenLimit") }
+    }
+    
+    var showContextIndicators: Bool {
+        get { UserDefaults.standard.object(forKey: "showContextIndicators") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "showContextIndicators") }
     }
     
     func loadAPIKey() {

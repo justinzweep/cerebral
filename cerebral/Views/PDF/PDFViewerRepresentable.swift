@@ -104,6 +104,17 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
     // Store a strong reference to prevent deallocation
     @MainActor static var sharedCoordinator: PDFViewCoordinator?
     
+    // MARK: - PDF State Preservation
+    private struct PDFViewState {
+        let scaleFactor: CGFloat
+        let visibleRect: CGRect
+        let currentPage: PDFPage?
+        let pagePoint: CGPoint // Point on the current page that should remain visible
+        let timestamp: Date
+    }
+    
+    private var preservedState: PDFViewState?
+    
     override init() {
         super.init()
         
@@ -121,6 +132,117 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                   let pdfView = notification.object as? PDFView else { return }
             self.handleSelectionChanged(pdfView: pdfView)
         }
+        
+        // Listen for layout change notifications
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("PDFLayoutWillChange"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.capturePDFState()
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("PDFLayoutDidChange"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.restorePDFStateAfterDelay()
+        }
+    }
+    
+    // MARK: - PDF State Preservation Methods
+    
+    func capturePDFState() {
+        guard let pdfView = pdfView,
+              let currentPage = pdfView.currentPage else {
+            print("⚠️ Cannot capture PDF state - no view or page")
+            return
+        }
+        
+        let visibleRect = pdfView.visibleRect
+        let scaleFactor = pdfView.scaleFactor
+        
+        // Calculate the center point of the visible area in page coordinates
+        let visibleCenter = CGPoint(
+            x: visibleRect.midX,
+            y: visibleRect.midY
+        )
+        let pagePoint = pdfView.convert(visibleCenter, to: currentPage)
+        
+        preservedState = PDFViewState(
+            scaleFactor: scaleFactor,
+            visibleRect: visibleRect,
+            currentPage: currentPage,
+            pagePoint: pagePoint,
+            timestamp: Date()
+        )
+        
+        print("📸 Captured PDF state: scale=\(scaleFactor), page=\(pdfView.document?.index(for: currentPage) ?? -1)")
+    }
+    
+    private func restorePDFStateAfterDelay() {
+        // Small delay to allow layout to settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.restorePDFState()
+        }
+    }
+    
+    func restorePDFState() {
+        guard let pdfView = pdfView,
+              let state = preservedState,
+              let currentPage = state.currentPage else {
+            print("⚠️ Cannot restore PDF state - no view, preserved state, or page")
+            return
+        }
+        
+        // Only restore if the state is recent (within last 2 seconds)
+        guard Date().timeIntervalSince(state.timestamp) < 2.0 else {
+            print("⚠️ PDF state too old, not restoring")
+            preservedState = nil
+            return
+        }
+        
+        // Temporarily disable auto-scaling to prevent interference
+        let originalAutoScales = pdfView.autoScales
+        pdfView.autoScales = false
+        
+        // Restore the scale factor first
+        pdfView.scaleFactor = state.scaleFactor
+        
+        // Convert the preserved page point back to view coordinates
+        let viewPoint = pdfView.convert(state.pagePoint, from: currentPage)
+        
+        // Calculate where this point should be positioned (center of view)
+        let targetCenter = CGPoint(
+            x: pdfView.bounds.midX,
+            y: pdfView.bounds.midY
+        )
+        
+        // Calculate the scroll offset needed
+        let scrollOffset = CGPoint(
+            x: viewPoint.x - targetCenter.x,
+            y: viewPoint.y - targetCenter.y
+        )
+        
+        // Apply the scroll offset
+        if let documentView = pdfView.documentView,
+           let scrollView = documentView.enclosingScrollView {
+            let currentOrigin = scrollView.contentView.bounds.origin
+            let newOrigin = CGPoint(
+                x: max(0, currentOrigin.x + scrollOffset.x),
+                y: max(0, currentOrigin.y + scrollOffset.y)
+            )
+            scrollView.contentView.scroll(to: newOrigin)
+        }
+        
+        // Restore auto-scaling setting
+        pdfView.autoScales = originalAutoScales
+        
+        print("🎯 Restored PDF state: scale=\(state.scaleFactor)")
+        
+        // Clear the preserved state
+        preservedState = nil
     }
     
     // MARK: - PDFViewDelegate Methods
@@ -363,7 +485,9 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
     deinit {
         // Handle cleanup safely from deinit using nonisolated storage
         _selectionDebounceTimer?.invalidate()
-        NotificationCenter.default.removeObserver(self)
+        NotificationCenter.default.removeObserver(self, name: .PDFViewSelectionChanged, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("PDFLayoutWillChange"), object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("PDFLayoutDidChange"), object: nil)
     }
 }
 

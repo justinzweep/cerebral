@@ -30,10 +30,12 @@ final class ServiceContainer {
     
     private(set) lazy var pdfService: PDFServiceProtocol = PDFService.shared
     private(set) lazy var documentService: DocumentServiceProtocol = DocumentService.shared
-    private(set) lazy var settingsService: SettingsServiceProtocol = SettingsManager()
-    private(set) lazy var messageBuilderService: MessageBuilderServiceProtocol = MessageBuilder.shared
+    private(set) lazy var settingsService: SettingsServiceProtocol = SettingsManager.shared
+    private(set) lazy var messageBuilderService: MessageBuilderServiceProtocol = EnhancedMessageBuilder.shared
     private(set) lazy var documentReferenceService: DocumentReferenceServiceProtocol = DocumentReferenceResolver.shared
     private(set) lazy var toolbarService: PDFToolbarServiceProtocol = PDFToolbarService.shared
+    private(set) lazy var contextManagementService: ContextManagementServiceProtocol = ContextManagementService.shared
+    private(set) lazy var tokenizerService = TokenizerService.shared
     
     // Chat-related services
     private var _chatService: ChatServiceProtocol?

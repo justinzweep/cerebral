@@ -42,6 +42,7 @@ protocol DocumentServiceProtocol {
 
 // MARK: - Settings Service Protocol
 
+@MainActor
 protocol SettingsServiceProtocol {
     var apiKey: String { get set }
     var isAPIKeyValid: Bool { get }
@@ -60,7 +61,8 @@ protocol StreamingChatServiceProtocol {
         settingsManager: SettingsManager,
         documentContext: [Document],
         hiddenContext: String?,
-        conversationHistory: [ChatMessage]
+        conversationHistory: [ChatMessage],
+        contexts: [DocumentContext]
     ) async
     
     func cancelCurrentStreaming()

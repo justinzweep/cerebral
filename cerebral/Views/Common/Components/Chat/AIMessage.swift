@@ -18,69 +18,80 @@ struct AIMessage: View {
     @State private var textUpdateTimer: Timer?
     
     var body: some View {
-        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-            // AI message with streaming support
-            HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
-                // Streaming text with waiting animation
-                VStack(alignment: .leading, spacing: 0) {
-                    if message.isStreaming && displayedText.isEmpty {
-                        StreamingWaitingAnimation()
-                    } else {
-                        messageText
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                // AI message with streaming support
+                HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
+                    // Streaming text with waiting animation
+                    VStack(alignment: .leading, spacing: 0) {
+                        if message.isStreaming && displayedText.isEmpty {
+                            StreamingWaitingAnimation()
+                        } else {
+                            messageText
+                        }
                     }
-                }
-                .onAppear {
-                    displayedText = message.text
-                    if message.isStreaming {
-                        showCursor = true
+                    .onAppear {
+                        displayedText = message.text
+                        if message.isStreaming {
+                            showCursor = true
+                        }
                     }
-                }
-                .onChange(of: message.text) { _, newText in
-                    // Debounce rapid text updates during streaming
-                    textUpdateTimer?.invalidate()
-                    
-                    if message.isStreaming {
-                        // Update immediately for responsive feel but debounce rapid changes
-                        displayedText = newText
+                    .onChange(of: message.text) { _, newText in
+                        // Debounce rapid text updates during streaming
+                        textUpdateTimer?.invalidate()
                         
-                        textUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { _ in
+                        if message.isStreaming {
+                            // Update immediately for responsive feel but debounce rapid changes
+                            displayedText = newText
+                            
+                            textUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { _ in
+                                displayedText = newText
+                            }
+                        } else {
+                            // Non-streaming updates immediately
                             displayedText = newText
                         }
-                    } else {
-                        // Non-streaming updates immediately
-                        displayedText = newText
                     }
-                }
-                .onChange(of: message.isStreaming) { _, isStreaming in
-                    showCursor = isStreaming
-                    
-                    if !isStreaming {
-                        // Final update when streaming completes
+                    .onChange(of: message.isStreaming) { _, isStreaming in
+                        showCursor = isStreaming
+                        
+                        if !isStreaming {
+                            // Final update when streaming completes
+                            textUpdateTimer?.invalidate()
+                            displayedText = message.text
+                        }
+                    }
+                    .onDisappear {
+                        // Cleanup timer
                         textUpdateTimer?.invalidate()
-                        displayedText = message.text
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.vertical, DesignSystem.Spacing.sm)
+                .onHover { isHovered = $0 }
+                .contextMenu {
+                    MessageContextMenu(message: message)
+                    
+                    Divider()
+                    
+                    Button("Regenerate Response") {
+                        // TODO: Implement regenerate functionality
                     }
                 }
-                .onDisappear {
-                    // Cleanup timer
-                    textUpdateTimer?.invalidate()
-                }
                 
-                Spacer()
-            }
-            .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.vertical, DesignSystem.Spacing.sm)
-            .onHover { isHovered = $0 }
-            .contextMenu {
-                MessageContextMenu(message: message)
-                
-                Divider()
-                
-                Button("Regenerate Response") {
-                    // TODO: Implement regenerate functionality
-                }
+                Spacer(minLength: DesignSystem.Spacing.xxl)
             }
             
-            Spacer(minLength: DesignSystem.Spacing.xxl)
+            // Context indicator
+            if message.hasContext && !message.isStreaming {
+                HStack {
+                    MessageContextIndicator(contexts: message.contexts)
+                        .frame(maxWidth: 300)
+                    Spacer(minLength: DesignSystem.Spacing.xxl)
+                }
+            }
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
     }

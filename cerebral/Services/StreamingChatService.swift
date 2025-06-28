@@ -32,9 +32,10 @@ final class StreamingChatService: StreamingChatServiceProtocol {
     func sendStreamingMessage(
         _ text: String,
         settingsManager: SettingsManager,
-        documentContext: [Document] = [],
-        hiddenContext: String? = nil,
-        conversationHistory: [ChatMessage]
+        documentContext: [Document],
+        hiddenContext: String?,
+        conversationHistory: [ChatMessage],
+        contexts: [DocumentContext]
     ) async {
         
         // Cancel any existing streaming task to prevent memory leaks
@@ -52,6 +53,7 @@ final class StreamingChatService: StreamingChatServiceProtocol {
             text: "",
             isUser: false,
             documentReferences: [],
+            contexts: contexts,  // Include contexts in AI message
             isStreaming: true
         )
         
@@ -59,6 +61,7 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         
         // Extract document IDs for cross-actor communication
         let documentContextIds = documentContext.map { $0.id }
+        let contextDocumentIds = Array(Set(contexts.map { $0.documentId }))
         
         // Use structured concurrency for better memory management
         streamingTask = Task { [weak self, weak delegate] in

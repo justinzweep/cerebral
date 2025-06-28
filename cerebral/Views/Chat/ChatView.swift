@@ -10,7 +10,7 @@ import SwiftUI
 struct ChatView: View {
     let selectedDocument: Document?
     @State private var chatManager = ChatManager()
-    @State private var settingsManager = SettingsManager()
+    private let settingsManager = SettingsManager.shared
     @State private var inputText = ""
     @State private var attachedDocuments: [Document] = []
     @State private var appState = ServiceContainer.shared.appState

@@ -16,5 +16,5 @@ struct UserProfileView: View {
 
 #Preview {
     UserProfileView()
-        .environment(SettingsManager())
+        .environment(SettingsManager.shared)
 } 

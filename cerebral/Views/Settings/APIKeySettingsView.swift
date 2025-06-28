@@ -143,5 +143,5 @@ struct APIKeySettingsView: View {
 
 #Preview {
     APIKeySettingsView()
-        .environment(SettingsManager())
+        .environment(SettingsManager.shared)
 } 

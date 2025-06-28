@@ -135,8 +135,7 @@ struct EmptyPDFStateView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(DesignSystem.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
         .background(DesignSystem.Colors.secondaryBackground)
     }
 }
