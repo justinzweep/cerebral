@@ -139,6 +139,45 @@ struct ContentView: View {
                 openSettingsWindow()
             }
         )
+        .toolbar {
+            // Centered app title
+            ToolbarItem(placement: .principal) {
+                Text("Cerebral")
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+            }
+            
+            // Panel toggle buttons on the right
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 8) {
+                    // Sidebar toggle button
+                    Button(action: {
+                        withAnimation(DesignSystem.Animation.smooth) {
+                            appState.toggleSidebar()
+                        }
+                    }) {
+                        Image(systemName: appState.showingSidebar ? "rectangle.lefthalf.filled" : "rectangle")
+                            .foregroundColor(appState.showingSidebar ? DesignSystem.Colors.accent : DesignSystem.Colors.secondaryText)
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .help(appState.showingSidebar ? "Hide Documents (⌘K)" : "Show Documents (⌘K)")
+                    
+                    // Chat panel toggle button  
+                    Button(action: {
+                        withAnimation(DesignSystem.Animation.smooth) {
+                            appState.toggleChatPanel()
+                        }
+                    }) {
+                        Image(systemName: appState.showingChat ? "rectangle.righthalf.filled" : "rectangle")
+                            .foregroundColor(appState.showingChat ? DesignSystem.Colors.accent : DesignSystem.Colors.secondaryText)
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .help(appState.showingChat ? "Hide Chat (⌘L)" : "Show Chat (⌘L)")
+                }
+            }
+        }
     }
     
     // MARK: - Layout Helper Methods

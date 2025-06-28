@@ -80,16 +80,14 @@ struct DocumentSidebarPane: View {
             
             // Simple highlighting toolbar always at the bottom
             VStack(spacing: 0) {
-                Divider()
-                    .foregroundColor(DesignSystem.Colors.border.opacity(0.3))
-                
+
                 PDFHighlightToolbar(
                     highlightingState: $appState.highlightingState,
                     onModeChanged: { mode in
                         appState.setHighlightingMode(mode)
                     },
                     onColorChanged: { color in
-                        appState.setHighlightingColor(color)
+                        appState.highlightingState.setColor(color)
                     }
                 )
                 .padding(DesignSystem.Spacing.md)

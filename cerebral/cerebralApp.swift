@@ -36,10 +36,17 @@ struct CerebralApp: App {
             }
             
             CommandGroup(after: .toolbar) {
-                Button("Toggle Chat Panel") {
+                // Sidebar toggle with state-aware title
+                Button(ServiceContainer.shared.appState.showingSidebar ? "Hide Sidebar" : "Show Sidebar") {
+                    ServiceContainer.shared.appState.toggleSidebar()
+                }
+                .keyboardShortcut("k", modifiers: [.command])
+                
+                // Chat panel toggle with state-aware title  
+                Button(ServiceContainer.shared.appState.showingChat ? "Hide Chat Panel" : "Show Chat Panel") {
                     ServiceContainer.shared.appState.toggleChatPanel()
                 }
-                .keyboardShortcut("c", modifiers: [.command])
+                .keyboardShortcut("l", modifiers: [.command])
             }
         }
         
