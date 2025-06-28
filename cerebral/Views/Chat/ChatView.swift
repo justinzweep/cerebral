@@ -13,7 +13,6 @@ struct ChatView: View {
     @State private var settingsManager = SettingsManager()
     @State private var inputText = ""
     @State private var attachedDocuments: [Document] = []
-    @State private var textSelectionChunks: [TextSelectionChunk] = []
     @State private var appState = ServiceContainer.shared.appState
     
     init(selectedDocument: Document? = nil) {
@@ -74,18 +73,12 @@ struct ChatView: View {
                     isLoading: chatManager.isLoading,
                     isStreaming: chatManager.isStreaming,
                     attachedDocuments: attachedDocuments,
-                    textSelectionChunks: textSelectionChunks,
                     onSend: {
                         sendMessage()
                     },
                     onRemoveDocument: { document in
                         withAnimation(DesignSystem.Animation.smooth) {
                             attachedDocuments.removeAll { $0.id == document.id }
-                        }
-                    },
-                    onRemoveTextChunk: { chunk in
-                        withAnimation(DesignSystem.Animation.smooth) {
-                            textSelectionChunks.removeAll { $0.id == chunk.id }
                         }
                     }
                 )
@@ -108,24 +101,6 @@ struct ChatView: View {
                 appState.documentToAddToChat = nil
             }
         }
-        .onChange(of: appState.textSelectionChunks) { oldChunks, newChunks in
-            if newChunks.count > oldChunks.count {
-                let newChunk = newChunks.last!
-                withAnimation(DesignSystem.Animation.smooth) {
-                    // Add the text selection chunk
-                    textSelectionChunks.append(newChunk)
-                }
-                
-                // Focus the chat input
-                appState.focusChatInput()
-            }
-        }
-        .onChange(of: appState.pendingInputText) { _, newText in
-            if !newText.isEmpty {
-                inputText += newText
-                appState.pendingInputText = ""
-            }
-        }
         .onAppear {
             if settingsManager.isAPIKeyValid {
                 Task {
@@ -142,7 +117,6 @@ struct ChatView: View {
         
         let messageText = inputText
         var documentsToSend = attachedDocuments
-        let chunksToSend = textSelectionChunks
         
         // ALWAYS append the currently selected document if there is one
         if let selectedDoc = selectedDocument {
@@ -152,14 +126,10 @@ struct ChatView: View {
             }
         }
         
-        // Create hidden context from text selection chunks
-        let hiddenContext = chunksToSend.isEmpty ? nil : createHiddenContext(from: chunksToSend)
-        
-        // Clear input, attachments, and text chunks immediately
+        // Clear input and attachments immediately
         inputText = ""
         withAnimation(DesignSystem.Animation.smooth) {
             attachedDocuments.removeAll()
-            textSelectionChunks.removeAll()
         }
         
         Task {
@@ -168,16 +138,9 @@ struct ChatView: View {
                 messageText,
                 settingsManager: settingsManager,
                 documentContext: documentsToSend,
-                hiddenContext: hiddenContext
+                hiddenContext: nil
             )
         }
-    }
-    
-    private func createHiddenContext(from chunks: [TextSelectionChunk]) -> String {
-        let contextParts = chunks.map { chunk in
-            "From \(chunk.source):\n\(chunk.text)"
-        }
-        return "\n\nAdditional context from selected text:\n" + contextParts.joined(separator: "\n\n")
     }
     
     private func startNewSession() {
@@ -186,7 +149,6 @@ struct ChatView: View {
         
         withAnimation(DesignSystem.Animation.smooth) {
             attachedDocuments.removeAll()
-            textSelectionChunks.removeAll()
             inputText = ""
         }
     }

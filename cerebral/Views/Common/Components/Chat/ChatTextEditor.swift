@@ -72,12 +72,6 @@ struct ChatTextEditor: View {
                 isFocused = true
             }
         }
-        .onChange(of: appState.shouldFocusChatInput) { _, shouldFocus in
-            if shouldFocus {
-                // Clear the focus request immediately to prevent repeated triggering
-                appState.resetChatInputFocus()
-            }
-        }
     }
 }
 

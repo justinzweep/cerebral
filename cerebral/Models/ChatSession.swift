@@ -64,26 +64,4 @@ struct ChatMessage: Codable, Identifiable, Sendable {
         isStreaming = false
         streamingComplete = true
     }
-}
-
-// Model for text selection chunks that appear as attachments
-struct TextSelectionChunk: Identifiable, Equatable, Sendable {
-    let id = UUID()
-    let text: String
-    let source: String // Document name where the text came from
-    let previewText: String // Truncated text for display
-    
-    init(text: String, source: String) {
-        self.text = text
-        self.source = source
-        self.previewText = Self.createPreviewText(from: text)
-    }
-    
-    private static func createPreviewText(from text: String) -> String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.count <= 50 {
-            return trimmed
-        }
-        return String(trimmed.prefix(47)) + "..."
-    }
 } 

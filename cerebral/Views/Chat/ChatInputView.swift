@@ -12,10 +12,8 @@ struct ChatInputView: View {
     let isLoading: Bool
     let isStreaming: Bool
     let attachedDocuments: [Document]
-    let textSelectionChunks: [TextSelectionChunk]
     let onSend: () -> Void
     let onRemoveDocument: (Document) -> Void
-    let onRemoveTextChunk: (TextSelectionChunk) -> Void
     
     @State private var isHovered = false
     
@@ -35,29 +33,23 @@ struct ChatInputView: View {
         isLoading: Bool,
         isStreaming: Bool = false,
         attachedDocuments: [Document] = [],
-        textSelectionChunks: [TextSelectionChunk] = [],
         onSend: @escaping () -> Void,
-        onRemoveDocument: @escaping (Document) -> Void = { _ in },
-        onRemoveTextChunk: @escaping (TextSelectionChunk) -> Void = { _ in }
+        onRemoveDocument: @escaping (Document) -> Void = { _ in }
     ) {
         self._text = text
         self.isLoading = isLoading
         self.isStreaming = isStreaming
         self.attachedDocuments = attachedDocuments
-        self.textSelectionChunks = textSelectionChunks
         self.onSend = onSend
         self.onRemoveDocument = onRemoveDocument
-        self.onRemoveTextChunk = onRemoveTextChunk
     }
     
     var body: some View {
-        VStack(spacing: 8) {
-            // Attachment preview area
+        VStack(spacing: 0) {
+            // Attachments List
             AttachmentList(
-                documents: attachedDocuments,
-                textChunks: textSelectionChunks,
-                onRemoveDocument: onRemoveDocument,
-                onRemoveTextChunk: onRemoveTextChunk
+                attachedDocuments: attachedDocuments,
+                onRemoveDocument: onRemoveDocument
             )
             
             // Input container with integrated send button
@@ -122,7 +114,6 @@ struct ChatInputView: View {
         }
 
         .animation(.easeInOut(duration: 0.2), value: attachedDocuments.count)
-        .animation(.easeInOut(duration: 0.2), value: textSelectionChunks.count)
         .animation(.easeInOut(duration: 0.15), value: showingAutocomplete)
         .onKeyPress(KeyEquivalent.tab) {
             if showingAutocomplete && !autocompleteDocuments.isEmpty {
@@ -446,17 +437,11 @@ struct HighlightOverlay: View {
             attachedDocuments: [
                 Document(title: "Sample Document.pdf", filePath: URL(fileURLWithPath: "/path/to/document.pdf")),
                 Document(title: "Research Paper.pdf", filePath: URL(fileURLWithPath: "/path/to/research.pdf"))
-            ],
-            textSelectionChunks: [
-                TextSelectionChunk(text: "This is a sample text selection from a PDF document.", source: "Sample Document"),
-                TextSelectionChunk(text: "Another text selection example that demonstrates the feature.", source: "Research Paper")
             ]
         ) {
             print("Send message")
         } onRemoveDocument: { document in
             print("Remove document: \(document.title)")
-        } onRemoveTextChunk: { chunk in
-            print("Remove text chunk: \(chunk.previewText)")
         }
     }
     .frame(width: 600, height: 400)

@@ -8,34 +8,6 @@
 import SwiftUI
 import PDFKit
 
-// Custom PDFView that handles keyboard events
-class KeyboardHandlingPDFView: PDFView {
-    weak var coordinator: PDFViewCoordinator?
-    
-    override func keyDown(with event: NSEvent) {
-        // Check if we have a text selection and a printable character was typed
-        if let selection = currentSelection,
-           let selectionText = selection.string,
-           !selectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           selectionText.count > 1,
-           event.characters?.isEmpty == false,
-           let characters = event.characters,
-           characters.rangeOfCharacter(from: CharacterSet.controlCharacters) == nil {
-            
-            // We have a valid selection and user is typing - trigger the flow
-            coordinator?.handleTypingWithSelection(selection: selection, typedCharacter: characters)
-            return
-        }
-        
-        // Otherwise, handle the key event normally
-        super.keyDown(with: event)
-    }
-    
-    override var acceptsFirstResponder: Bool {
-        return true
-    }
-}
-
 struct PDFViewerRepresentable: NSViewRepresentable {
     let document: PDFDocument?
     @Binding var currentPage: Int
@@ -44,8 +16,8 @@ struct PDFViewerRepresentable: NSViewRepresentable {
     @Binding var highlightPopupPosition: CGPoint
     @Binding var coordinator: PDFViewCoordinator?
     
-    func makeNSView(context: Context) -> KeyboardHandlingPDFView {
-        let pdfView = KeyboardHandlingPDFView()
+    func makeNSView(context: Context) -> PDFView {
+        let pdfView = PDFView()
         
         // Configure PDF view with enhanced settings
         pdfView.autoScales = true
@@ -65,7 +37,6 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         
         // Set up delegate for handling selections
         pdfView.delegate = context.coordinator
-        pdfView.coordinator = context.coordinator
         context.coordinator.pdfView = pdfView
         
         // Set up notifications with better handling
@@ -85,7 +56,7 @@ struct PDFViewerRepresentable: NSViewRepresentable {
             forName: .PDFViewSelectionChanged,
             object: pdfView,
             queue: nil  // Use nil to avoid main queue issues
-        ) { [weak coordinator = context.coordinator] notification in
+        ) { notification in
             guard let coordinator = coordinator,
                   let pdfView = notification.object as? PDFView else { return }
             coordinator.handleSelectionChanged(pdfView: pdfView)
@@ -94,7 +65,7 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         return pdfView
     }
     
-    func updateNSView(_ nsView: KeyboardHandlingPDFView, context: Context) {
+    func updateNSView(_ nsView: PDFView, context: Context) {
         // Update document if changed
         if nsView.document !== document {
             nsView.document = document
@@ -114,7 +85,6 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         )
         
         // Ensure coordinator has reference to PDFView
-        nsView.coordinator = context.coordinator
         context.coordinator.pdfView = nsView
         
         // Always update coordinator reference
@@ -131,7 +101,7 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         )
     }
     
-    static func dismantleNSView(_ nsView: KeyboardHandlingPDFView, coordinator: PDFViewCoordinator) {
+    static func dismantleNSView(_ nsView: PDFView, coordinator: PDFViewCoordinator) {
         // Clean up all notifications for this specific PDFView instance
         NotificationCenter.default.removeObserver(coordinator, name: .PDFViewPageChanged, object: nsView)
         NotificationCenter.default.removeObserver(coordinator, name: .PDFViewSelectionChanged, object: nsView)
@@ -158,34 +128,6 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         // Keep a strong reference
         PDFViewCoordinator.sharedCoordinator = self
         print("📋 PDFViewCoordinator initialized")
-    }
-    
-    // Handle typing when text is selected
-    func handleTypingWithSelection(selection: PDFSelection, typedCharacter: String) {
-        guard let selectionText = selection.string,
-              !selectionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        
-        // Get the document name from the selection
-        let documentName = selection.pages.first?.document?.documentURL?.deletingPathExtension().lastPathComponent ?? "Unknown Document"
-        
-        // Create text selection chunk
-        let textChunk = TextSelectionChunk(text: selectionText, source: documentName)
-        
-        print("🔤 User typed '\(typedCharacter)' with selection: '\(selectionText.prefix(50))...'")
-        
-        // Hide highlight popup if showing
-        DispatchQueue.main.async {
-            self.showHighlightPopup.wrappedValue = false
-            self.selectedText.wrappedValue = nil
-        }
-        
-        // Clear the selection to prevent further typing events
-        pdfView?.clearSelection()
-        
-        // Use AppState to handle text selection with typing
-        DispatchQueue.main.async {
-            ServiceContainer.shared.appState.addTextSelection(textChunk, withTypedCharacter: typedCharacter)
-        }
     }
     
     func updateBindings(selectedText: Binding<PDFSelection?>, showHighlightPopup: Binding<Bool>, highlightPopupPosition: Binding<CGPoint>) {

@@ -255,8 +255,6 @@ private struct ErrorLogEntry {
     let timestamp: Date
 }
 
-
-
 // MARK: - App State Management
 
 @MainActor
@@ -273,17 +271,8 @@ final class AppState {
     // Document import
     var pendingDocumentImport = false
     
-    // Text selection for chat
-    var textSelectionChunks: [TextSelectionChunk] = []
-    
-    // Chat focus state
-    var shouldFocusChatInput = false
-    
     // Documents to add to chat
     var documentToAddToChat: Document?
-    
-    // Text input from selections
-    var pendingInputText = ""
     
     // Methods for state management
     func selectDocument(_ document: Document?) {
@@ -310,23 +299,5 @@ final class AppState {
     
     func addDocumentToChat(_ document: Document) {
         documentToAddToChat = document
-    }
-    
-    func addTextSelection(_ chunk: TextSelectionChunk, withTypedCharacter character: String) {
-        textSelectionChunks.append(chunk)
-        pendingInputText += character
-        shouldFocusChatInput = true
-    }
-    
-    func clearTextSelections() {
-        textSelectionChunks.removeAll()
-    }
-    
-    func focusChatInput() {
-        shouldFocusChatInput = true
-    }
-    
-    func resetChatInputFocus() {
-        shouldFocusChatInput = false
     }
 } 
