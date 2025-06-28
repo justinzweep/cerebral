@@ -6,72 +6,90 @@
 //
 
 import Foundation
+import SwiftUI
 
-/// Service responsible for resolving @mention document references
+/// Service responsible for resolving document references in text
+@MainActor
 final class DocumentReferenceResolver: DocumentReferenceServiceProtocol {
     static let shared = DocumentReferenceResolver()
+    private let documentService = DocumentService.shared
     
     private init() {}
     
-    /// Extract document references from @mentions in text
-    @MainActor
+    // MARK: - Shared Constants
+    
+    /// Unified regex pattern for document references
+    static let documentReferencePattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_\.]+)"#
+    
+    // MARK: - Document Reference Extraction
+    
     func extractDocumentReferences(from text: String) -> [Document] {
-        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
-        
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+        guard let regex = try? NSRegularExpression(pattern: Self.documentReferencePattern, options: [.caseInsensitive]) else {
             return []
         }
         
         let nsString = text as NSString
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
         
-        var referencedDocuments: [Document] = []
-        
+        var documents: [Document] = []
         for match in matches {
-            let fullMatch = nsString.substring(with: match.range)
+            let matchText = nsString.substring(with: match.range)
+            let documentName = DocumentReferenceResolver.extractDocumentName(from: matchText)
             
-            // Extract document name (remove @ and potentially .pdf)
-            var documentName = String(fullMatch.dropFirst()) // Remove @
-            if documentName.hasSuffix(".pdf") {
-                documentName = String(documentName.dropLast(4)) // Remove .pdf
-            }
-            
-            // Try to find the document
-            if let document = ServiceContainer.shared.documentService.findDocument(byName: documentName) {
-                referencedDocuments.append(document)
-                print("✅ Found referenced document: '\(document.title)' for mention: '\(fullMatch)'")
-            } else {
-                print("❌ Document not found for mention: '\(fullMatch)' (looking for: '\(documentName)')")
-                // Show all available documents for debugging
-                let allDocs = ServiceContainer.shared.documentService.getAllDocuments()
-                print("📚 Available documents:")
-                for doc in allDocs.prefix(5) { // Show first 5 for brevity
-                    print("  - '\(doc.title)'")
-                }
+            if let document = documentService.findDocument(byName: documentName) {
+                documents.append(document)
             }
         }
         
-        return referencedDocuments
+        return Array(Set(documents)) // Remove duplicates
     }
     
-    /// Get UUIDs from a list of documents
+    /// Extract document name from @mention text
+    static func extractDocumentName(from matchText: String) -> String {
+        var documentName = String(matchText.dropFirst()) // Remove @ symbol
+        
+        // If it ends with .pdf, remove only the final .pdf extension
+        if documentName.lowercased().hasSuffix(".pdf") {
+            documentName = String(documentName.dropLast(4))
+        }
+        
+        return documentName
+    }
+    
+    /// Check if document exists for a given name
+    static func documentExists(named documentName: String) -> Bool {
+        return ServiceContainer.shared.documentService.findDocument(byName: documentName) != nil
+    }
+    
+    /// Find all document references in text and return their validity
+    static func validateDocumentReferences(in text: String) -> Bool {
+        guard let regex = try? NSRegularExpression(pattern: documentReferencePattern, options: [.caseInsensitive]) else {
+            return true // If regex fails, allow sending
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        for match in matches {
+            let fullMatch = nsString.substring(with: match.range)
+            let documentName = extractDocumentName(from: fullMatch)
+            
+            if !documentExists(named: documentName) {
+                return false // Invalid reference found
+            }
+        }
+        
+        return true // All references are valid
+    }
+    
+    // MARK: - Legacy Implementation
+    
     func getDocumentUUIDs(from documents: [Document]) -> [UUID] {
         return documents.map { $0.id }
     }
     
-    /// Combine multiple document arrays and remove duplicates
     func combineUniqueDocuments(_ documentArrays: [Document]...) -> [Document] {
         let allDocuments = documentArrays.flatMap { $0 }
-        var uniqueDocuments: [Document] = []
-        var seenUUIDs: Set<UUID> = []
-        
-        for document in allDocuments {
-            if !seenUUIDs.contains(document.id) {
-                uniqueDocuments.append(document)
-                seenUUIDs.insert(document.id)
-            }
-        }
-        
-        return uniqueDocuments
+        return Array(Set(allDocuments))
     }
 } 

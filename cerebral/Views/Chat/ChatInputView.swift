@@ -311,40 +311,11 @@ struct ChatInputView: View {
     }
     
     private func areAllDocumentReferencesValid(in text: String) -> Bool {
-        // Use the same improved pattern that handles dots correctly
-        let pattern = #"@([a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*\.pdf|[a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*)"#
-        
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return true // If regex fails, allow sending
-        }
-        
-        let nsString = text as NSString
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
-        
-        for match in matches {
-            let fullMatch = nsString.substring(with: match.range)
-            let documentName = extractDocumentName(from: fullMatch)
-            
-            // Check if document exists
-            let foundDocument = ServiceContainer.shared.documentService.findDocument(byName: documentName)
-            if foundDocument == nil {
-                return false // Invalid reference found
-            }
-        }
-        
-        return true // All references are valid
+        return DocumentReferenceResolver.validateDocumentReferences(in: text)
     }
     
     private func extractDocumentName(from matchText: String) -> String {
-        // Remove the @ symbol
-        var documentName = String(matchText.dropFirst())
-        
-        // If it ends with .pdf, remove only the final .pdf extension
-        if documentName.lowercased().hasSuffix(".pdf") {
-            documentName = String(documentName.dropLast(4))
-        }
-        
-        return documentName
+        return DocumentReferenceResolver.extractDocumentName(from: matchText)
     }
 }
 
@@ -414,9 +385,8 @@ struct HighlightOverlay: View {
         // Make ALL text completely transparent - no foreground text at all
         result.foregroundColor = Color.clear
         
-        // Improved regex pattern to handle filenames with dots better
-        // Matches @filename.pdf (with any number of dots in filename)
-        let pattern = #"@([a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*\.pdf|[a-zA-Z0-9\s\-_]+(?:\.[a-zA-Z0-9\s\-_]+)*)"#
+        // Find and highlight @mentions using shared pattern
+        let pattern = DocumentReferenceResolver.documentReferencePattern
         
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return result
@@ -427,12 +397,12 @@ struct HighlightOverlay: View {
         
         for match in matches {
             let matchText = nsString.substring(with: match.range)
-            let documentName = extractDocumentName(from: matchText)
+            let documentName = DocumentReferenceResolver.extractDocumentName(from: matchText)
             
             // Check if document exists to determine highlight color
-            let documentExists = ServiceContainer.shared.documentService.findDocument(byName: documentName) != nil
+            let documentExists = DocumentReferenceResolver.documentExists(named: documentName)
             
-            // Convert NSRange to AttributedString range using proper conversion
+            // Convert NSRange to AttributedString range
             let utf16Range = match.range
             let utf16Start = String.Index(utf16Offset: utf16Range.location, in: text)
             let utf16End = String.Index(utf16Offset: utf16Range.location + utf16Range.length, in: text)
@@ -456,18 +426,6 @@ struct HighlightOverlay: View {
         }
         
         return result
-    }
-    
-    private func extractDocumentName(from matchText: String) -> String {
-        // Remove the @ symbol
-        var documentName = String(matchText.dropFirst())
-        
-        // If it ends with .pdf, remove only the final .pdf extension
-        if documentName.lowercased().hasSuffix(".pdf") {
-            documentName = String(documentName.dropLast(4))
-        }
-        
-        return documentName
     }
 }
 

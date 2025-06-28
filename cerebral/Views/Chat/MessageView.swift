@@ -25,12 +25,11 @@ struct MessageView: View {
     }
 }
 
-// MARK: - Alternative Implementation with Proper Inline Layout
+// MARK: - Highlighted Message Text
 
-struct FlowMessageText: View {
+struct HighlightedMessageText: View {
     let text: String
     let contexts: [DocumentContext]
-    @State private var textParts: [TextPart] = []
     @State private var referencedDocuments: [Document] = []
     
     init(text: String, contexts: [DocumentContext] = []) {
@@ -39,56 +38,83 @@ struct FlowMessageText: View {
     }
     
     var body: some View {
-        Group {
-            let hasMentions = textParts.contains { $0.isMention }
-            
-            if hasMentions {
-                flowLayoutContent
-            } else {
-                simpleTextContent
-            }
-        }
-        .onAppear {
-            loadReferencedDocuments()
-            parseTextParts()
-        }
-    }
-    
-    private var flowLayoutContent: some View {
-        InlineFlowLayout(alignment: .leading, spacing: 4) {
-            ForEach(Array(textParts.enumerated()), id: \.offset) { index, part in
-                if part.isMention {
-                    MentionPillButton(
-                        text: part.text,
-                        documentName: part.documentName,
-                        document: findReferencedDocument(for: part.documentName),
-                        context: findDocumentContext(for: part.documentName)
-                    )
-                } else {
-                    Text(part.text)
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.primaryText)
-                }
-            }
-        }
-    }
-    
-    private var simpleTextContent: some View {
-        Text(text)
+        Text(buildHighlightedAttributedString())
             .font(DesignSystem.Typography.body)
-            .foregroundColor(DesignSystem.Colors.primaryText)
+            .textSelection(.enabled)
+            .onTapGesture { location in
+                handleTap(at: location)
+            }
+            .onAppear {
+                loadReferencedDocuments()
+            }
     }
     
     private func loadReferencedDocuments() {
-        // Get documents from contexts instead of legacy documentReferences
+        // Get documents from contexts
         let contextDocumentIds = Array(Set(contexts.map { $0.documentId }))
         referencedDocuments = contextDocumentIds.compactMap { uuid in
             ServiceContainer.shared.documentService.findDocument(byId: uuid)
         }
+    }
+    
+    private func buildHighlightedAttributedString() -> AttributedString {
+        var result = AttributedString(text)
         
-        print("📚 Loaded \(referencedDocuments.count) referenced documents from contexts")
-        for doc in referencedDocuments {
-            print("  - '\(doc.title)' (ID: \(doc.id))")
+        // Apply default text color
+        result.foregroundColor = DesignSystem.Colors.primaryText
+        
+        // Find and highlight @mentions using shared pattern
+        let pattern = DocumentReferenceResolver.documentReferencePattern
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return result
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        for match in matches {
+            let matchText = nsString.substring(with: match.range)
+            let documentName = DocumentReferenceResolver.extractDocumentName(from: matchText)
+            
+            // Find document and context
+            let document = findReferencedDocument(for: documentName)
+            let context = findDocumentContext(for: documentName)
+            
+            // Convert NSRange to AttributedString range
+            let utf16Range = match.range
+            let utf16Start = String.Index(utf16Offset: utf16Range.location, in: text)
+            let utf16End = String.Index(utf16Offset: utf16Range.location + utf16Range.length, in: text)
+            
+            if let attrStart = AttributedString.Index(utf16Start, within: result),
+               let attrEnd = AttributedString.Index(utf16End, within: result) {
+                let attributedRange = attrStart..<attrEnd
+                
+                if document != nil {
+                    // Valid reference - highlight with blue color (same as ChatInputView)
+                    result[attributedRange].backgroundColor = Color.blue.opacity(0.2)
+                    result[attributedRange].foregroundColor = Color.blue
+                    result[attributedRange].font = .system(size: 16, weight: .medium)
+                } else {
+                    // Invalid reference - red highlight
+                    result[attributedRange].backgroundColor = Color.red.opacity(0.2)
+                    result[attributedRange].foregroundColor = Color.red
+                }
+            }
+        }
+        
+        return result
+    }
+    
+    private func getContextColor(for context: DocumentContext?) -> Color {
+        guard let context = context else { return Color.blue }
+        
+        switch context.contextType {
+        case .fullDocument: return Color.blue
+        case .pageRange: return Color.purple
+        case .textSelection: return Color.orange
+        case .semanticChunk: return Color.green
+        case .reference: return Color.indigo
         }
     }
     
@@ -110,7 +136,6 @@ struct FlowMessageText: View {
     }
     
     private func findDocumentContext(for documentName: String) -> DocumentContext? {
-        // Find context that matches the document name
         return contexts.first { context in
             let contextTitleWithoutPdf = context.documentTitle.hasSuffix(".pdf") ? 
                 String(context.documentTitle.dropLast(4)) : context.documentTitle
@@ -121,123 +146,33 @@ struct FlowMessageText: View {
         }
     }
     
-    private func parseTextParts() {
-        textParts = []
-        
-        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_\.]+)"#
+
+    
+    private func handleTap(at location: CGPoint) {
+        // Find which @mention was tapped (simplified approach)
+        // For now, we'll handle any tap on the text as opening the first found document
+        let pattern = DocumentReferenceResolver.documentReferencePattern
         
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            textParts = [TextPart(text: text, isMention: false, documentName: "")]
             return
         }
         
         let nsString = text as NSString
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
         
-        var lastLocation = 0
-        
+        // For simplicity, open the first valid document found
         for match in matches {
-            if match.range.location > lastLocation {
-                let beforeText = nsString.substring(with: NSRange(location: lastLocation, length: match.range.location - lastLocation))
-                if !beforeText.isEmpty {
-                    textParts.append(TextPart(text: beforeText, isMention: false, documentName: ""))
-                }
-            }
+            let matchText = nsString.substring(with: match.range)
+            let documentName = DocumentReferenceResolver.extractDocumentName(from: matchText)
             
-            let mentionText = nsString.substring(with: match.range)
-            var documentName = String(mentionText.dropFirst())
-            if documentName.hasSuffix(".pdf") {
-                documentName = String(documentName.dropLast(4))
-            }
-            
-            textParts.append(TextPart(text: mentionText, isMention: true, documentName: documentName))
-            
-            lastLocation = match.range.location + match.range.length
-        }
-        
-        if lastLocation < nsString.length {
-            let remainingText = nsString.substring(from: lastLocation)
-            if !remainingText.isEmpty {
-                textParts.append(TextPart(text: remainingText, isMention: false, documentName: ""))
+            if let document = findReferencedDocument(for: documentName) {
+                openDocument(document, context: findDocumentContext(for: documentName))
+                break
             }
         }
     }
-}
-
-// MARK: - Mention Pill Button
-
-struct MentionPillButton: View {
-    let text: String
-    let documentName: String
-    let document: Document?
-    let context: DocumentContext?
-    @State private var isHovered = false
     
-    var body: some View {
-        Button(action: openDocument) {
-            pillContent
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .help(document != nil ? "Click to open \(documentName).pdf" : "Document '\(documentName)' not found")
-        .disabled(document == nil)
-    }
-    
-    private var pillContent: some View {
-        HStack(spacing: 4) {
-            Image(systemName: contextIcon)
-                .font(.system(size: 10, weight: .medium))
-            
-            Text(text)
-                .font(.system(size: 13, weight: .medium))
-        }
-        .foregroundColor(DesignSystem.Colors.textOnAccent)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(pillBackground)
-        .scaleEffect(isHovered ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-    }
-    
-    private var pillBackground: some View {
-        Capsule()
-            .fill(document != nil ? pillColor : Color.gray.opacity(0.6))
-            .overlay(
-                Capsule()
-                    .stroke(document != nil ? pillColor.opacity(0.8) : Color.gray.opacity(0.8), lineWidth: 1)
-            )
-    }
-    
-    private var contextIcon: String {
-        guard let context = context else { return "doc.fill" }
-        
-        switch context.contextType {
-        case .fullDocument: return "doc.fill"
-        case .pageRange: return "doc.on.doc"
-        case .textSelection: return "text.viewfinder"
-        case .semanticChunk: return "brain"
-        case .reference: return "at"
-        }
-    }
-    
-    private var pillColor: Color {
-        guard let context = context else { return Color.blue.opacity(0.6) }
-        
-        switch context.contextType {
-        case .fullDocument: return Color.blue.opacity(0.6)
-        case .pageRange: return Color.purple.opacity(0.6)
-        case .textSelection: return Color.orange.opacity(0.6)
-        case .semanticChunk: return Color.green.opacity(0.6)
-        case .reference: return Color.indigo.opacity(0.6)
-        }
-    }
-    
-    private func openDocument() {
-        guard let document = document else {
-            print("❌ No document available to open for: '\(documentName)'")
-            return
-        }
-        
+    private func openDocument(_ document: Document, context: DocumentContext?) {
         print("🔍 Opening document: '\(document.title)' (ID: \(document.id))")
         
         // Open the document in the PDF viewer
@@ -262,72 +197,6 @@ struct MentionPillButton: View {
             }
         }
     }
-}
-
-// MARK: - Inline Flow Layout for Text Elements
-
-struct InlineFlowLayout: Layout {
-    let alignment: Alignment
-    let spacing: CGFloat
-    
-    init(alignment: Alignment = .center, spacing: CGFloat = 8) {
-        self.alignment = alignment
-        self.spacing = spacing
-    }
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let availableWidth = proposal.width ?? .infinity
-        var totalHeight: CGFloat = 0
-        var lineHeight: CGFloat = 0
-        var currentX: CGFloat = 0
-        
-        for subview in subviews {
-            let subviewSize = subview.sizeThatFits(.unspecified)
-            
-            if currentX + subviewSize.width > availableWidth && currentX > 0 {
-                totalHeight += lineHeight + spacing
-                lineHeight = subviewSize.height
-                currentX = subviewSize.width + spacing
-            } else {
-                lineHeight = max(lineHeight, subviewSize.height)
-                currentX += subviewSize.width + spacing
-            }
-        }
-        
-        totalHeight += lineHeight
-        return CGSize(width: availableWidth, height: totalHeight)
-    }
-    
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var currentX: CGFloat = bounds.minX
-        var currentY: CGFloat = bounds.minY
-        var lineHeight: CGFloat = 0
-        
-        for subview in subviews {
-            let subviewSize = subview.sizeThatFits(.unspecified)
-            
-            if currentX + subviewSize.width > bounds.maxX && currentX > bounds.minX {
-                currentY += lineHeight + spacing
-                currentX = bounds.minX
-                lineHeight = 0
-            }
-            
-            let placement = CGPoint(x: currentX, y: currentY)
-            let proposedSize = ProposedViewSize(subviewSize)
-            subview.place(at: placement, proposal: proposedSize)
-            
-            currentX += subviewSize.width + spacing
-            lineHeight = max(lineHeight, subviewSize.height)
-        }
-    }
-}
-
-// MARK: - Text Part Model
-
-struct TextPart {
-    let text: String
-    let isMention: Bool
-    let documentName: String
 }
 
 #Preview {

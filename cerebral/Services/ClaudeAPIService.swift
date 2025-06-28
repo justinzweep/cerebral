@@ -6,282 +6,287 @@
 //
 
 import Foundation
+import OSLog
 
 @MainActor
 class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
+    
+    // MARK: - Dependencies
     private let settingsManager: SettingsManager
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "cerebral", category: "ClaudeAPI")
+    
+    // MARK: - Configuration
     private let baseURL = "https://api.anthropic.com"
     private let apiVersion = "2023-06-01"
     
-    init(settingsManager: SettingsManager) {
-        self.settingsManager = settingsManager
+    private struct Configuration {
+        static let maxRetries = 3
+        static let baseDelay: TimeInterval = 1.0
+        static let maxDelay: TimeInterval = 32.0
+        static let requestTimeout: TimeInterval = 60.0
+        static let maxTokens = 4000
+        static let maxContextLength = 100_000
+        static let rateLimitWindow: TimeInterval = 60.0
+        static let maxRequestsPerWindow = 50
     }
     
-    // MARK: - Streaming Message Support
+    // MARK: - Rate Limiting & Circuit Breaker
+    private var requestTimestamps: [Date] = []
+    private var circuitBreakerFailureCount = 0
+    private var circuitBreakerLastFailureTime: Date?
+    private let circuitBreakerThreshold = 5
+    private let circuitBreakerRecoveryTime: TimeInterval = 300 // 5 minutes
+    
+    // MARK: - Active Requests Management
+    private var activeRequests: Set<UUID> = []
+    private let requestsQueue = DispatchQueue(label: "claudeapi.requests", qos: .userInitiated)
+    
+    init(settingsManager: SettingsManager) {
+        self.settingsManager = settingsManager
+        logger.info("ClaudeAPIService initialized")
+    }
+    
+    // MARK: - Public API
     
     func sendMessageStream(
         _ message: String,
         context: [Document] = [],
         conversationHistory: [ChatMessage] = []
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
+        let requestId = UUID()
+        
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    print("🚀 Starting streaming sendMessage request...")
-                    print("📝 Message length: \(message.count) characters")
-                    print("📄 Document context count: \(context.count)")
-                    print("💬 Conversation history count: \(conversationHistory.count)")
+                    // Track active request
+                    await addActiveRequest(requestId)
+                    defer { Task { await removeActiveRequest(requestId) } }
                     
-                    guard !settingsManager.apiKey.isEmpty else {
-                        print("❌ No API key configured")
-                        throw ChatError.noAPIKey
-                    }
+                    logger.info("Starting streaming request - requestId: \(requestId), messageLength: \(message.count), contextCount: \(context.count), historyCount: \(conversationHistory.count)")
                     
-                    print("✅ API key available, preparing streaming request...")
+                    // Validate prerequisites
+                    try await validateRequest(message: message, context: context)
                     
-                    // Build the conversation messages
-                    var messages: [ClaudeMessage] = []
+                    // Check circuit breaker
+                    try checkCircuitBreaker()
                     
-                    // Add conversation history (limit to last 10 messages for context)
-                    for historyMessage in conversationHistory.suffix(10) {
-                        let role: String = historyMessage.isUser ? "user" : "assistant"
-                        messages.append(ClaudeMessage(role: role, content: historyMessage.text))
-                    }
+                    // Check rate limits
+                    try await checkRateLimit()
                     
-                    // Add the current message (which may already include document content)
-                    var currentMessageContent = message
-                    
-                    // Only add separate document context if there are documents and the message doesn't already contain them
-                    if !context.isEmpty && !message.contains("ATTACHED DOCUMENTS:") {
-                        let contextInfo = buildDocumentContext(from: context)
-                        currentMessageContent = """
-                        Document Context:
-                        \(contextInfo)
-                        
-                        User Question: \(message)
-                        """
-                    }
-                    
-                    messages.append(ClaudeMessage(role: "user", content: currentMessageContent))
-                    
-                    let requestBody = ClaudeStreamRequest(
-                        model: "claude-3-5-sonnet-20241022",
-                        maxTokens: 1000,
-                        messages: messages,
-                        system: buildSystemPrompt(),
-                        stream: true
+                    // Prepare request
+                    let request = try await prepareStreamingRequest(
+                        message: message,
+                        context: context,
+                        conversationHistory: conversationHistory
                     )
                     
-                    print("📋 Streaming request configured:")
-                    print("   Model: \(requestBody.model)")
-                    print("   Messages count: \(requestBody.messages.count)")
-                    print("   Max tokens: \(requestBody.maxTokens)")
-                    print("🌐 Making streaming request to Claude API...")
-                    
-                    try await performStreamingAPIRequest(requestBody, continuation: continuation)
+                    // Execute with retry logic
+                    try await executeStreamingRequestWithRetry(
+                        request: request,
+                        requestId: requestId,
+                        continuation: continuation
+                    )
                     
                 } catch {
-                    print("❌ Streaming error: \(error)")
+                    logger.error("Streaming request failed - requestId: \(requestId), error: \(error)")
+                    recordFailure()
                     continuation.finish(throwing: error)
                 }
             }
         }
     }
     
-    private func performStreamingAPIRequest(
-        _ requestBody: ClaudeStreamRequest,
-        continuation: AsyncThrowingStream<StreamingResponse, Error>.Continuation
-    ) async throws {
-        guard let url = URL(string: "\(baseURL)/v1/messages") else {
-            throw ChatError.requestFailed("Invalid API URL")
+    func validateConnection() async throws -> Bool {
+        logger.info("Validating Claude API connection")
+        
+        guard !settingsManager.apiKey.isEmpty else {
+            throw ChatError.noAPIKey
         }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        // Simple health check with minimal token usage
+        let testStream = sendStreamingMessage(
+            "Hi", 
+            context: [], 
+            conversationHistory: []
+        )
         
-        // Set headers
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(settingsManager.apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue(apiVersion, forHTTPHeaderField: "anthropic-version")
-        
-        // Encode request body
         do {
-            let jsonData = try JSONEncoder().encode(requestBody)
-            request.httpBody = jsonData
-            
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print("📤 Streaming Request JSON: \(jsonString)")
-            }
-        } catch {
-            print("❌ Failed to encode streaming request: \(error)")
-            throw ChatError.requestFailed("Failed to encode request: \(error.localizedDescription)")
-        }
-        
-        // Perform the streaming request
-        do {
-            let (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
-            
-            // Check HTTP status
-            if let httpResponse = urlResponse as? HTTPURLResponse {
-                print("📥 HTTP Status: \(httpResponse.statusCode)")
-                
-                if httpResponse.statusCode != 200 {
-                    throw ChatError.requestFailed("API Error: HTTP \(httpResponse.statusCode)")
+            var receivedResponse = false
+            for try await response in testStream {
+                if case .textDelta = response {
+                    receivedResponse = true
+                    break
                 }
             }
             
-            // Process the streaming response
-            var buffer = ""
-            for try await byte in asyncBytes {
-                buffer += String(bytes: [byte], encoding: .utf8) ?? ""
-                
-                // Process complete lines
-                let lines = buffer.components(separatedBy: "\n")
-                
-                // Keep the last (potentially incomplete) line in the buffer
-                if lines.count > 1 {
-                    buffer = lines.last ?? ""
-                    
-                    // Process all complete lines (all except the last)
-                    for line in lines.dropLast() {
-                        if let streamingResponse = parseSSELine(line) {
-                            continuation.yield(streamingResponse)
-                            
-                            // Check if this is the end of the stream
-                            if case .messageStop = streamingResponse {
-                                continuation.finish()
-                                return
-                            }
-                        }
-                    }
+            let isValid = receivedResponse
+            logger.info("Connection validation completed - isValid: \(isValid)")
+            return isValid
+            
+        } catch {
+            logger.error("Connection validation failed - error: \(error)")
+            
+            // Map specific error types for better user experience
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .cannotFindHost:
+                    throw ChatError.connectionFailed("Cannot reach Anthropic API servers. Please check your internet connection and DNS settings.")
+                case .notConnectedToInternet:
+                    throw ChatError.connectionFailed("No internet connection available.")
+                case .timedOut:
+                    throw ChatError.connectionFailed("Connection timed out. Please try again.")
+                case .networkConnectionLost:
+                    throw ChatError.connectionFailed("Network connection lost. Please check your connection.")
+                default:
+                    throw ChatError.connectionFailed("Network error: \(urlError.localizedDescription)")
                 }
             }
             
-            // Process any remaining buffer
-            if !buffer.isEmpty, let streamingResponse = parseSSELine(buffer) {
-                continuation.yield(streamingResponse)
-            }
-            
-            continuation.finish()
-            
-        } catch let error as URLError {
-            print("❌ Network error: \(error)")
-            switch error.code {
-            case .cannotFindHost:
-                throw ChatError.requestFailed("Cannot find Anthropic API server. This might be due to DNS resolution issues. Try disabling iCloud Private Relay in Settings > Apple ID > iCloud > Private Relay, or check your network connection.")
-            case .notConnectedToInternet:
-                throw ChatError.requestFailed("No internet connection available.")
-            case .timedOut:
-                throw ChatError.requestFailed("Request timed out. Please try again.")
-            default:
-                throw ChatError.requestFailed("Network error: \(error.localizedDescription)")
-            }
-        } catch {
-            print("❌ Unexpected streaming error: \(error)")
-            throw ChatError.requestFailed("Unexpected error: \(error.localizedDescription)")
+            throw ChatError.connectionFailed(error.localizedDescription)
         }
     }
     
-    private func parseSSELine(_ line: String) -> StreamingResponse? {
-        // Skip empty lines and ping events
-        if line.isEmpty || line.hasPrefix(": ") {
-            return nil
+    // MARK: - Request Validation
+    
+    private func validateRequest(message: String, context: [Document]) async throws {
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ChatError.messageProcessingFailed("Message cannot be empty")
         }
         
-        // Parse event type
-        if line.hasPrefix("event: ") {
-            let eventPrefix = "event: "
-            guard line.count > eventPrefix.count else { return nil }
-            let eventType = String(line.dropFirst(eventPrefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
-            return .event(eventType)
+        guard !settingsManager.apiKey.isEmpty else {
+            throw ChatError.noAPIKey
         }
         
-        // Parse data
-        if line.hasPrefix("data: ") {
-            let dataPrefix = "data: "
-            guard line.count > dataPrefix.count else { return nil }
-            let dataString = String(line.dropFirst(dataPrefix.count))
-            
-            guard let data = dataString.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let type = json["type"] as? String else {
-                return nil
-            }
-            
-            switch type {
-            case "message_start":
-                return .messageStart
-                
-            case "content_block_start":
-                return .contentBlockStart
-                
-            case "content_block_delta":
-                if let delta = json["delta"] as? [String: Any],
-                   let deltaType = delta["type"] as? String,
-                   deltaType == "text_delta",
-                   let text = delta["text"] as? String {
-                    return .textDelta(text)
-                }
-                
-            case "content_block_stop":
-                return .contentBlockStop
-                
-            case "message_delta":
-                return .messageDelta
-                
-            case "message_stop":
-                return .messageStop
-                
-            case "ping":
-                return .ping
-                
-            case "error":
-                if let error = json["error"] as? [String: Any],
-                   let message = error["message"] as? String {
-                    return .error(message)
-                }
-                
-            default:
-                print("🔄 Unknown streaming event type: \(type)")
-            }
+        // Validate API key format
+        guard settingsManager.validateAPIKey(settingsManager.apiKey) else {
+            throw ChatError.requestFailed("Invalid API key format")
         }
         
-        return nil
+        // Estimate context size and validate
+        let estimatedTokens = estimateTokenCount(message: message, context: context)
+        guard estimatedTokens <= Configuration.maxContextLength else {
+            logger.warning("Context too large - estimatedTokens: \(estimatedTokens)")
+            throw ChatError.contextTooLarge
+        }
     }
     
-
+    private func estimateTokenCount(message: String, context: [Document]) -> Int {
+        // Rough estimation: ~4 characters per token
+        let messageTokens = message.count / 4
+        let contextTokens = context.reduce(0) { total, doc in
+            // Estimate based on document size or use cached value
+            return total + (doc.title.count / 4) + 500 // Base estimate per document
+        }
+        return messageTokens + contextTokens
+    }
     
-    private func buildSystemPrompt() -> String {
+    // MARK: - Circuit Breaker
+    
+    private func checkCircuitBreaker() throws {
+        guard circuitBreakerFailureCount < circuitBreakerThreshold else {
+            if let lastFailure = circuitBreakerLastFailureTime,
+               Date().timeIntervalSince(lastFailure) < circuitBreakerRecoveryTime {
+                throw ChatError.connectionFailed("Service temporarily unavailable. Please try again later.")
+            } else {
+                // Reset circuit breaker
+                circuitBreakerFailureCount = 0
+                circuitBreakerLastFailureTime = nil
+                return // Allow the request to proceed after reset
+            }
+        }
+    }
+    
+    private func recordFailure() {
+        circuitBreakerFailureCount += 1
+        circuitBreakerLastFailureTime = Date()
+        logger.warning("Circuit breaker failure recorded - failureCount: \(self.circuitBreakerFailureCount)")
+    }
+    
+    private func recordSuccess() {
+        if circuitBreakerFailureCount > 0 {
+            circuitBreakerFailureCount = 0
+            circuitBreakerLastFailureTime = nil
+            logger.info("Circuit breaker reset after successful request")
+        }
+    }
+    
+    // MARK: - Rate Limiting
+    
+    private func checkRateLimit() async throws {
+        let now = Date()
+        let windowStart = now.addingTimeInterval(-Configuration.rateLimitWindow)
+        
+        // Clean old timestamps
+        requestTimestamps.removeAll { $0 < windowStart }
+        
+        guard requestTimestamps.count < Configuration.maxRequestsPerWindow else {
+            logger.warning("Rate limit exceeded - requestCount: \(self.requestTimestamps.count), windowSize: \(Configuration.rateLimitWindow)")
+            throw ChatError.rateLimitExceeded
+        }
+        
+        requestTimestamps.append(now)
+    }
+    
+    // MARK: - Request Preparation
+    
+    private func prepareStreamingRequest(
+        message: String,
+        context: [Document],
+        conversationHistory: [ChatMessage]
+    ) async throws -> ClaudeStreamRequest {
+        
+        // Build conversation messages with size limits
+        var messages: [ClaudeMessage] = []
+        let maxHistoryMessages = 20 // Limit conversation history
+        
+        // Add recent conversation history
+        for historyMessage in conversationHistory.suffix(maxHistoryMessages) {
+            let role: String = historyMessage.isUser ? "user" : "assistant"
+            messages.append(ClaudeMessage(role: role, content: historyMessage.text))
+        }
+        
+        // Prepare current message with context
+        let currentMessageContent = try await buildMessageWithContext(
+            message: message,
+            context: context
+        )
+        
+        messages.append(ClaudeMessage(role: "user", content: currentMessageContent))
+        
+        return ClaudeStreamRequest(
+            model: "claude-3-5-sonnet-20241022",
+            maxTokens: Configuration.maxTokens,
+            messages: messages,
+            system: buildSystemPrompt(),
+            stream: true
+        )
+    }
+    
+    private func buildMessageWithContext(message: String, context: [Document]) async throws -> String {
+        // Only add separate document context if there are documents and message doesn't already contain them
+        guard !context.isEmpty && !message.contains("ATTACHED DOCUMENTS:") else {
+            return message
+        }
+        
+        let contextInfo = try await buildDocumentContext(from: context)
+        
         return """
-        You are an AI assistant integrated into Cerebral, a PDF reading and document management application for macOS. Your role is to:
+        Document Context:
+        \(contextInfo)
         
-        1. Help users understand and analyze their PDF documents
-        2. Answer questions about document content when provided
-        3. Assist with research and provide insights
-        4. Be helpful, accurate, and concise in your responses
-        
-        When a user message contains "ATTACHED DOCUMENTS:" followed by document content, prioritize information from those documents in your responses. The document content will be clearly marked with document titles and metadata.
-        
-        The user message format may include:
-        - ATTACHED DOCUMENTS: (document content and metadata)
-        - USER MESSAGE: (the actual user question)
-        
-        Focus on the user's actual question while using the attached document content to provide accurate, relevant answers. If asked about content not in the provided documents, clearly state that and offer general knowledge if helpful.
-        
-        Keep responses conversational and helpful while being precise about document-specific information.
-
-        Always return your answer in neatly formatted markdown.
+        User Question: \(message)
         """
     }
     
-    private func buildDocumentContext(from documents: [Document]) -> String {
+    private func buildDocumentContext(from documents: [Document]) async throws -> String {
         var context = ""
+        let maxDocuments = 5 // Limit number of documents to prevent context overflow
         
-        for document in documents {
+        for document in documents.prefix(maxDocuments) {
             context += "Document: \(document.title)\n"
             context += "Added: \(document.dateAdded.formatted(date: .abbreviated, time: .omitted))\n"
             
-            // Extract metadata
+            // Extract metadata safely
             if let metadata = PDFService.shared.getDocumentMetadata(from: document) {
                 if let pageCount = metadata["pageCount"] as? Int {
                     context += "Pages: \(pageCount)\n"
@@ -294,8 +299,8 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
                 }
             }
             
-            // Extract text content
-            if let extractedText = PDFService.shared.extractText(from: document, maxLength: 2000) {
+            // Extract text content with length limit
+            if let extractedText = PDFService.shared.extractText(from: document, maxLength: 3000) {
                 context += "\nDocument Content (excerpt):\n"
                 context += extractedText
             } else {
@@ -311,45 +316,365 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
         return context
     }
     
-
+    // MARK: - Request Execution with Retry Logic
     
-    func validateConnection() async throws -> Bool {
-        guard !settingsManager.apiKey.isEmpty else {
-            throw ChatError.noAPIKey
+    private func executeStreamingRequestWithRetry(
+        request: ClaudeStreamRequest,
+        requestId: UUID,
+        continuation: AsyncThrowingStream<StreamingResponse, Error>.Continuation
+    ) async throws {
+        
+        var lastError: Error?
+        
+        for attempt in 1...Configuration.maxRetries {
+            do {
+                logger.info("Executing streaming request - requestId: \(requestId), attempt: \(attempt), maxRetries: \(Configuration.maxRetries)")
+                
+                try await performStreamingAPIRequest(
+                    request,
+                    requestId: requestId,
+                    continuation: continuation
+                )
+                
+                recordSuccess()
+                return
+                
+            } catch {
+                lastError = error
+                logger.error("Request attempt failed - requestId: \(requestId), attempt: \(attempt), error: \(error)")
+                
+                // Don't retry certain types of errors
+                if !shouldRetryError(error) || attempt == Configuration.maxRetries {
+                    break
+                }
+                
+                // Exponential backoff with jitter
+                let delay = min(
+                    Configuration.baseDelay * pow(2.0, Double(attempt - 1)),
+                    Configuration.maxDelay
+                )
+                let jitteredDelay = delay * (0.5 + Double.random(in: 0...0.5))
+                
+                logger.info("Retrying after delay - requestId: \(requestId), delay: \(jitteredDelay), nextAttempt: \(attempt + 1)")
+                
+                try await Task.sleep(nanoseconds: UInt64(jitteredDelay * 1_000_000_000))
+            }
         }
         
-        // Use streaming to validate connection with a simple message
-        let testStream = sendStreamingMessage("Hello", context: [], conversationHistory: [])
-        
-        do {
-            // Just need to verify we can start the stream
-            for try await _ in testStream {
-                // Got at least one response, connection is valid
+        if let error = lastError {
+            throw error
+        }
+    }
+    
+    private func shouldRetryError(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut, .networkConnectionLost, .cannotConnectToHost:
+                return true
+            case .badURL, .unsupportedURL, .cannotFindHost:
+                return false
+            default:
                 return true
             }
-            return true
+        }
+        
+        if let chatError = error as? ChatError {
+            switch chatError {
+            case .rateLimitExceeded, .connectionFailed:
+                return true
+            case .noAPIKey, .contextTooLarge:
+                return false
+            default:
+                return true
+            }
+        }
+        
+        return true
+    }
+    
+    // MARK: - HTTP Request Execution
+    
+    private func performStreamingAPIRequest(
+        _ requestBody: ClaudeStreamRequest,
+        requestId: UUID,
+        continuation: AsyncThrowingStream<StreamingResponse, Error>.Continuation
+    ) async throws {
+        
+        guard let url = URL(string: "\(baseURL)/v1/messages") else {
+            throw ChatError.requestFailed("Invalid API URL")
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = Configuration.requestTimeout
+        
+        // Set headers
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(settingsManager.apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(apiVersion, forHTTPHeaderField: "anthropic-version")
+        request.setValue("cerebral/1.0", forHTTPHeaderField: "User-Agent")
+        
+        // Encode request body
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys // For consistent logging
+            let jsonData = try encoder.encode(requestBody)
+            request.httpBody = jsonData
+            
+            logger.debug("Request prepared - requestId: \(requestId), bodySize: \(jsonData.count), model: \(requestBody.model)")
+            
         } catch {
-            print("Claude API Validation Error: \(error)")
-            if let urlError = error as? URLError {
-                switch urlError.code {
-                case .cannotFindHost:
-                    throw ChatError.connectionFailed("Cannot reach Anthropic API servers. Please check your internet connection and API key.")
-                case .notConnectedToInternet:
-                    throw ChatError.connectionFailed("No internet connection available.")
-                case .timedOut:
-                    throw ChatError.connectionFailed("Connection timed out. Please try again.")
-                default:
-                    throw ChatError.connectionFailed("Network error: \(urlError.localizedDescription)")
+            throw ChatError.requestFailed("Failed to encode request: \(error.localizedDescription)")
+        }
+        
+        // Execute streaming request
+        do {
+            let (asyncBytes, urlResponse) = try await URLSession.shared.bytes(for: request)
+            
+            // Validate HTTP response
+            guard let httpResponse = urlResponse as? HTTPURLResponse else {
+                throw ChatError.requestFailed("Invalid response type")
+            }
+            
+            logger.info("Received HTTP response - requestId: \(requestId), statusCode: \(httpResponse.statusCode)")
+            
+            guard httpResponse.statusCode == 200 else {
+                let errorMessage = try await extractErrorFromResponse(asyncBytes, statusCode: httpResponse.statusCode)
+                throw ChatError.requestFailed("API Error: HTTP \(httpResponse.statusCode) - \(errorMessage)")
+            }
+            
+            // Process streaming response
+            try await processStreamingResponse(
+                asyncBytes: asyncBytes,
+                requestId: requestId,
+                continuation: continuation
+            )
+            
+        } catch let error as URLError {
+            logger.error("Network error - requestId: \(requestId), urlError: \(error)")
+            
+            switch error.code {
+            case .cannotFindHost:
+                throw ChatError.connectionFailed("Cannot find Anthropic API server. This might be due to DNS resolution issues. Try disabling iCloud Private Relay in Settings > Apple ID > iCloud > Private Relay, or check your network connection.")
+            case .notConnectedToInternet:
+                throw ChatError.connectionFailed("No internet connection available.")
+            case .timedOut:
+                throw ChatError.connectionFailed("Request timed out. Please try again.")
+            case .networkConnectionLost:
+                throw ChatError.connectionFailed("Network connection lost during request.")
+            default:
+                throw ChatError.connectionFailed("Network error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func extractErrorFromResponse(_ asyncBytes: URLSession.AsyncBytes, statusCode: Int) async throws -> String {
+        var errorData = Data()
+        
+        // Collect error response data (with size limit)
+        for try await byte in asyncBytes.prefix(1024) { // Limit error response size
+            errorData.append(byte)
+        }
+        
+        if let errorString = String(data: errorData, encoding: .utf8),
+           !errorString.isEmpty {
+            return errorString
+        }
+        
+        return "Unknown error (HTTP \(statusCode))"
+    }
+    
+    // MARK: - Streaming Response Processing
+    
+    private func processStreamingResponse(
+        asyncBytes: URLSession.AsyncBytes,
+        requestId: UUID,
+        continuation: AsyncThrowingStream<StreamingResponse, Error>.Continuation
+    ) async throws {
+        
+        var buffer = Data()
+        var processedLines = 0
+        let maxBufferSize = 10_000 // Prevent memory issues
+        
+        for try await byte in asyncBytes {
+            buffer.append(byte)
+            
+            // Prevent buffer overflow
+            if buffer.count > maxBufferSize {
+                buffer = buffer.suffix(maxBufferSize / 2)
+                logger.warning("Buffer size limit reached, truncating - requestId: \(requestId)")
+            }
+            
+            // Convert buffer to string and process complete lines
+            if let bufferString = String(data: buffer, encoding: .utf8) {
+                var remainingString = bufferString
+                
+                while let newlineRange = remainingString.range(of: "\n") {
+                    let line = String(remainingString[..<newlineRange.lowerBound])
+                    remainingString.removeSubrange(..<newlineRange.upperBound)
+                    
+                    if let streamingResponse = parseSSELine(line, requestId: requestId) {
+                        continuation.yield(streamingResponse)
+                        processedLines += 1
+                        
+                        // Check for stream end
+                        if case .messageStop = streamingResponse {
+                            logger.info("Stream completed - requestId: \(requestId), processedLines: \(processedLines)")
+                            continuation.finish()
+                            return
+                        }
+                    }
+                }
+                
+                // Update buffer with remaining incomplete data
+                if let remainingData = remainingString.data(using: .utf8) {
+                    buffer = remainingData
                 }
             }
-            throw ChatError.connectionFailed(error.localizedDescription)
         }
+        
+        // Process any remaining buffer content
+        if let finalString = String(data: buffer, encoding: .utf8),
+           !finalString.isEmpty,
+           let streamingResponse = parseSSELine(finalString, requestId: requestId) {
+            continuation.yield(streamingResponse)
+        }
+        
+        logger.info("Stream finished - requestId: \(requestId), processedLines: \(processedLines)")
+        continuation.finish()
+    }
+    
+    private func parseSSELine(_ line: String, requestId: UUID) -> StreamingResponse? {
+        // Skip empty lines and comments
+        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedLine.isEmpty || trimmedLine.hasPrefix(":") {
+            return nil
+        }
+        
+        // Parse event type
+        if trimmedLine.hasPrefix("event: ") {
+            let prefix = "event: "
+            guard trimmedLine.count > prefix.count else { return nil }
+            let eventType = String(trimmedLine.dropFirst(prefix.count))
+            return .event(eventType)
+        }
+        
+        // Parse data
+        if trimmedLine.hasPrefix("data: ") {
+            let prefix = "data: "
+            guard trimmedLine.count > prefix.count else { return nil }
+            let dataString = String(trimmedLine.dropFirst(prefix.count))
+            
+            guard let data = dataString.data(using: .utf8) else {
+                logger.warning("Failed to parse SSE data - requestId: \(requestId), line: \(trimmedLine)")
+                return nil
+            }
+            
+            do {
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let type = json["type"] as? String else {
+                    return nil
+                }
+                
+                return parseEventType(type, json: json, requestId: requestId)
+                
+            } catch {
+                logger.warning("Failed to parse JSON - requestId: \(requestId), error: \(error)")
+                return nil
+            }
+        }
+        
+        return nil
+    }
+    
+    private func parseEventType(_ type: String, json: [String: Any], requestId: UUID) -> StreamingResponse? {
+        switch type {
+        case "message_start":
+            return .messageStart
+            
+        case "content_block_start":
+            return .contentBlockStart
+            
+        case "content_block_delta":
+            if let delta = json["delta"] as? [String: Any],
+               let deltaType = delta["type"] as? String,
+               deltaType == "text_delta",
+               let text = delta["text"] as? String {
+                return .textDelta(text)
+            }
+            
+        case "content_block_stop":
+            return .contentBlockStop
+            
+        case "message_delta":
+            return .messageDelta
+            
+        case "message_stop":
+            return .messageStop
+            
+        case "ping":
+            return .ping
+            
+        case "error":
+            if let error = json["error"] as? [String: Any],
+               let message = error["message"] as? String {
+                logger.error("API error received - requestId: \(requestId), errorMessage: \(message)")
+                return .error(message)
+            }
+            
+        default:
+            logger.debug("Unknown event type - requestId: \(requestId), eventType: \(type)")
+        }
+        
+        return nil
+    }
+    
+    // MARK: - Active Request Management
+    
+    private func addActiveRequest(_ requestId: UUID) async {
+        await requestsQueue.sync {
+            activeRequests.insert(requestId)
+        }
+    }
+    
+    private func removeActiveRequest(_ requestId: UUID) async {
+        await requestsQueue.sync {
+            activeRequests.remove(requestId)
+        }
+    }
+    
+    // MARK: - System Prompt
+    
+    private func buildSystemPrompt() -> String {
+        return """
+        You are an AI assistant integrated into Cerebral, a PDF reading and document management application for macOS. Your role is to:
+        
+        1. Help users understand and analyze their PDF documents
+        2. Answer questions about document content when provided
+        3. Assist with research and provide insights based on the documents
+        4. Be helpful, accurate, and concise in your responses
+        
+        When a user message contains "Document Context:" followed by document content, prioritize information from those documents in your responses. The document content will be clearly marked with document titles and metadata.
+        
+        Focus on the user's actual question while using the provided document content to give accurate, relevant answers. If asked about content not in the provided documents, clearly state that and offer general knowledge if helpful.
+        
+        Keep responses conversational and helpful while being precise about document-specific information. Always format your responses in clean, readable markdown.
+        """
     }
     
     // MARK: - ChatServiceProtocol Implementation
     
-    func sendStreamingMessage(_ text: String, context: [Document] = [], conversationHistory: [ChatMessage] = []) -> AsyncThrowingStream<StreamingResponse, Error> {
+    func sendStreamingMessage(
+        _ text: String, 
+        context: [Document] = [], 
+        conversationHistory: [ChatMessage] = []
+    ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return sendMessageStream(text, context: context, conversationHistory: conversationHistory)
+    }
+    
+    // MARK: - Cleanup
+    deinit {
+        logger.info("ClaudeAPIService deallocated")
     }
 }
 
@@ -398,7 +723,4 @@ struct ClaudeMessage: Codable {
     let content: String
 }
 
-
-
-// APIError has been consolidated into ChatError in AppErrors.swift
 

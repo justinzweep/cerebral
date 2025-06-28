@@ -280,13 +280,7 @@ struct ChatHeaderView: View {
     let onNewSession: () -> Void
     
     var body: some View {
-        HStack {
-            if hasMessages {
-                Text("Conversation active")
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.secondaryText)
-            }
-            
+        HStack {            
             Spacer()
             
             HStack(spacing: DesignSystem.Spacing.xs) {
@@ -301,17 +295,9 @@ struct ChatHeaderView: View {
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
         .padding(.vertical, DesignSystem.Spacing.sm)
-        // .background(Material.thin)
-        // .overlay(
-        //     Rectangle()
-        //         .fill(DesignSystem.Colors.border.opacity(0.3))
-        //         .frame(height: 1),
-        //     alignment: .bottom
-        // )
     }
 }
 
-// Note: Notification system has been replaced with AppState for better data flow
 
 // MARK: - Empty State Components
 

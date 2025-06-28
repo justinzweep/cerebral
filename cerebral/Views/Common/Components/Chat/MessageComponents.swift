@@ -20,7 +20,7 @@ struct UserMessage: View {
                 Spacer(minLength: DesignSystem.Spacing.xxl)
                 
                 // User message with inline clickable @mentions
-                FlowMessageText(
+                HighlightedMessageText(
                     text: message.text, 
                     contexts: message.contexts
                 )
@@ -132,12 +132,11 @@ struct AIMessage: View {
     
     @ViewBuilder
     private var messageText: some View {
-        // Use FlowMessageText for clickable document references in AI messages
-        FlowMessageText(
+        // Use HighlightedMessageText for clickable document references in AI messages
+        HighlightedMessageText(
             text: displayedText, 
             contexts: message.contexts
         )
-        .textSelection(.enabled)
         .animation(.none, value: displayedText) // Disable animation for performance
     }
 }
