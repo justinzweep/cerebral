@@ -7,10 +7,12 @@ This document outlines a comprehensive plan to simplify the Cerebral codebase ba
 The Cerebral app is a sophisticated PDF reader with AI chat integration, featuring highlighting, context management, and document organization. However, the codebase has accumulated significant complexity through:
 
 1. **Massive state objects** that violate single responsibility
-2. **Over-engineered service architecture** with excessive abstraction layers
+2. **Over-engineered service architecture** with excessive abstraction layers  
 3. **Complex highlighting system** with deep PDF integration in state management
 4. **Inconsistent dependency injection** mixing singletons with service containers
 5. **Business logic scattered across views** instead of being centralized
+6. **Custom implementations of native functionality** that could use SwiftUI/macOS APIs
+7. **Over-engineered UI components** that duplicate system capabilities
 
 ## 1. Critical: AppState God Object
 
@@ -251,34 +253,245 @@ enum AppError: LocalizedError {
 }
 ```
 
+## 7. Native SwiftUI/macOS API Replacements
+
+### Analysis
+
+The codebase contains numerous custom implementations that duplicate native SwiftUI/macOS functionality, adding unnecessary complexity and maintenance burden. These custom solutions often lack the accessibility, performance, and system integration benefits of native APIs.
+
+### Critical Replacements (High Impact, Low Risk)
+
+**KeyboardShortcutService.swift (195 lines) → Native SwiftUI Commands**
+```swift
+// Current: Complex NSEvent monitoring with manual key code handling
+class KeyboardShortcutService {
+    private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
+        let keyCode = event.keyCode
+        let modifierFlags = event.modifierFlags
+        // ... 150+ lines of manual key handling
+    }
+}
+
+// Replace with: Native SwiftUI commands (5 lines)
+.commands {
+    CommandGroup(after: .toolbar) {
+        Button("Toggle Sidebar") { appState.toggleSidebar() }
+            .keyboardShortcut("k", modifiers: .command)
+        Button("Toggle Chat") { appState.toggleChatPanel() }
+            .keyboardShortcut("l", modifiers: .command)
+    }
+}
+```
+
+**Custom Button Styles (Components.swift, 200+ lines) → Native Button Styles**
+```swift
+// Current: Manual hover/press state management
+struct PrimaryButtonStyle: ButtonStyle {
+    @State private var isHovered = false
+    func makeBody(configuration: Configuration) -> some View {
+        // ... 40+ lines of manual state handling
+    }
+}
+
+// Replace with: Native button styles (1 line)
+.buttonStyle(.borderedProminent)
+.buttonStyle(.bordered)
+.buttonStyle(.borderless)
+```
+
+**Custom Design System (Theme.swift, 400+ lines) → System Design Tokens**
+```swift
+// Current: Manual color/typography definitions
+struct Colors {
+    static let primaryText = Color.adaptive(light: Light.gray900, dark: Dark.gray100)
+    static let secondaryText = Color.adaptive(light: Light.gray700, dark: Dark.gray300)
+    // ... 300+ lines of manual color definitions
+}
+
+// Replace with: Native system colors (automatic dark mode)
+Color.primary, Color.secondary, Color.accentColor
+@Environment(\.colorScheme) var colorScheme
+```
+
+### Important Replacements (Medium Impact, Low Risk)
+
+**Custom Error Alerts (ErrorAlert.swift, 217 lines) → Native Alert Modifier**
+```swift
+// Current: Custom alert view with manual button handling
+struct ErrorAlert: View {
+    // ... 200+ lines of custom alert implementation
+}
+
+// Replace with: Native alert modifier (10 lines)
+.alert("Error", isPresented: $showingError, presenting: error) { error in
+    Button("Retry") { handleRetry() }
+    Button("Settings") { openSettings() }
+    Button("OK") { }
+} message: { error in
+    Text(error.localizedDescription)
+}
+```
+
+**Custom Typography System (Layout.swift, 220 lines) → Dynamic Type**
+```swift
+// Current: Manual font size definitions
+struct Typography {
+    static let body = Font.system(size: 13, weight: .regular)
+    static let caption = Font.system(size: 10, weight: .medium)
+    // ... 100+ lines of manual typography
+}
+
+// Replace with: System text styles (automatic Dynamic Type)
+.font(.body)
+.font(.caption)
+.font(.headline)
+```
+
+**Manual State Preservation (PDFViewerRepresentable.swift) → Native State Management**
+```swift
+// Current: Complex manual state capture/restore
+private struct PDFViewState {
+    let scaleFactor: CGFloat
+    let visibleRect: CGRect
+    // ... manual state preservation logic
+}
+
+// Replace with: SwiftUI's automatic state management
+@StateObject private var pdfCoordinator = PDFCoordinator()
+```
+
+### Lower Priority Replacements
+
+**Custom Autocomplete (ChatInputView.swift, 522 lines) → Native Searchable/Popover**
+```swift
+// Current: Manual dropdown positioning and keyboard handling
+@State private var showingAutocomplete = false
+@State private var autocompleteDocuments: [Document] = []
+// ... 100+ lines of manual autocomplete
+
+// Replace with: Native popover or searchable modifier
+.popover(isPresented: $showingAutocomplete) {
+    DocumentSuggestionsList()
+}
+```
+
+**Custom Token Counting (TokenizerService.swift, 359 lines) → Foundation NLP**
+```swift
+// Current: Manual character-based token estimation
+func estimateTokenCount(for text: String) -> Int {
+    let characterCount = cleanedText.count
+    let estimatedTokens = Int(ceil(Double(characterCount) / averageCharactersPerToken))
+    // ... manual calculation logic
+}
+
+// Replace with: Foundation's Natural Language framework
+import NaturalLanguage
+let tokenizer = NLTokenizer(unit: .word)
+tokenizer.string = text
+let tokenCount = tokenizer.tokens(for: text.startIndex..<text.endIndex).count
+```
+
+### Benefits of Native API Adoption
+
+1. **Massive Code Reduction**: ~60% reduction in custom UI code
+2. **Automatic Accessibility**: VoiceOver, keyboard navigation, Dynamic Type
+3. **System Consistency**: Matches macOS design guidelines and behaviors
+4. **Performance**: Native implementations are highly optimized
+5. **Future-Proof**: Automatic updates with new macOS versions
+6. **Reduced Maintenance**: Less custom code to debug and maintain
+7. **Better Testing**: System components are already tested by Apple
+
+### Migration Strategy
+
+**Phase A: Immediate Wins (Week 1)**
+- Replace KeyboardShortcutService with native commands
+- Replace custom button styles with native variants
+- Replace custom colors with system semantic colors
+
+**Phase B: UI Simplification (Week 2)**  
+- Replace custom error alerts with native alert modifiers
+- Replace custom typography with system text styles
+- Simplify design system to use native tokens
+
+**Phase C: Advanced Components (Week 3)**
+- Replace custom autocomplete with native components
+- Simplify state management using native SwiftUI patterns
+- Replace token counting with Foundation NLP APIs
+
 ## Implementation Priority
 
-### Phase 1: Critical (Week 1-2)
-1. **Extract HighlightingManager** from AppState
-2. **Simplify ChatView** by moving business logic to ChatManager
-3. **Remove ServiceContainer** and implement environment-based DI
+### Phase 1: Immediate Wins (Week 1)
+**Native API Replacements (High Impact, Low Risk)**
+1. **Replace KeyboardShortcutService** with native SwiftUI commands (195 → 20 lines)
+2. **Replace custom button styles** with native `.buttonStyle()` variants (200+ → 10 lines)
+3. **Replace custom colors** with system semantic colors (400+ → 50 lines)
+4. **Replace custom error alerts** with native `.alert()` modifiers (217 → 15 lines)
 
-### Phase 2: Important (Week 3-4)
-4. **Extract PDFChatInteractionManager** from AppState
-5. **Simplify ContentView** with LayoutManager
-6. **Consolidate context management** system
+**Architectural Improvements**
+5. **Extract HighlightingManager** from AppState (reduce god object)
 
-### Phase 3: Polish (Week 5-6)
-7. **Complete design system** consolidation
-8. **Simplify error handling** architecture
-9. **Remove redundant service layers**
+### Phase 2: Core Refactoring (Week 2-3)
+**Architectural Simplification**
+1. **Extract PDFChatInteractionManager** from AppState
+2. **Remove ServiceContainer** and implement environment-based DI
+3. **Simplify ChatView** by moving business logic to ChatManager
+
+**Native API Integration**
+4. **Replace custom typography** with system text styles and Dynamic Type
+5. **Simplify state management** using native SwiftUI patterns
+
+### Phase 3: Advanced Simplification (Week 4-5)
+**System Integration**
+1. **Replace custom autocomplete** with native components
+2. **Replace TokenizerService** with Foundation NLP APIs
+3. **Simplify ContentView** with native layout management
+
+**Architecture Polish**
+4. **Consolidate context management** system
+5. **Complete design system** migration to native tokens
+
+### Phase 4: Final Cleanup (Week 6)
+1. **Remove redundant service layers**
+2. **Simplify error handling** architecture
+3. **Performance optimization** and testing
+4. **Documentation** updates
 
 ## Expected Outcomes
 
-- **Reduced complexity**: ~40% reduction in lines of code in core files
-- **Improved testability**: Clear separation of concerns enables unit testing
+### Code Quality & Architecture
+- **Massive complexity reduction**: ~60% reduction in custom UI code, ~40% reduction in core architecture files
+- **Improved testability**: Clear separation of concerns enables comprehensive unit testing
 - **Better maintainability**: Single responsibility principle followed throughout
-- **Enhanced performance**: Reduced object graph complexity and better state management
 - **Clearer architecture**: Explicit dependencies and focused components
+
+### System Integration & Performance  
+- **Native system integration**: Automatic dark mode, accessibility, and macOS design consistency
+- **Enhanced performance**: Native implementations + reduced object graph complexity
+- **Future-proof codebase**: Automatic updates with new macOS versions
+- **Reduced maintenance burden**: ~1000+ lines of custom code replaced with native APIs
+
+### User Experience
+- **Automatic accessibility**: VoiceOver, keyboard navigation, Dynamic Type support
+- **System consistency**: Matches macOS behavior patterns users expect
+- **Better performance**: Native rendering and interaction handling
+- **Improved reliability**: Battle-tested system components vs. custom implementations
 
 ## Risk Mitigation
 
-- **Incremental changes**: Each phase can be implemented and tested separately
+### Low Risk: Native API Replacements (Phase 1)
+- **Drop-in replacements**: Most native APIs are direct replacements for custom code
+- **System tested**: Native APIs are thoroughly tested by Apple
+- **Reversible**: Easy to revert if issues arise
+- **Incremental**: Each component can be replaced independently
+
+### Medium Risk: Architectural Changes (Phases 2-3)
+- **Incremental refactoring**: Each phase can be implemented and tested separately
 - **Backward compatibility**: Maintain existing APIs during transition
 - **Feature preservation**: All current functionality will be preserved
-- **Testing strategy**: Add tests for extracted components before refactoring
+- **Testing strategy**: Add comprehensive tests for extracted components
+
+### Overall Risk Management
+- **Phase-based approach**: Start with lowest risk, highest impact changes
+- **Continuous validation**: Test after each major change
+- **Rollback capability**: Git branches for each phase enable easy rollback
+- **User testing**: Validate that user experience remains consistent throughout
