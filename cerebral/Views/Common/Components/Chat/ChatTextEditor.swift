@@ -11,6 +11,7 @@ struct ChatTextEditor: View {
     @Binding var text: String
     @FocusState private var isFocused: Bool
     @State private var appState = ServiceContainer.shared.appState
+    @Binding var shouldFocus: Bool
     let isDisabled: Bool
     let onSubmit: () -> Void
     let onTextChange: (String) -> Void
@@ -20,11 +21,13 @@ struct ChatTextEditor: View {
     init(
         text: Binding<String>,
         isDisabled: Bool = false,
+        shouldFocus: Binding<Bool> = .constant(false),
         onSubmit: @escaping () -> Void = {},
         onTextChange: @escaping (String) -> Void = { _ in }
     ) {
         self._text = text
         self.isDisabled = isDisabled
+        self._shouldFocus = shouldFocus
         self.onSubmit = onSubmit
         self.onTextChange = onTextChange
     }
@@ -70,6 +73,12 @@ struct ChatTextEditor: View {
             // Auto-focus when the component appears
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isFocused = true
+            }
+        }
+        .onChange(of: shouldFocus) { _, newValue in
+            if newValue {
+                isFocused = true
+                shouldFocus = false
             }
         }
     }

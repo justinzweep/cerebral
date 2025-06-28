@@ -116,6 +116,10 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
     var highlightPopupPosition: Binding<CGPoint>
     weak var pdfView: PDFView?
     
+    // NEW: Multiple selection management
+    private var currentSelections: [UUID: PDFSelection] = [:]
+    private var appState = ServiceContainer.shared.appState
+    
     // Store a strong reference to prevent deallocation
     static var sharedCoordinator: PDFViewCoordinator?
     
@@ -169,29 +173,71 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
             
             print("📝 Final selection: '\(selectionString.prefix(50))...'")
             
-            // Update state on main queue with weak references
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 
                 self.selectedText.wrappedValue = selection
                 
-                // Calculate popup position efficiently
-                if let firstPage = selection.pages.first,
-                   let pdfView = pdfView as? PDFView {
-                    let bounds = selection.bounds(for: firstPage)
-                    let convertedBounds = pdfView.convert(bounds, from: firstPage)
-                    
-                    // Position above the selection with safe margins
-                    let popupX = convertedBounds.midX
-                    let popupY = convertedBounds.minY - 10
-                    
-                    self.highlightPopupPosition.wrappedValue = CGPoint(x: popupX, y: popupY)
-                    self.showHighlightPopup.wrappedValue = true
+                // NEW: Check for Cmd key to add to multiple selections
+                let currentEvent = NSApp.currentEvent
+                if currentEvent?.modifierFlags.contains(.command) == true {
+                    // Add to multiple selections
+                    self.addToMultipleSelections(selection)
                 } else {
-                    self.showHighlightPopup.wrappedValue = false
+                    // Single selection - clear previous and show highlight popup
+                    self.handleSingleSelection(selection, pdfView: pdfView)
                 }
             }
         }
+    }
+    
+    // NEW: Multiple selection handling
+    @MainActor private func addToMultipleSelections(_ selection: PDFSelection) {
+        let selectionId = UUID()
+        currentSelections[selectionId] = selection
+        
+        // Add to AppState for coordination with chat
+        appState.addPDFSelection(selection, selectionId: selectionId)
+        
+        // Update visual state - hide highlight popup when multiple selections
+        showHighlightPopup.wrappedValue = false
+    }
+    
+    // NEW: Single selection handling (existing behavior)
+    @MainActor private func handleSingleSelection(_ selection: PDFSelection, pdfView: PDFView) {
+        // Clear previous multiple selections
+        clearMultipleSelections()
+        
+        // Add current selection to AppState
+        let selectionId = UUID()
+        currentSelections[selectionId] = selection
+        appState.addPDFSelection(selection, selectionId: selectionId)
+        
+        // Show highlight popup for single selections (existing behavior)
+        if let firstPage = selection.pages.first,
+           let pdfView = pdfView as? PDFView {
+            let bounds = selection.bounds(for: firstPage)
+            let convertedBounds = pdfView.convert(bounds, from: firstPage)
+            
+            let popupX = convertedBounds.midX
+            let popupY = convertedBounds.minY - 10
+            
+            self.highlightPopupPosition.wrappedValue = CGPoint(x: popupX, y: popupY)
+            self.showHighlightPopup.wrappedValue = true
+        }
+    }
+    
+    // NEW: Clear multiple selections
+    @MainActor func clearMultipleSelections() {
+        currentSelections.removeAll()
+        appState.clearAllPDFSelections()
+        showHighlightPopup.wrappedValue = false
+    }
+    
+    // NEW: Remove specific selection (for Cmd+click removal)
+    @MainActor func removeSelection(withId id: UUID) {
+        currentSelections.removeValue(forKey: id)
+        appState.removePDFSelection(withId: id)
     }
     
     // Cleanup method to prevent memory leaks

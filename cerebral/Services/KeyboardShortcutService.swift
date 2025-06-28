@@ -56,11 +56,34 @@ final class KeyboardShortcutService {
     private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
         let keyCode = event.keyCode
         let modifierFlags = event.modifierFlags
+        let characters = event.characters ?? ""
         
-        // ESC key (keyCode 53) - Clear document selection
+        // ESC key (keyCode 53) - Clear document selection AND PDF selections
         if keyCode == 53 {
             appState.selectDocument(nil)
-            return nil // Consume the event
+            appState.clearAllPDFSelections()
+            return nil
+        }
+        
+        // NEW: PDF-to-Chat typing detection
+        // Only trigger if we have PDF selections and user types alphanumeric
+        if appState.isReadyForChatTransition,
+           !characters.isEmpty,
+           !modifierFlags.contains(.command), // Ignore cmd shortcuts
+           !modifierFlags.contains(.control),  // Ignore ctrl shortcuts
+           !modifierFlags.contains(.option),   // Ignore option shortcuts
+           isAlphanumericCharacter(characters.first!) {
+            
+            // Trigger chat focus
+            appState.triggerChatFocus()
+            
+            // Ensure chat panel is visible
+            if !appState.showingChat {
+                appState.toggleChatPanel()
+            }
+            
+            // Don't consume the event - let it go to the chat input
+            return event
         }
         
         // Command + L (keyCode 37 for 'L') - Toggle chat panel
@@ -76,5 +99,9 @@ final class KeyboardShortcutService {
         }
         
         return event // Let the event continue
+    }
+    
+    private func isAlphanumericCharacter(_ char: Character) -> Bool {
+        return char.isLetter || char.isNumber || char.isWhitespace || char.isPunctuation
     }
 } 

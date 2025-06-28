@@ -21,7 +21,10 @@ struct PDFViewerView: View {
     @State private var showHighlightPopup: Bool = false
     @State private var highlightPopupPosition: CGPoint = .zero
     @State private var pdfViewCoordinator: PDFViewCoordinator?
-
+    
+    // PDF selection state for escape key handling
+    @State private var appState = ServiceContainer.shared.appState
+    
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
@@ -81,6 +84,14 @@ struct PDFViewerView: View {
         }
         .onAppear {
             loadPDF()
+        }
+        // NEW: Clear selections on Escape key
+        .onKeyPress(KeyEquivalent.escape) {
+            if !appState.pdfSelections.isEmpty {
+                pdfViewCoordinator?.clearMultipleSelections()
+                return .handled
+            }
+            return .ignored
         }
         .alert("Error Loading PDF", isPresented: $showingError) {
             Button("OK") { }

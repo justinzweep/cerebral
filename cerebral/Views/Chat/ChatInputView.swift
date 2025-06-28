@@ -17,6 +17,10 @@ struct ChatInputView: View {
     
     @State private var isHovered = false
     
+    // NEW: PDF context state
+    @State private var appState = ServiceContainer.shared.appState
+    @State private var shouldFocusInput = false
+    
     // Autocomplete state
     @State private var showingAutocomplete = false
     @State private var autocompleteDocuments: [Document] = []
@@ -46,6 +50,16 @@ struct ChatInputView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // PDF Selections List (only shown when user starts typing)
+            if appState.showPDFSelectionPills {
+                PDFSelectionList(
+                    pdfSelections: appState.pdfSelections,
+                    onRemoveSelection: { id in
+                        appState.removePDFSelection(withId: id)
+                    }
+                )
+            }
+            
             // Attachments List
             AttachmentList(
                 attachedDocuments: attachedDocuments,
@@ -60,9 +74,10 @@ struct ChatInputView: View {
                     ChatTextEditor(
                         text: $text,
                         isDisabled: isLoading || isStreaming,
+                        shouldFocus: $shouldFocusInput, // NEW: External focus control
                         onSubmit: {
                             if !showingAutocomplete && canSend && !isLoading && !isStreaming {
-                                onSend()
+                                handleSendMessage() // NEW: Enhanced send handling
                             }
                         },
                         onTextChange: handleTextChange
@@ -73,7 +88,7 @@ struct ChatInputView: View {
                         canSend: canSend,
                         isLoading: isLoading,
                         isStreaming: isStreaming,
-                        onSend: onSend
+                        onSend: handleSendMessage // NEW: Enhanced send handling
                     )
                     .padding(.trailing, 8)
                 }
@@ -115,6 +130,14 @@ struct ChatInputView: View {
 
         .animation(.easeInOut(duration: 0.2), value: attachedDocuments.count)
         .animation(.easeInOut(duration: 0.15), value: showingAutocomplete)
+        .animation(.easeInOut(duration: 0.2), value: appState.showPDFSelectionPills) // Watch for pill visibility, not count
+        // NEW: Observe focus trigger
+        .onChange(of: appState.shouldFocusChatInput) { _, shouldFocus in
+            if shouldFocus {
+                shouldFocusInput = true
+                appState.shouldFocusChatInput = false // Reset the trigger
+            }
+        }
         .onKeyPress(KeyEquivalent.tab) {
             if showingAutocomplete && !autocompleteDocuments.isEmpty {
                 insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
@@ -151,6 +174,33 @@ struct ChatInputView: View {
             return .ignored
         }
 
+    }
+    
+    // NEW: Enhanced send handling that includes PDF context and clears selections
+    private func handleSendMessage() {
+        // Format the final message with PDF context
+        var finalMessage = ""
+        
+        // Add PDF selections as quoted context if any
+        if let pdfContext = appState.formatSelectionsForMessage() {
+            finalMessage += pdfContext
+        }
+        
+        // Add user's text
+        finalMessage += text
+        
+        // Temporarily replace the text with the formatted message
+        let originalText = text
+        text = finalMessage
+        
+        // Send the message
+        onSend()
+        
+        // Clear PDF selections after sending
+        appState.clearAllPDFSelections()
+        
+        // Reset text to empty (not original text since message was sent)
+        text = ""
     }
     
     private var canSend: Bool {

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PDFKit
 
 struct AttachmentList: View {
     let attachedDocuments: [Document]
@@ -100,6 +101,115 @@ struct AttachmentPill: View {
         ]
     ) { document in
         print("Remove document: \(document.title)")
+    }
+    .padding()
+}
+
+// MARK: - PDF Selection List
+
+struct PDFSelectionList: View {
+    let pdfSelections: [PDFSelectionInfo]
+    let onRemoveSelection: (UUID) -> Void
+    
+    var hasSelections: Bool {
+        !pdfSelections.isEmpty
+    }
+    
+    var body: some View {
+        if hasSelections {
+            PDFSelectionPreviewView(
+                selections: pdfSelections,
+                onRemove: onRemoveSelection
+            )
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .transition(.modernSlide)
+        }
+    }
+}
+
+// MARK: - PDF Selection Preview
+
+struct PDFSelectionPreviewView: View {
+    let selections: [PDFSelectionInfo]
+    let onRemove: (UUID) -> Void
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                ForEach(selections) { selection in
+                    PDFSelectionPill(selection: selection) {
+                        withAnimation(DesignSystem.Animation.quick) {
+                            onRemove(selection.id)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DesignSystem.Spacing.xs)
+        }
+        .frame(height: DesignSystem.Layout.minimumTouchTarget)
+    }
+}
+
+struct PDFSelectionPill: View {
+    let selection: PDFSelectionInfo
+    let onRemove: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            // Context icon
+            Image(systemName: "text.badge.checkmark")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(DesignSystem.Colors.accent)
+            
+            // Selected text preview
+            Text("\"\(selection.text.prefix(40))...\"")
+                .font(DesignSystem.Typography.caption)
+                .fontWeight(.medium)
+                .foregroundColor(DesignSystem.Colors.primaryText)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            
+            // Remove button
+            IconButton(
+                icon: "xmark",
+                style: .tertiary,
+                size: .small
+            ) {
+                onRemove()
+            }
+        }
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .fill(DesignSystem.Colors.accent.opacity(0.1))
+                .stroke(DesignSystem.Colors.accent.opacity(0.3), lineWidth: 1)
+        )
+        .scaleEffect(isHovered ? DesignSystem.Scale.active : 1.0)
+        .animation(DesignSystem.Animation.micro, value: isHovered)
+        .onHover { isHovered = $0 }
+    }
+}
+
+#Preview("PDF Selection List") {
+    PDFSelectionList(
+        pdfSelections: [
+            PDFSelectionInfo(
+                id: UUID(),
+                selection: PDFSelection(), // Mock selection
+                text: "Machine learning algorithms require large datasets to train effectively",
+                timestamp: Date()
+            ),
+            PDFSelectionInfo(
+                id: UUID(),
+                selection: PDFSelection(), // Mock selection
+                text: "Neural networks excel at pattern recognition tasks",
+                timestamp: Date().addingTimeInterval(10)
+            )
+        ]
+    ) { id in
+        print("Remove selection: \(id)")
     }
     .padding()
 } 

@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import PDFKit
 
 /// Dependency injection container for managing service instances
 /// Consolidated to reduce redundancy and improve maintainability
@@ -255,6 +256,15 @@ private struct ErrorLogEntry {
     let timestamp: Date
 }
 
+// MARK: - PDF Selection Support Model
+
+struct PDFSelectionInfo: Identifiable {
+    let id: UUID
+    let selection: PDFSelection
+    let text: String
+    let timestamp: Date
+}
+
 // MARK: - App State Management
 
 @MainActor
@@ -273,6 +283,12 @@ final class AppState {
     
     // Documents to add to chat
     var documentToAddToChat: Document?
+    
+    // MARK: - PDF to Chat Feature State
+    var pdfSelections: [PDFSelectionInfo] = []
+    var isReadyForChatTransition: Bool = false
+    var shouldFocusChatInput: Bool = false // Simple focus trigger
+    var showPDFSelectionPills: Bool = false // NEW: Controls when to show selection pills
     
     // Methods for state management
     func selectDocument(_ document: Document?) {
@@ -299,5 +315,55 @@ final class AppState {
     
     func addDocumentToChat(_ document: Document) {
         documentToAddToChat = document
+    }
+    
+    // MARK: - PDF-to-Chat Coordination Methods
+    
+    func addPDFSelection(_ selection: PDFSelection, selectionId: UUID = UUID()) {
+        let selectionInfo = PDFSelectionInfo(
+            id: selectionId,
+            selection: selection,
+            text: selection.string ?? "",
+            timestamp: Date()
+        )
+        pdfSelections.append(selectionInfo)
+        updateChatTransitionState()
+        // Don't show pills yet - wait for user to start typing
+    }
+    
+    func removePDFSelection(withId id: UUID) {
+        pdfSelections.removeAll { $0.id == id }
+        updateChatTransitionState()
+        
+        // Hide pills if no selections remain
+        if pdfSelections.isEmpty {
+            showPDFSelectionPills = false
+        }
+    }
+    
+    func clearAllPDFSelections() {
+        pdfSelections.removeAll()
+        isReadyForChatTransition = false
+        showPDFSelectionPills = false
+    }
+    
+    private func updateChatTransitionState() {
+        isReadyForChatTransition = !pdfSelections.isEmpty
+    }
+    
+    func formatSelectionsForMessage() -> String? {
+        guard !pdfSelections.isEmpty else { return nil }
+        
+        let sortedSelections = pdfSelections.sorted { $0.timestamp < $1.timestamp }
+        let quotedTexts = sortedSelections.map { "> \($0.text)" }
+        return quotedTexts.joined(separator: "\n\n") + "\n\n"
+    }
+    
+    func triggerChatFocus() {
+        shouldFocusChatInput = true
+        // NEW: Show pills when user starts typing
+        if !pdfSelections.isEmpty {
+            showPDFSelectionPills = true
+        }
     }
 } 
