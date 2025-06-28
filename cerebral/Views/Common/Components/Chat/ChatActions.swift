@@ -3,6 +3,7 @@
 //  cerebral
 //
 //  Reusable Chat Actions Component
+//  Modern send button following Cerebral design principles
 //
 
 import SwiftUI
@@ -14,7 +15,7 @@ struct ChatActions: View {
     let onSend: () -> Void
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignSystem.Spacing.sm) {
             SendButton(
                 canSend: canSend,
                 isLoading: isLoading,
@@ -31,50 +32,154 @@ struct SendButton: View {
     let isStreaming: Bool
     let onSend: () -> Void
     
+    @State private var isHovered = false
+    @State private var isPressed = false
+    
     var body: some View {
         Button(action: onSend) {
-            if isLoading || isStreaming {
-                LoadingSpinner(size: .small, color: .white)
-            } else {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-            }
+            buttonContent
         }
         .frame(width: 32, height: 32)
-        .background(
-            Circle()
-                .fill(buttonBackgroundColor)
-        )
+        .background(backgroundShape)
         .scaleEffect(buttonScale)
-        .animation(.easeInOut(duration: 0.15), value: canSend)
-        .animation(.easeInOut(duration: 0.15), value: isLoading)
-        .animation(.easeInOut(duration: 0.15), value: isStreaming)
+        .opacity(buttonOpacity)
+        .animation(DesignSystem.Animation.micro, value: canSend)
+        .animation(DesignSystem.Animation.micro, value: isLoading)
+        .animation(DesignSystem.Animation.micro, value: isStreaming)
+        .animation(DesignSystem.Animation.micro, value: isHovered)
+        .animation(DesignSystem.Animation.micro, value: isPressed)
         .buttonStyle(.plain)
-        .disabled(!canSend || isLoading || isStreaming)
+        .disabled(isButtonDisabled)
         .keyboardShortcut(.return, modifiers: [])
+        .onHover { isHovered = $0 }
+        .pressEvents(
+            onPress: { isPressed = true },
+            onRelease: { isPressed = false }
+        )
     }
     
-    private var buttonBackgroundColor: Color {
-        if canSend && !isLoading && !isStreaming {
-            return DesignSystem.Colors.accent
+    // MARK: - Button Content
+    
+    @ViewBuilder
+    private var buttonContent: some View {
+        if isLoading || isStreaming {
+            LoadingSpinner(size: .small, color: contentColor)
         } else {
-            return DesignSystem.Colors.tertiaryText.opacity(0.3)
+            Image(systemName: "arrow.up")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(contentColor)
         }
+    }
+    
+    // MARK: - Background Shape
+    
+    private var backgroundShape: some View {
+        Circle()
+            .fill(backgroundFill)
+            .overlay(
+                Circle()
+                    .stroke(borderColor, lineWidth: borderWidth)
+            )
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var isButtonDisabled: Bool {
+        !canSend || isLoading || isStreaming
+    }
+    
+    private var isActive: Bool {
+        canSend && !isLoading && !isStreaming
+    }
+    
+    private var backgroundFill: Color {
+        if isActive {
+            if isPressed {
+                return DesignSystem.Colors.accentPressed
+            } else if isHovered {
+                return DesignSystem.Colors.accentHover
+            } else {
+                return DesignSystem.Colors.accent
+            }
+        } else {
+            return DesignSystem.Colors.tertiaryBackground
+        }
+    }
+    
+    private var contentColor: Color {
+        if isActive {
+            return DesignSystem.Colors.textOnAccent
+        } else {
+            return DesignSystem.Colors.tertiaryText
+        }
+    }
+    
+    private var borderColor: Color {
+        if isActive {
+            return Color.clear
+        } else {
+            return DesignSystem.Colors.border.opacity(0.3)
+        }
+    }
+    
+    private var borderWidth: CGFloat {
+        isActive ? 0 : 0.5
     }
     
     private var buttonScale: CGFloat {
-        if canSend && !isLoading && !isStreaming {
+        if isPressed {
+            return DesignSystem.Scale.pressed
+        } else if isHovered && isActive {
+            return DesignSystem.Scale.hover
+        } else {
+            return 1.0
+        }
+    }
+    
+    private var buttonOpacity: Double {
+        if isActive {
             return 1.0
         } else {
-            return 0.9
+            return 0.6
         }
     }
 }
 
+// MARK: - Press Events Helper
+
+private struct PressEvents: ViewModifier {
+    let onPress: () -> Void
+    let onRelease: () -> Void
+    
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(1.0)
+            .onLongPressGesture(
+                minimumDuration: 0,
+                maximumDistance: 50,
+                pressing: { pressing in
+                    if pressing {
+                        onPress()
+                    } else {
+                        onRelease()
+                    }
+                },
+                perform: {}
+            )
+    }
+}
+
+extension View {
+    func pressEvents(onPress: @escaping () -> Void, onRelease: @escaping () -> Void) -> some View {
+        modifier(PressEvents(onPress: onPress, onRelease: onRelease))
+    }
+}
+
+// MARK: - Preview
+
 #Preview {
-    VStack(spacing: 20) {
-        // Normal state
+    VStack(spacing: DesignSystem.Spacing.lg) {
+        // Active state
         ChatActions(
             canSend: true,
             isLoading: false,
@@ -83,7 +188,7 @@ struct SendButton: View {
             print("Send message")
         }
         
-        // Disabled state
+        // Disabled state (no text)
         ChatActions(
             canSend: false,
             isLoading: false,
@@ -110,5 +215,6 @@ struct SendButton: View {
             print("Send message")
         }
     }
-    .padding()
+    .padding(DesignSystem.Spacing.xl)
+    .background(DesignSystem.Colors.background)
 } 

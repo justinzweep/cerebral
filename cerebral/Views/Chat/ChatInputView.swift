@@ -159,6 +159,7 @@ struct ChatInputView: View {
             }
             return .ignored
         }
+
     }
     
     private var canSend: Bool {
@@ -172,11 +173,23 @@ struct ChatInputView: View {
     // MARK: - Autocomplete Logic
     
     private func handleTextChange(_ newValue: String) {
-        // Find @ mentions and trigger autocomplete
-        checkForAtMention(in: newValue)
+        // ONLY process @ functionality if text actually contains @ symbol
+        // This completely isolates @ behavior from normal text input
+        if newValue.contains("@") {
+            checkForAtMention(in: newValue)
+        } else {
+            // No @ symbol present - hide autocomplete and act like normal text field
+            hideAutocomplete()
+        }
     }
     
     private func checkForAtMention(in text: String) {
+        // Only proceed if there's actually an @ symbol in the text
+        guard text.contains("@") else {
+            hideAutocomplete()
+            return
+        }
+        
         // Find the current cursor position (approximation - we'll use the end of text for simplicity)
         let cursorIndex = text.endIndex
         
@@ -185,9 +198,14 @@ struct ChatInputView: View {
         var foundAt = false
         var mentionStart: String.Index?
         
-        while searchIndex > text.startIndex {
+        // Only search back a reasonable distance (max 50 characters)
+        let maxSearchDistance = min(50, text.count)
+        var searchDistance = 0
+        
+        while searchIndex > text.startIndex && searchDistance < maxSearchDistance {
             searchIndex = text.index(before: searchIndex)
             let char = text[searchIndex]
+            searchDistance += 1
             
             if char == "@" {
                 foundAt = true

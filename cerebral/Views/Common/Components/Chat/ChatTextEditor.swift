@@ -31,12 +31,14 @@ struct ChatTextEditor: View {
     
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Highlight overlay for @mentions only
-            HighlightOverlay(text: text)
-                .allowsHitTesting(false)
-                .padding(.leading, 16)
-                .padding(.trailing, 48)
-                .padding(.vertical, 12)
+            // Highlight overlay ONLY when text contains @ symbol
+            if text.contains("@") {
+                HighlightOverlay(text: text)
+                    .allowsHitTesting(false)
+                    .padding(.leading, 16)
+                    .padding(.trailing, 48)
+                    .padding(.vertical, 12)
+            }
             
             // Actual text field (normal colors)
             TextField("Message...", text: $text, axis: .vertical)
@@ -72,9 +74,7 @@ struct ChatTextEditor: View {
         }
         .onChange(of: appState.shouldFocusChatInput) { _, shouldFocus in
             if shouldFocus {
-                DispatchQueue.main.async {
-                    isFocused = true
-                }
+                // Clear the focus request immediately to prevent repeated triggering
                 appState.resetChatInputFocus()
             }
         }

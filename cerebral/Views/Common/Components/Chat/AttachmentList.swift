@@ -19,7 +19,7 @@ struct AttachmentList: View {
     
     var body: some View {
         if hasAttachments {
-            VStack(spacing: 8) {
+            VStack(spacing: DesignSystem.Spacing.sm) {
                 // Document attachments
                 if !documents.isEmpty {
                     AttachmentPreviewView(
@@ -36,8 +36,8 @@ struct AttachmentList: View {
                     )
                 }
             }
-            .padding(.horizontal, 16)
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .transition(.modernSlide)
         }
     }
 }
@@ -50,18 +50,18 @@ struct AttachmentPreviewView: View {
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
                 ForEach(documents, id: \.id) { document in
                     AttachmentPill(document: document) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(DesignSystem.Animation.quick) {
                             onRemove(document)
                         }
                     }
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, DesignSystem.Spacing.xs)
         }
-        .frame(height: 32)
+        .frame(height: DesignSystem.Layout.minimumTouchTarget)
     }
 }
 
@@ -71,15 +71,16 @@ struct AttachmentPill: View {
     @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DesignSystem.Spacing.xs) {
             // Document icon
             Image(systemName: "doc.text")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundColor(DesignSystem.Colors.accent)
             
             // Document title
             Text(document.title)
-                .font(.system(size: 12, weight: .medium))
+                .font(DesignSystem.Typography.caption)
+                .fontWeight(.medium)
                 .foregroundColor(DesignSystem.Colors.primaryText)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -93,15 +94,15 @@ struct AttachmentPill: View {
                 onRemove()
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
         .background(
-            Capsule()
-                .fill(DesignSystem.Colors.background)
-                .stroke(DesignSystem.Colors.border.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .fill(DesignSystem.Materials.cardSurface)
+                .stroke(DesignSystem.Colors.border.opacity(0.2), lineWidth: 1)
         )
-        .scaleEffect(isHovered ? 0.98 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .scaleEffect(isHovered ? DesignSystem.Scale.active : 1.0)
+        .animation(DesignSystem.Animation.micro, value: isHovered)
         .onHover { isHovered = $0 }
     }
 }
@@ -114,18 +115,18 @@ struct TextChunkPreviewView: View {
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
                 ForEach(chunks, id: \.id) { chunk in
                     TextChunkPill(chunk: chunk) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(DesignSystem.Animation.quick) {
                             onRemove(chunk)
                         }
                     }
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, DesignSystem.Spacing.xs)
         }
-        .frame(height: 32)
+        .frame(height: DesignSystem.Layout.minimumTouchTarget)
     }
 }
 
@@ -135,21 +136,22 @@ struct TextChunkPill: View {
     @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DesignSystem.Spacing.xs) {
             // Text selection icon
             Image(systemName: "quote.bubble")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundColor(DesignSystem.Colors.accent)
             
             // Preview text with source
             VStack(alignment: .leading, spacing: 1) {
                 Text(chunk.previewText)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(DesignSystem.Typography.caption)
+                    .fontWeight(.medium)
                     .foregroundColor(DesignSystem.Colors.primaryText)
                     .lineLimit(1)
                 
                 Text("from \(chunk.source)")
-                    .font(.system(size: 9, weight: .regular))
+                    .font(DesignSystem.Typography.caption2)
                     .foregroundColor(DesignSystem.Colors.tertiaryText)
                     .lineLimit(1)
             }
@@ -163,15 +165,15 @@ struct TextChunkPill: View {
                 onRemove()
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(DesignSystem.Colors.accent.opacity(0.1))
-                .stroke(DesignSystem.Colors.accent.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .fill(DesignSystem.Materials.cardSurface)
+                .stroke(DesignSystem.Colors.accent.opacity(0.2), lineWidth: 1)
         )
-        .scaleEffect(isHovered ? 0.98 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .scaleEffect(isHovered ? DesignSystem.Scale.active : 1.0)
+        .animation(DesignSystem.Animation.micro, value: isHovered)
         .onHover { isHovered = $0 }
     }
 }
