@@ -92,9 +92,9 @@ struct HighlightedMessageText: View {
                 
                 if document != nil {
                     // Valid reference - highlight with blue color (same as ChatInputView)
-                    result[attributedRange].backgroundColor = Color.blue.opacity(0.2)
-                    result[attributedRange].foregroundColor = Color.blue
-                    result[attributedRange].font = .system(size: 16, weight: .medium)
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.2)
+                    result[attributedRange].foregroundColor = DesignSystem.Colors.accent
+                    result[attributedRange].font = .system(size: DesignSystem.Typography.FontSize.body, weight: .medium)
                 } else {
                     // Invalid reference - red highlight
                     result[attributedRange].backgroundColor = Color.red.opacity(0.2)

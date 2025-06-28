@@ -24,13 +24,14 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         pdfView.displayBox = .mediaBox
         pdfView.interpolationQuality = .high
         
-        // Enhanced appearance
-        pdfView.backgroundColor = NSColor.controlBackgroundColor
+        // Enhanced appearance - match sidepanel background
+        let backgroundColor = NSColor(DesignSystem.Colors.secondaryBackground)
+        pdfView.backgroundColor = backgroundColor
         
         // Set document view background using layer approach
         if let documentView = pdfView.documentView {
             documentView.wantsLayer = true
-            documentView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            documentView.layer?.backgroundColor = backgroundColor.cgColor
         }
         
         // Set up delegate for handling selections

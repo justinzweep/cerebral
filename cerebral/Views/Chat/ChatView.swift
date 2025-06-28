@@ -319,7 +319,7 @@ struct APIKeyRequiredView: View {
             // Icon
             Image(systemName: "key.slash")
                 .font(.system(size: 42))
-                .foregroundColor(DesignSystem.Colors.warningOrange)
+//                .foregroundColor(DesignSystem.Colors.warningOrange)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
                 // Title

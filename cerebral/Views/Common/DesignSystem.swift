@@ -2,30 +2,49 @@
 //  DesignSystem.swift
 //  cerebral
 //
-//  Design System for Cerebral macOS App
-//  Following Apple Human Interface Guidelines and Modern Design Principles
-//  Inspired by Linear, Notion, ChatGPT, Claude, Msty, Things, and Arc
+//  Modern Professional Design System for Cerebral macOS App
+//  Inspired by Linear, Figma, Discord, and contemporary design tools
 //
 
 import SwiftUI
 
 // MARK: - Design System
 
-/// Main Design System struct that aggregates all design tokens and components
+/// Modern Professional Design System for Cerebral
 /// 
-/// Core Design Values:
-/// - Clarity Over Decoration: Every element serves a purpose
-/// - Spatial Intelligence: Strategic use of whitespace
-/// - Material Sophistication: Leverage macOS materials for depth
-/// - Typographic Excellence: Clear, readable typography
-/// - Intentional Color: Restrained palette with purposeful accents
-/// - Responsive Elegance: Smooth animations and transitions
+/// **Core Design Philosophy:**
+/// - **Professional Vibrancy**: Bold, confident colors that convey intelligence
+/// - **Spatial Intelligence**: Strategic use of whitespace and layout
+/// - **Material Sophistication**: Leverage modern design patterns
+/// - **Typographic Excellence**: Clear, readable typography hierarchy
+/// - **Semantic Clarity**: Colors that communicate meaning intuitively
+/// - **Responsive Elegance**: Smooth 60fps animations and transitions
+///
+/// **Quick Usage Examples:**
+/// ```swift
+/// // Text with proper hierarchy
+/// Text("Primary Title")
+///     .foregroundColor(DesignSystem.Colors.primaryText)
+///     .font(DesignSystem.Typography.title)
+///
+/// // Modern button with vibrant accent
+/// Button("Action") { }
+///     .buttonStyle(PrimaryButtonStyle())
+///
+/// // Card with professional styling
+/// VStack { }
+///     .background(DesignSystem.Colors.surfaceBackground)
+///     .cornerRadius(DesignSystem.CornerRadius.card)
+///
+/// // Gradient accent for visual interest
+/// Rectangle()
+///     .fill(DesignSystem.Gradients.brandPrimary)
+/// ```
 struct DesignSystem {
-    // Design tokens are defined in their respective modules:
-    // - Colors: cerebral/Views/Common/DesignSystem/Colors.swift
-    // - Typography: cerebral/Views/Common/DesignSystem/Typography.swift
-    // - Spacing: cerebral/Views/Common/DesignSystem/Spacing.swift
-    // - Materials: cerebral/Views/Common/DesignSystem/Materials.swift
-    // - Animations: cerebral/Views/Common/DesignSystem/Animations.swift
-    // - Components: cerebral/Views/Common/DesignSystem/Components.swift
+    // All design tokens are organized in their respective modules:
+    // - Colors & Gradients: Theme.swift (completely redesigned)
+    // - Typography & Spacing: Layout.swift
+    // - Components & Interactions: Components.swift
+    // - Animations & Transitions: Animations.swift
+    // - Materials & Shadows: Theme.swift
 } 

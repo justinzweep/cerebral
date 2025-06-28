@@ -106,8 +106,8 @@ struct ChatInputView: View {
                     .padding(.trailing, 8)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
             .overlay(alignment: .topLeading) {
                 // Autocomplete dropdown overlay - completely independent of input layout
                 if showingAutocomplete && !autocompleteDocuments.isEmpty {
@@ -346,8 +346,8 @@ struct AutocompleteDropdown: View {
                         
                         Spacer()
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 4)
                     .background(
                         RoundedRectangle(cornerRadius: 4)
                             .fill(index == selectedIndex ? DesignSystem.Colors.accent.opacity(0.1) : Color.clear)
@@ -415,10 +415,10 @@ struct HighlightOverlay: View {
                 // Only add background color, keep text transparent
                 if documentExists {
                     // Valid reference - blue background only
-                    result[attributedRange].backgroundColor = Color.blue.opacity(0.2)
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.2)
                 } else {
                     // Invalid reference - red background only
-                    result[attributedRange].backgroundColor = Color.red.opacity(0.2)
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.2)
                 }
                 // Keep foregroundColor transparent - no text rendering
                 result[attributedRange].foregroundColor = Color.clear
