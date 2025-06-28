@@ -74,16 +74,16 @@ final class KeyboardShortcutService {
            !modifierFlags.contains(.option),   // Ignore option shortcuts
            isAlphanumericCharacter(characters.first!) {
             
-            // Trigger chat focus
-            appState.triggerChatFocus()
+            // Trigger chat focus with the typed character
+            appState.triggerChatFocus(withCharacter: characters)
             
             // Ensure chat panel is visible
             if !appState.showingChat {
                 appState.toggleChatPanel()
             }
             
-            // Don't consume the event - let it go to the chat input
-            return event
+            // Consume the event - we'll handle the character insertion ourselves
+            return nil
         }
         
         // Command + L (keyCode 37 for 'L') - Toggle chat panel

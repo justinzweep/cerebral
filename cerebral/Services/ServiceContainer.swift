@@ -288,7 +288,8 @@ final class AppState {
     var pdfSelections: [PDFSelectionInfo] = []
     var isReadyForChatTransition: Bool = false
     var shouldFocusChatInput: Bool = false // Simple focus trigger
-    var showPDFSelectionPills: Bool = false // NEW: Controls when to show selection pills
+    var showPDFSelectionPills: Bool = false // Controls when to show selection pills
+    var pendingTypedCharacter: String? = nil // NEW: Store the initial typed character
     
     // Methods for state management
     func selectDocument(_ document: Document?) {
@@ -345,6 +346,7 @@ final class AppState {
         pdfSelections.removeAll()
         isReadyForChatTransition = false
         showPDFSelectionPills = false
+        pendingTypedCharacter = nil // Clear pending character
     }
     
     private func updateChatTransitionState() {
@@ -359,9 +361,10 @@ final class AppState {
         return quotedTexts.joined(separator: "\n\n") + "\n\n"
     }
     
-    func triggerChatFocus() {
+    func triggerChatFocus(withCharacter character: String) {
         shouldFocusChatInput = true
-        // NEW: Show pills when user starts typing
+        pendingTypedCharacter = character // Store the typed character
+        // Show pills when user starts typing
         if !pdfSelections.isEmpty {
             showPDFSelectionPills = true
         }

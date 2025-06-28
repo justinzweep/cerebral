@@ -135,6 +135,13 @@ struct ChatInputView: View {
         .onChange(of: appState.shouldFocusChatInput) { _, shouldFocus in
             if shouldFocus {
                 shouldFocusInput = true
+                
+                // Insert the pending typed character if there is one
+                if let character = appState.pendingTypedCharacter {
+                    text += character
+                    appState.pendingTypedCharacter = nil // Clear after using
+                }
+                
                 appState.shouldFocusChatInput = false // Reset the trigger
             }
         }
@@ -196,7 +203,7 @@ struct ChatInputView: View {
         // Send the message
         onSend()
         
-        // Clear PDF selections after sending
+        // Clear PDF selections and any pending character after sending
         appState.clearAllPDFSelections()
         
         // Reset text to empty (not original text since message was sent)
