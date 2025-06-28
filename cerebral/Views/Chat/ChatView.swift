@@ -176,7 +176,6 @@ struct ChatView: View {
                 messageText,
                 settingsManager: settingsManager,
                 documentContext: documentsToSend,
-                hiddenContext: nil, // No hidden context needed - using explicit contexts
                 explicitContexts: explicitContexts
             )
             

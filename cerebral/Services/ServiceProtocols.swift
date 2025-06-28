@@ -60,7 +60,6 @@ protocol StreamingChatServiceProtocol {
         _ text: String,
         settingsManager: SettingsManager,
         documentContext: [Document],
-        hiddenContext: String?,
         conversationHistory: [ChatMessage],
         contexts: [DocumentContext]
     ) async
@@ -86,13 +85,11 @@ protocol DocumentReferenceServiceProtocol {
 protocol MessageBuilderServiceProtocol {
     func buildMessage(
         userInput: String,
-        documents: [Document],
-        hiddenContext: String?
+        documents: [Document]
     ) -> String
     func extractDocumentContext(from documents: [Document]) -> String
     func formatMessageWithContext(
         userInput: String,
-        documentContext: String,
-        hiddenContext: String?
+        documentContext: String
     ) -> String
 } 

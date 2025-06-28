@@ -33,7 +33,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         _ text: String,
         settingsManager: SettingsManager,
         documentContext: [Document],
-        hiddenContext: String?,
         conversationHistory: [ChatMessage],
         contexts: [DocumentContext]
     ) async {
@@ -52,7 +51,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         let aiMessage = ChatMessage(
             text: "",
             isUser: false,
-            documentReferences: [],
             contexts: contexts,  // Include contexts in AI message
             isStreaming: true
         )
@@ -60,7 +58,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         delegate?.streamingDidCreateMessage(aiMessage)
         
         // Extract document IDs for cross-actor communication
-        let documentContextIds = documentContext.map { $0.id }
         let contextDocumentIds = Array(Set(contexts.map { $0.documentId }))
         
         // Use structured concurrency for better memory management
@@ -103,8 +100,7 @@ final class StreamingChatService: StreamingChatServiceProtocol {
                         await MainActor.run {
                             delegate.streamingDidComplete(
                                 with: accumulatedText,
-                                messageId: aiMessage.id,
-                                documentReferences: documentContextIds
+                                messageId: aiMessage.id
                             )
                         }
                         break
@@ -182,6 +178,6 @@ protocol StreamingChatServiceDelegate: AnyObject {
     func streamingDidStart()
     func streamingDidCreateMessage(_ message: ChatMessage)
     func streamingDidReceiveText(_ text: String, for messageId: UUID)
-    func streamingDidComplete(with text: String, messageId: UUID, documentReferences: [UUID])
+    func streamingDidComplete(with text: String, messageId: UUID)
     func streamingDidFail(with error: Error, messageId: UUID)
 } 

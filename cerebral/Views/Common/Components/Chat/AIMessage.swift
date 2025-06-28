@@ -94,7 +94,6 @@ struct AIMessage: View {
         // Use FlowMessageText for clickable document references in AI messages
         FlowMessageText(
             text: displayedText, 
-            documentReferences: message.documentReferences,
             contexts: message.contexts
         )
         .textSelection(.enabled)

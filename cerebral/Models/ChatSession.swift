@@ -35,25 +35,19 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     var text: String
     let isUser: Bool
     let timestamp: Date
-    var documentReferences: [UUID]  // Kept for backward compatibility
-    let hiddenContext: String?      // Kept for backward compatibility
-    var contexts: [DocumentContext] // New structured contexts
+    var contexts: [DocumentContext] // Unified context system
     var isStreaming: Bool
     var streamingComplete: Bool
     
     init(
         text: String,
         isUser: Bool,
-        documentReferences: [UUID] = [],
-        hiddenContext: String? = nil,
         contexts: [DocumentContext] = [],
         isStreaming: Bool = false
     ) {
         self.text = text
         self.isUser = isUser
         self.timestamp = Date()
-        self.documentReferences = documentReferences
-        self.hiddenContext = hiddenContext
         self.contexts = contexts
         self.isStreaming = isStreaming
         self.streamingComplete = !isStreaming
@@ -69,7 +63,7 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     }
     
     var hasContext: Bool {
-        !contexts.isEmpty || !documentReferences.isEmpty || hiddenContext != nil
+        !contexts.isEmpty
     }
     
     // Helper methods for streaming

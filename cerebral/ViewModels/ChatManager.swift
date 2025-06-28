@@ -44,7 +44,6 @@ import Foundation
         _ text: String,
         settingsManager: SettingsManager,
         documentContext: [Document] = [],
-        hiddenContext: String? = nil,
         explicitContexts: [DocumentContext] = []
     ) async {
         // Validate API key
@@ -69,7 +68,7 @@ import Foundation
                 print("📝 Added \(explicitContexts.count) explicit contexts (text selections)")
             }
             
-            // Convert legacy document context to new format if needed (only for full documents)
+            // Convert document context to new format (only for full documents)
             if !documentContext.isEmpty {
                 print("📄 Processing \(documentContext.count) full document contexts")
                 for doc in documentContext {
@@ -94,7 +93,7 @@ import Foundation
             let userMessage = ChatMessage(
                 text: text,  // Store original text for display
                 isUser: true,
-                hiddenContext: hiddenContext, contexts: contexts // Keep for backward compatibility
+                contexts: contexts
             )
             messages.append(userMessage)
             
@@ -109,7 +108,6 @@ import Foundation
                 llmMessage,
                 settingsManager: settingsManager,
                 documentContext: documentContext,
-                hiddenContext: nil, // Already included in contexts
                 conversationHistory: filterValidMessages(Array(messages.dropLast(2))),
                 contexts: contexts
             )
@@ -124,22 +122,6 @@ import Foundation
             messages.append(errorMessage)
             lastError = error.localizedDescription
         }
-    }
-    
-    // Legacy support - redirect to new method
-    func sendMessageLegacy(
-        _ text: String,
-        settingsManager: SettingsManager,
-        documentContext: [Document] = [],
-        hiddenContext: String? = nil
-    ) async {
-        await sendMessage(
-            text,
-            settingsManager: settingsManager,
-            documentContext: documentContext,
-            hiddenContext: hiddenContext,
-            explicitContexts: []
-        )
     }
     
     // MARK: - Context Management
@@ -193,7 +175,7 @@ import Foundation
             let welcomeMessage = ChatMessage(
                 text: "I'm ready to help you with '\(document.title)'. Feel free to ask me any questions about this document!",
                 isUser: false,
-                documentReferences: [document.id]
+                contexts: []
             )
             messages.append(welcomeMessage)
         } else {
@@ -305,11 +287,10 @@ extension ChatManager: StreamingChatServiceDelegate {
         }
     }
     
-    func streamingDidComplete(with text: String, messageId: UUID, documentReferences: [UUID]) {
+    func streamingDidComplete(with text: String, messageId: UUID) {
         if let messageIndex = messages.firstIndex(where: { $0.id == messageId }) {
             messages[messageIndex].text = text
             messages[messageIndex].completeStreaming()
-            messages[messageIndex].documentReferences = documentReferences
         }
         
         isStreaming = false

@@ -29,14 +29,12 @@ struct MessageView: View {
 
 struct FlowMessageText: View {
     let text: String
-    let documentReferences: [UUID]
     let contexts: [DocumentContext]
     @State private var textParts: [TextPart] = []
     @State private var referencedDocuments: [Document] = []
     
-    init(text: String, documentReferences: [UUID] = [], contexts: [DocumentContext] = []) {
+    init(text: String, contexts: [DocumentContext] = []) {
         self.text = text
-        self.documentReferences = documentReferences
         self.contexts = contexts
     }
     
@@ -82,22 +80,15 @@ struct FlowMessageText: View {
     }
     
     private func loadReferencedDocuments() {
-        referencedDocuments = documentReferences.compactMap { uuid in
+        // Get documents from contexts instead of legacy documentReferences
+        let contextDocumentIds = Array(Set(contexts.map { $0.documentId }))
+        referencedDocuments = contextDocumentIds.compactMap { uuid in
             ServiceContainer.shared.documentService.findDocument(byId: uuid)
         }
         
-        print("📚 Loaded \(referencedDocuments.count) referenced documents for message")
+        print("📚 Loaded \(referencedDocuments.count) referenced documents from contexts")
         for doc in referencedDocuments {
             print("  - '\(doc.title)' (ID: \(doc.id))")
-        }
-        
-        if documentReferences.count != referencedDocuments.count {
-            print("⚠️ Missing documents - looking for \(documentReferences.count) but found \(referencedDocuments.count)")
-            let allDocs = ServiceContainer.shared.documentService.getAllDocuments()
-            print("📋 Available documents (\(allDocs.count)):")
-            for doc in allDocs.prefix(5) {
-                print("  - '\(doc.title)' (ID: \(doc.id))")
-            }
         }
     }
     

@@ -20,7 +20,6 @@ struct UserMessage: View {
                 // User message with inline clickable @mentions
                 FlowMessageText(
                     text: message.text, 
-                    documentReferences: message.documentReferences,
                     contexts: message.contexts
                 )
                     .padding(.horizontal, DesignSystem.Spacing.md)

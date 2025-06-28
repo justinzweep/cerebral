@@ -20,7 +20,7 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
     
     private init() {}
     
-    // MARK: - New Enhanced Implementation
+    // MARK: - Enhanced Implementation
     
     func buildMessage(
         userInput: String,
@@ -122,50 +122,16 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
         return settingsManager.contextTokenLimit
     }
     
-    // MARK: - Async Context Creation Helper
-    
-    /// Creates contexts from documents synchronously for legacy support
-    private func createContextsSynchronously(from documents: [Document]) -> [DocumentContext] {
-        // For legacy support, we create simplified contexts without full async processing
-        var contexts: [DocumentContext] = []
-        
-        for document in documents {
-            // Extract text synchronously
-            let content = PDFService.shared.extractText(from: document, maxLength: 4000) ?? ""
-            let tokenCount = TokenizerService.shared.estimateTokenCount(for: content)
-            let checksum = TokenizerService.shared.calculateChecksum(for: content)
-            
-            let metadata = ContextMetadata(
-                extractionMethod: "legacy.synchronous",
-                tokenCount: tokenCount,
-                checksum: checksum
-            )
-            
-            let context = DocumentContext(
-                documentId: document.id,
-                documentTitle: document.title,
-                contextType: .fullDocument,
-                content: content,
-                metadata: metadata
-            )
-            
-            contexts.append(context)
-        }
-        
-        return contexts
-    }
-    
-    // MARK: - Legacy MessageBuilderServiceProtocol Implementation (for backward compatibility)
+    // MARK: - MessageBuilderServiceProtocol Implementation
     
     @MainActor
     func buildMessage(
         userInput: String,
-        documents: [Document],
-        hiddenContext: String?
+        documents: [Document]
     ) -> String {
-        // For the synchronous protocol method, fall back to the old implementation
-        // The new async context system is used in the new async methods
-        return buildEnhancedMessage(userText: userInput, documents: documents, hiddenContext: hiddenContext)
+        // Create contexts synchronously for legacy support
+        let contexts = createContextsSynchronously(from: documents)
+        return formatForLLM(text: userInput, contexts: contexts)
     }
     
     @MainActor
@@ -205,8 +171,7 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
     @MainActor
     func formatMessageWithContext(
         userInput: String,
-        documentContext: String,
-        hiddenContext: String? = nil
+        documentContext: String
     ) -> String {
         var formattedMessage = ""
         
@@ -215,133 +180,41 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
             formattedMessage += documentContext
         }
         
-        if let hiddenContext = hiddenContext, !hiddenContext.isEmpty {
-            formattedMessage += hiddenContext + "\n\n"
-        }
-        
         formattedMessage += userInput
         
         return formattedMessage
     }
     
-    // MARK: - Legacy Methods (for backward compatibility)
+    // MARK: - Helper Methods
     
-    /// Build an enhanced message that includes document content for the LLM
-    @MainActor
-    func buildEnhancedMessage(
-        userText: String,
-        documents: [Document],
-        hiddenContext: String? = nil
-    ) -> String {
-        // First, process @pdf_name.pdf references in the user text
-        let processedText = processDocumentReferences(in: userText)
+    /// Creates contexts from documents synchronously for legacy support
+    private func createContextsSynchronously(from documents: [Document]) -> [DocumentContext] {
+        var contexts: [DocumentContext] = []
         
-        var enhancedMessage = ""
-        
-        // Add explicitly attached documents
-        if !documents.isEmpty {
-            enhancedMessage += "ATTACHED DOCUMENTS:\n\n"
+        for document in documents {
+            // Extract text synchronously
+            let content = PDFService.shared.extractText(from: document, maxLength: 4000) ?? ""
+            let tokenCount = TokenizerService.shared.estimateTokenCount(for: content)
+            let checksum = TokenizerService.shared.calculateChecksum(for: content)
             
-            for (index, document) in documents.enumerated() {
-                enhancedMessage += "=== Document \(index + 1): \(document.title) ===\n"
-                
-                // Add metadata
-                if let metadata = PDFService.shared.getDocumentMetadata(from: document) {
-                    if let pageCount = metadata["pageCount"] as? Int {
-                        enhancedMessage += "Pages: \(pageCount)\n"
-                    }
-                    if let author = metadata["author"] as? String, !author.isEmpty {
-                        enhancedMessage += "Author: \(author)\n"
-                    }
-                    if let subject = metadata["subject"] as? String, !subject.isEmpty {
-                        enhancedMessage += "Subject: \(subject)\n"
-                    }
-                }
-                
-                // Extract and add text content
-                if let extractedText = PDFService.shared.extractText(from: document, maxLength: 4000) {
-                    enhancedMessage += "\nDocument Content:\n"
-                    enhancedMessage += extractedText
-                } else {
-                    enhancedMessage += "\nContent: [Unable to extract text from this PDF]\n"
-                }
-                
-                enhancedMessage += "\n" + String(repeating: "=", count: 50) + "\n\n"
-            }
-        }
-        
-        // Add hidden context from text selection chunks (sent to LLM but not displayed in UI)
-        if let hiddenContext = hiddenContext, !hiddenContext.isEmpty {
-            enhancedMessage += hiddenContext + "\n\n"
-        }
-        
-        // Add the processed user message (with @references replaced with content)
-        enhancedMessage += processedText.isEmpty ? userText : processedText
-        
-        return enhancedMessage
-    }
-    
-    /// Process @document references in text and replace them with document content
-    @MainActor
-    private func processDocumentReferences(in text: String) -> String {
-        // Use the DocumentReferenceResolver service for consistency
-        let referencedDocuments = ServiceContainer.shared.documentReferenceService.extractDocumentReferences(from: text)
-        
-        if referencedDocuments.isEmpty {
-            return text
-        }
-        
-        // Build replacement content for each referenced document
-        let pattern = #"@([a-zA-Z0-9\s\-_\.]+\.pdf|[a-zA-Z0-9\s\-_]+)"#
-        
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return text
-        }
-        
-        let nsString = text as NSString
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
-        
-        // Process matches in reverse order to maintain string indices
-        var processedText = text
-        for match in matches.reversed() {
-            let matchRange = match.range
-            let fullMatch = nsString.substring(with: matchRange)
+            let metadata = ContextMetadata(
+                extractionMethod: "legacy.synchronous",
+                tokenCount: tokenCount,
+                checksum: checksum
+            )
             
-            // Extract the document name (remove @ and potentially .pdf)
-            var documentName = String(fullMatch.dropFirst()) // Remove @
-            if documentName.hasSuffix(".pdf") {
-                documentName = String(documentName.dropLast(4)) // Remove .pdf
-            }
+            let context = DocumentContext(
+                documentId: document.id,
+                documentTitle: document.title,
+                contextType: .fullDocument,
+                content: content,
+                metadata: metadata
+            )
             
-            // Try to find the document using the service
-            if let document = ServiceContainer.shared.documentService.findDocument(byName: documentName) {
-                // Extract content from the referenced document
-                if let extractedText = PDFService.shared.extractText(from: document, maxLength: 3000) {
-                    let replacement = """
-                    
-                    [REFERENCED DOCUMENT: \(document.title)]
-                    \(extractedText)
-                    [END REFERENCED DOCUMENT]
-                    
-                    """
-                    
-                    let nsProcessedText = processedText as NSString
-                    processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
-                } else {
-                    // Replace with error message if can't extract content
-                    let replacement = "[REFERENCED DOCUMENT: \(document.title) - Unable to extract content]"
-                    let nsProcessedText = processedText as NSString
-                    processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
-                }
-            } else {
-                // Replace with error message if document not found
-                let replacement = "[DOCUMENT NOT FOUND: \(documentName)]"
-                let nsProcessedText = processedText as NSString
-                processedText = nsProcessedText.replacingCharacters(in: matchRange, with: replacement)
-            }
+            contexts.append(context)
         }
         
-        return processedText
+        return contexts
     }
     
     /// Filter out error messages from conversation history
