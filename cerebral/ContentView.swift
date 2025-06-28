@@ -9,8 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var sidebarWidth: CGFloat = 300
-    @State private var chatWidth: CGFloat = 600
     @State private var appState = ServiceContainer.shared.appState
     @State private var errorManager = ServiceContainer.shared.errorManager
     @State private var keyboardService: KeyboardShortcutService?
@@ -24,47 +22,35 @@ struct ContentView: View {
     private let centerMinWidth: CGFloat = 300
     
     var body: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 0) {
-                // Left Pane: Document Sidebar
-                if appState.showingSidebar {
-                    DocumentSidebarPane(
-                        selectedDocument: $appState.selectedDocument,
-                        showingImporter: $appState.showingImporter
-                    )
-                    .frame(width: constrainedSidebarWidth(for: geometry.size.width))
-                    .background(DesignSystem.Colors.secondaryBackground)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .leading).combined(with: .opacity),
-                        removal: .move(edge: .leading).combined(with: .opacity)
-                    ))
-                    .id("sidebar")
-                    
-                    // Resizable divider for sidebar
-                    ResizableDivider(orientation: .vertical) { delta in
-                        updateSidebarWidth(delta: delta, availableWidth: geometry.size.width)
-                    }
-                    .id("sidebar-divider")
-                }
-                
+                HSplitView {
+            // Left Pane: Document Sidebar
+            if appState.showingSidebar {
+                DocumentSidebarPane(
+                    selectedDocument: $appState.selectedDocument,
+                    showingImporter: $appState.showingImporter
+                )
+                .frame(minWidth: sidebarWidthRange.lowerBound, maxWidth: sidebarWidthRange.upperBound)
+                .background(DesignSystem.Colors.secondaryBackground)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .leading).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+                .id("sidebar")
+            }
+            
+            // Center and Right Panes in nested HSplitView
+            HSplitView {
                 // Center Pane: PDF Viewer
                 PDFViewerView(document: appState.selectedDocument)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .frame(minWidth: centerMinWidth)
                     .background(DesignSystem.Colors.secondaryBackground)
                     .id(appState.selectedDocument?.id.uuidString ?? "no-document")
                     .padding(.horizontal, DesignSystem.Spacing.sm)
                 
-                // Right divider and pane
+                // Right Pane: Chat Panel
                 if appState.showingChat {
-                    ResizableDivider(orientation: .vertical) { delta in
-                        updateChatWidth(delta: -delta, availableWidth: geometry.size.width)
-                    }
-                    .id("chat-divider")
-                    
-                    // Right Pane: Chat Panel
                     ChatView(selectedDocument: appState.selectedDocument)
-                        .frame(width: constrainedChatWidth(for: geometry.size.width))
+                        .frame(minWidth: chatWidthRange.lowerBound, maxWidth: chatWidthRange.upperBound)
                         .background(DesignSystem.Colors.secondaryBackground)
                         .environment(settingsManager)
                         .transition(.asymmetric(
@@ -74,30 +60,14 @@ struct ContentView: View {
                         .id("chat-panel")
                 }
             }
-            .animation(DesignSystem.Animation.interface, value: appState.showingSidebar)
-            .animation(DesignSystem.Animation.interface, value: appState.showingChat)
-            .onChange(of: appState.showingSidebar) { _, _ in
-                handlePanelToggle()
-            }
-            .onChange(of: appState.showingChat) { _, _ in
-                handlePanelToggle()
-            }
-            .onChange(of: geometry.size.width) { oldWidth, newWidth in
-                // Handle significant window size changes that could affect PDF layout
-                if abs(newWidth - (oldWidth ?? 0)) > 50 { // Only for significant changes
-                    NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutWillChange"), object: nil)
-                    
-                    // Validate pane sizes first
-                    validatePaneSizes(for: newWidth)
-                    
-                    // Schedule layout change notification
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutDidChange"), object: nil)
-                    }
-                } else {
-                    validatePaneSizes(for: newWidth)
-                }
-            }
+        }
+        .animation(DesignSystem.Animation.interface, value: appState.showingSidebar)
+        .animation(DesignSystem.Animation.interface, value: appState.showingChat)
+        .onChange(of: appState.showingSidebar) { _, _ in
+            handlePanelToggle()
+        }
+        .onChange(of: appState.showingChat) { _, _ in
+            handlePanelToggle()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
@@ -180,40 +150,11 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Layout Helper Methods
-    
-    private func constrainedSidebarWidth(for totalWidth: CGFloat) -> CGFloat {
-        let maxAllowed = totalWidth - centerMinWidth - (appState.showingChat ? chatWidthRange.lowerBound : 0) - 16 // divider space
-        return min(max(sidebarWidth, sidebarWidthRange.lowerBound), min(sidebarWidthRange.upperBound, maxAllowed))
-    }
-    
-    private func constrainedChatWidth(for totalWidth: CGFloat) -> CGFloat {
-        let maxAllowed = totalWidth - centerMinWidth - (appState.showingSidebar ? sidebarWidthRange.lowerBound : 0) - 16 // divider space
-        return min(max(chatWidth, chatWidthRange.lowerBound), min(chatWidthRange.upperBound, maxAllowed))
-    }
-    
-    private func updateSidebarWidth(delta: CGFloat, availableWidth: CGFloat) {
-        let newWidth = sidebarWidth + delta
-        let maxAllowed = availableWidth - centerMinWidth - (appState.showingChat ? chatWidthRange.lowerBound : 0) - 16
-        sidebarWidth = min(max(newWidth, sidebarWidthRange.lowerBound), min(sidebarWidthRange.upperBound, maxAllowed))
-    }
-    
-    private func updateChatWidth(delta: CGFloat, availableWidth: CGFloat) {
-        let newWidth = chatWidth + delta
-        let maxAllowed = availableWidth - centerMinWidth - (appState.showingSidebar ? sidebarWidthRange.lowerBound : 0) - 16
-        chatWidth = min(max(newWidth, chatWidthRange.lowerBound), min(chatWidthRange.upperBound, maxAllowed))
-    }
-    
-    private func validatePaneSizes(for totalWidth: CGFloat) {
-        // Ensure pane sizes are within bounds when window is resized
-        sidebarWidth = constrainedSidebarWidth(for: totalWidth)
-        chatWidth = constrainedChatWidth(for: totalWidth)
-    }
-    
     // MARK: - Panel Management
     
     private func handlePanelToggle() {
-        // Notify that layout will change due to panel toggle
+        // HSplitView handles layout changes automatically, but we still notify PDF viewer
+        // for any content adjustments that might be needed
         NotificationCenter.default.post(name: NSNotification.Name("PDFLayoutWillChange"), object: nil)
         
         // Schedule notification that layout changed after animation completes
