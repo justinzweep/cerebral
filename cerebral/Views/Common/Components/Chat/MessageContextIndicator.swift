@@ -191,7 +191,6 @@ struct ContextDetailRow: View {
         case .pageRange: return "doc.on.doc"
         case .textSelection: return "text.viewfinder"
         case .semanticChunk: return "brain"
-        case .reference: return "at"
         }
     }
     

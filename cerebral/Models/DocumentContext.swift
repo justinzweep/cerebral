@@ -43,7 +43,6 @@ struct DocumentContext: Codable, Identifiable, Sendable, Equatable {
         case pageRange        // Specific pages
         case textSelection    // User-selected text
         case semanticChunk    // AI-extracted relevant chunk
-        case reference        // @ mention reference
         
         var displayName: String {
             switch self {
@@ -51,7 +50,6 @@ struct DocumentContext: Codable, Identifiable, Sendable, Equatable {
             case .pageRange: return "Page Range"
             case .textSelection: return "Selected Text"
             case .semanticChunk: return "Relevant Section"
-            case .reference: return "Reference"
             }
         }
     }

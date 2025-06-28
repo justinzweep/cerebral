@@ -35,7 +35,7 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
         for doc in referencedDocs {
             let context = try await contextService.createContext(
                 from: doc,
-                type: .reference,
+                type: .fullDocument,
                 selection: nil
             )
             contexts.append(context)
@@ -97,8 +97,6 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
                     formatted += "Selected Text:\n"
                 case .semanticChunk:
                     formatted += "Relevant Section:\n"
-                case .reference:
-                    formatted += "Referenced Content:\n"
                 }
                 
                 formatted += context.content + "\n\n"

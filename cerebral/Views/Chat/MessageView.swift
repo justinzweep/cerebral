@@ -106,17 +106,16 @@ struct HighlightedMessageText: View {
         return result
     }
     
-    private func getContextColor(for context: DocumentContext?) -> Color {
-        guard let context = context else { return Color.blue }
+    // private func getContextColor(for context: DocumentContext?) -> Color {
+    //     guard let context = context else { return Color.blue }
         
-        switch context.contextType {
-        case .fullDocument: return Color.blue
-        case .pageRange: return Color.purple
-        case .textSelection: return Color.orange
-        case .semanticChunk: return Color.green
-        case .reference: return Color.indigo
-        }
-    }
+    //     switch context.contextType {
+    //     case .fullDocument: return Color.blue
+    //     case .pageRange: return Color.purple
+    //     case .textSelection: return Color.orange
+    //     case .semanticChunk: return Color.green
+    //     }
+    // }
     
     private func findReferencedDocument(for documentName: String) -> Document? {
         let foundInReferences = referencedDocuments.first { document in

@@ -183,7 +183,6 @@ struct ContextChip: View {
         case .pageRange: return "doc.on.doc"
         case .textSelection: return "text.viewfinder"
         case .semanticChunk: return "brain"
-        case .reference: return "at"
         }
     }
     
@@ -205,8 +204,6 @@ struct ContextChip: View {
             return "Selection"
         case .semanticChunk:
             return "Relevant section"
-        case .reference:
-            return "Reference"
         }
     }
 }

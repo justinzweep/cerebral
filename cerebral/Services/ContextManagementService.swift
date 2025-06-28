@@ -114,15 +114,6 @@ final class ContextManagementService: ContextManagementServiceProtocol {
                 tokenCount: tokenizer.estimateTokenCount(for: content),
                 checksum: tokenizer.calculateChecksum(for: content)
             )
-            
-        case .reference:
-            // Extract a reasonable amount for @ references
-            content = pdfService.extractText(from: document, maxLength: 8000) ?? ""
-            metadata = ContextMetadata(
-                extractionMethod: "PDFKit.reference",
-                tokenCount: tokenizer.estimateTokenCount(for: content),
-                checksum: tokenizer.calculateChecksum(for: content)
-            )
         }
         
         let context = DocumentContext(
@@ -290,11 +281,10 @@ final class ContextManagementService: ContextManagementServiceProtocol {
     
     private func contextPriority(_ type: DocumentContext.ContextType) -> Int {
         switch type {
-        case .reference: return 1
-        case .textSelection: return 2
-        case .semanticChunk: return 3
-        case .pageRange: return 4
-        case .fullDocument: return 5
+        case .textSelection: return 1
+        case .semanticChunk: return 2
+        case .pageRange: return 3
+        case .fullDocument: return 4
         }
     }
     
