@@ -87,31 +87,101 @@ struct MessageContextIndicator: View {
 
 struct ContextDetailRow: View {
     let context: DocumentContext
+    @State private var isHovered = false
     
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: contextTypeIcon)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .frame(width: 16)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(context.contextType.displayName)
+        Button(action: openDocument) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: contextTypeIcon)
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    .frame(width: 16)
                 
-                if let pageNumbers = context.metadata.pageNumbers, !pageNumbers.isEmpty {
-                    Text(pageDescription(pageNumbers))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(context.contextType.displayName)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    if let pageNumbers = context.metadata.pageNumbers, !pageNumbers.isEmpty {
+                        Text(pageDescription(pageNumbers))
+                            .font(.caption2)
+                            .foregroundColor(.secondary.opacity(0.7))
+                    }
+                    
+                    // Show text preview for text selections
+                    if context.contextType == .textSelection && !context.content.isEmpty {
+                        Text("\"\(context.content.prefix(60))...\"")
+                            .font(.caption2)
+                            .foregroundColor(.secondary.opacity(0.8))
+                            .italic()
+                            .lineLimit(2)
+                    }
+                    
+                    Text("\(context.metadata.tokenCount) tokens")
                         .font(.caption2)
                         .foregroundColor(.secondary.opacity(0.7))
                 }
                 
-                Text("\(context.metadata.tokenCount) tokens")
-                    .font(.caption2)
-                    .foregroundColor(.secondary.opacity(0.7))
+                Spacer()
             }
-            
-            Spacer()
+        }
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isHovered ? Color.secondary.opacity(0.1) : Color.clear)
+        )
+        .scaleEffect(isHovered ? 1.02 : 1.0)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+        .help(context.contextType == .textSelection ? 
+              "Click to navigate to the selected text in \(context.documentTitle)" : 
+              "Click to open \(context.documentTitle)")
+    }
+    
+    private func openDocument() {
+        // Find the document by ID
+        guard let document = ServiceContainer.shared.documentService.findDocument(byId: context.documentId) else {
+            print("❌ Document not found for context: \(context.documentTitle)")
+            return
+        }
+        
+        print("🔍 Opening document from context detail: '\(document.title)' (ID: \(document.id))")
+        
+        // Open the document in the PDF viewer
+        ServiceContainer.shared.appState.selectDocument(document)
+        
+        // Navigate to the specific context location
+        navigateToContext(context: context)
+        
+        print("📤 Updated AppState with selected document from context detail")
+    }
+    
+    private func navigateToContext(context: DocumentContext) {
+        print("🎯 Navigating to context: \(context.contextType.displayName)")
+        
+        // Schedule navigation after PDF loads
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if let pageNumbers = context.metadata.pageNumbers, let firstPage = pageNumbers.first {
+                print("📄 Navigating to page \(firstPage) from context detail")
+                ServiceContainer.shared.appState.navigateToPDFPage(firstPage)
+                
+                // For text selections, try to navigate to the exact bounds within the page
+                if context.contextType == .textSelection,
+                   let selectionBounds = context.metadata.selectionBounds,
+                   !selectionBounds.isEmpty {
+                    
+                    // Wait a bit more for page navigation to complete, then scroll to selection bounds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        ServiceContainer.shared.appState.navigateToSelectionBounds(
+                            bounds: selectionBounds,
+                            onPage: firstPage
+                        )
+                    }
+                }
+            }
         }
     }
     

@@ -149,6 +149,29 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         ) { [weak self] _ in
             self?.restorePDFStateAfterDelay()
         }
+        
+        // Listen for PDF page navigation requests
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NavigateToPDFPage"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let pageNumber = notification.userInfo?["pageNumber"] as? Int else { return }
+            self.navigateToPage(pageNumber)
+        }
+        
+        // Listen for precise selection bounds navigation
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NavigateToSelectionBounds"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let bounds = notification.userInfo?["bounds"] as? [CGRect],
+                  let pageNumber = notification.userInfo?["pageNumber"] as? Int else { return }
+            self.navigateToSelectionBounds(bounds: bounds, onPage: pageNumber)
+        }
     }
     
     // MARK: - PDF State Preservation Methods
@@ -244,6 +267,68 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         // Clear the preserved state
         preservedState = nil
     }
+    
+    // MARK: - PDF Navigation
+    
+    func navigateToPage(_ pageNumber: Int) {
+        guard let pdfView = pdfView,
+              let document = pdfView.document else {
+            print("❌ Cannot navigate to page - no PDF view or document")
+            return
+        }
+        
+        // Convert to 0-based index (PDF pages are typically 1-based in UI)
+        let pageIndex = pageNumber - 1
+        
+        guard pageIndex >= 0 && pageIndex < document.pageCount else {
+            print("❌ Page number \(pageNumber) is out of range (1-\(document.pageCount))")
+            return
+        }
+        
+        guard let page = document.page(at: pageIndex) else {
+            print("❌ Could not get page at index \(pageIndex)")
+            return
+        }
+        
+        print("📖 Navigating to page \(pageNumber) (index \(pageIndex))")
+        
+        // Use PDFView's built-in navigation
+        pdfView.go(to: page)
+        
+        // Optionally scroll to top of page
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let pageRect = pdfView.convert(page.bounds(for: .mediaBox), from: page)
+            let scrollPoint = CGPoint(x: pageRect.minX, y: pageRect.maxY) // Top of page
+            pdfView.scroll(scrollPoint)
+        }
+        
+        // Clear the pending navigation in app state
+        appState.clearPendingNavigation()
+    }
+    
+    func navigateToSelectionBounds(bounds: [CGRect], onPage pageNumber: Int) {
+        guard let pdfView = pdfView,
+              let document = pdfView.document else {
+            print("❌ Cannot navigate to selection bounds - no PDF view or document")
+            return
+        }
+        
+        // Convert to 0-based index
+        let pageIndex = pageNumber - 1
+        
+        guard pageIndex >= 0 && pageIndex < document.pageCount,
+              let page = document.page(at: pageIndex) else {
+            print("❌ Invalid page number for selection navigation")
+            return
+        }
+        
+        print("📖 Navigating to page \(pageNumber) for text selection")
+        
+        // Simply navigate to the page where the selection is located
+        pdfView.go(to: page)
+    }
+    
+
     
     // MARK: - PDFViewDelegate Methods
     

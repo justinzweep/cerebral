@@ -187,13 +187,10 @@ struct ChatInputView: View {
     // NEW: Enhanced send handling that includes PDF context and clears selections
     private func handleSendMessage() {
         // Don't modify the text field - just send it as-is
-        // The PDF context will be passed as hiddenContext to the AI
+        // The PDF context will be passed as explicitContexts to the AI
         onSend()
         
-        // Clear PDF selections after sending
-        appState.clearAllPDFSelections()
-        
-        // Note: text clearing is handled by ChatView.sendMessage()
+        // Note: PDF selections and text clearing are handled by ChatView.sendMessage()
     }
     
     private var canSend: Bool {

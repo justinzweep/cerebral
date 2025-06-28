@@ -30,8 +30,15 @@ struct MessageView: View {
 struct FlowMessageText: View {
     let text: String
     let documentReferences: [UUID]
+    let contexts: [DocumentContext]
     @State private var textParts: [TextPart] = []
     @State private var referencedDocuments: [Document] = []
+    
+    init(text: String, documentReferences: [UUID] = [], contexts: [DocumentContext] = []) {
+        self.text = text
+        self.documentReferences = documentReferences
+        self.contexts = contexts
+    }
     
     var body: some View {
         Group {
@@ -56,7 +63,8 @@ struct FlowMessageText: View {
                     MentionPillButton(
                         text: part.text,
                         documentName: part.documentName,
-                        document: findReferencedDocument(for: part.documentName)
+                        document: findReferencedDocument(for: part.documentName),
+                        context: findDocumentContext(for: part.documentName)
                     )
                 } else {
                     Text(part.text)
@@ -110,6 +118,18 @@ struct FlowMessageText: View {
         return ServiceContainer.shared.documentService.findDocument(byName: documentName)
     }
     
+    private func findDocumentContext(for documentName: String) -> DocumentContext? {
+        // Find context that matches the document name
+        return contexts.first { context in
+            let contextTitleWithoutPdf = context.documentTitle.hasSuffix(".pdf") ? 
+                String(context.documentTitle.dropLast(4)) : context.documentTitle
+            let searchNameWithoutPdf = documentName.hasSuffix(".pdf") ? 
+                String(documentName.dropLast(4)) : documentName
+            
+            return contextTitleWithoutPdf.lowercased() == searchNameWithoutPdf.lowercased()
+        }
+    }
+    
     private func parseTextParts() {
         textParts = []
         
@@ -159,6 +179,7 @@ struct MentionPillButton: View {
     let text: String
     let documentName: String
     let document: Document?
+    let context: DocumentContext?
     @State private var isHovered = false
     
     var body: some View {
@@ -173,7 +194,7 @@ struct MentionPillButton: View {
     
     private var pillContent: some View {
         HStack(spacing: 4) {
-            Image(systemName: "doc.fill")
+            Image(systemName: contextIcon)
                 .font(.system(size: 10, weight: .medium))
             
             Text(text)
@@ -189,11 +210,35 @@ struct MentionPillButton: View {
     
     private var pillBackground: some View {
         Capsule()
-            .fill(document != nil ? Color.blue.opacity(0.6) : Color.gray.opacity(0.6))
+            .fill(document != nil ? pillColor : Color.gray.opacity(0.6))
             .overlay(
                 Capsule()
-                    .stroke(document != nil ? Color.blue.opacity(0.8) : Color.gray.opacity(0.8), lineWidth: 1)
+                    .stroke(document != nil ? pillColor.opacity(0.8) : Color.gray.opacity(0.8), lineWidth: 1)
             )
+    }
+    
+    private var contextIcon: String {
+        guard let context = context else { return "doc.fill" }
+        
+        switch context.contextType {
+        case .fullDocument: return "doc.fill"
+        case .pageRange: return "doc.on.doc"
+        case .textSelection: return "text.viewfinder"
+        case .semanticChunk: return "brain"
+        case .reference: return "at"
+        }
+    }
+    
+    private var pillColor: Color {
+        guard let context = context else { return Color.blue.opacity(0.6) }
+        
+        switch context.contextType {
+        case .fullDocument: return Color.blue.opacity(0.6)
+        case .pageRange: return Color.purple.opacity(0.6)
+        case .textSelection: return Color.orange.opacity(0.6)
+        case .semanticChunk: return Color.green.opacity(0.6)
+        case .reference: return Color.indigo.opacity(0.6)
+        }
     }
     
     private func openDocument() {
@@ -203,8 +248,28 @@ struct MentionPillButton: View {
         }
         
         print("🔍 Opening document: '\(document.title)' (ID: \(document.id))")
+        
+        // Open the document in the PDF viewer
         ServiceContainer.shared.appState.selectDocument(document)
+        
+        // If we have context with specific page/location info, navigate there
+        if let context = context {
+            navigateToContext(in: document, context: context)
+        }
+        
         print("📤 Updated AppState with selected document")
+    }
+    
+    private func navigateToContext(in document: Document, context: DocumentContext) {
+        print("🎯 Navigating to context in document: \(context.contextType.displayName)")
+        
+        // Schedule navigation after PDF loads
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if let pageNumbers = context.metadata.pageNumbers, let firstPage = pageNumbers.first {
+                print("📄 Navigating to page \(firstPage)")
+                ServiceContainer.shared.appState.navigateToPDFPage(firstPage)
+            }
+        }
     }
 }
 

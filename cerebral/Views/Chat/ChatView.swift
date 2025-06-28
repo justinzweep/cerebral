@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PDFKit
 
 struct ChatView: View {
     let selectedDocument: Document?
@@ -116,33 +117,71 @@ struct ChatView: View {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         let messageText = inputText
-        var documentsToSend = attachedDocuments
+        var documentsToSend: [Document] = []
+        var explicitContexts: [DocumentContext] = []
         
-        // ALWAYS append the currently selected document if there is one
-        if let selectedDoc = selectedDocument {
-            // Only add if it's not already in the attached documents
-            if !documentsToSend.contains(where: { $0.id == selectedDoc.id }) {
-                documentsToSend.append(selectedDoc)
+        // Handle PDF text selections - create proper DocumentContext instead of sending full documents
+        if !appState.pdfSelections.isEmpty {
+            print("🎯 Processing \(appState.pdfSelections.count) PDF text selections")
+            
+            // Create DocumentContext for each text selection with precise location data
+            for selectionInfo in appState.pdfSelections {
+                if let selectedDocument = selectedDocument {
+                    // Extract location data from the original PDFSelection
+                    let pageNumbers = extractPageNumbers(from: selectionInfo.selection)
+                    let selectionBounds = extractSelectionBounds(from: selectionInfo.selection)
+                    let characterRange = extractCharacterRange(from: selectionInfo.selection)
+                    
+                    // Create a textSelection context with precise location metadata
+                    let selectionContext = DocumentContext(
+                        documentId: selectedDocument.id,
+                        documentTitle: selectedDocument.title,
+                        contextType: .textSelection,
+                        content: selectionInfo.text,
+                        metadata: ContextMetadata(
+                            pageNumbers: pageNumbers,
+                            selectionBounds: selectionBounds,
+                            characterRange: characterRange,
+                            extractionMethod: "PDFKit.userSelection",
+                            tokenCount: ServiceContainer.shared.tokenizerService.estimateTokenCount(for: selectionInfo.text),
+                            checksum: ServiceContainer.shared.tokenizerService.calculateChecksum(for: selectionInfo.text)
+                        )
+                    )
+                    explicitContexts.append(selectionContext)
+                    print("📝 Created text selection context with location: pages \(pageNumbers), bounds: \(selectionBounds.count) rects")
+                }
+            }
+        } else {
+            // No text selections - handle attached documents normally
+            documentsToSend = attachedDocuments
+            
+            // Add the currently selected document if there is one and no text selections
+            if let selectedDoc = selectedDocument {
+                if !documentsToSend.contains(where: { $0.id == selectedDoc.id }) {
+                    documentsToSend.append(selectedDoc)
+                }
             }
         }
         
-        // Get PDF selections as hidden context
-        let pdfContext = appState.formatSelectionsForMessage()
-        
-        // Clear input and attachments immediately
+        // Clear input, attachments, and PDF selections immediately
         inputText = ""
         withAnimation(DesignSystem.Animation.smooth) {
             attachedDocuments.removeAll()
         }
+        appState.clearAllPDFSelections() // Clear PDF selections
         
         Task {
-            // Use the unified sendMessage method which now handles streaming
+            // Use the unified sendMessage method with explicit contexts for text selections
             await chatManager.sendMessage(
                 messageText,
                 settingsManager: settingsManager,
                 documentContext: documentsToSend,
-                hiddenContext: pdfContext // Pass PDF context as hidden context
+                hiddenContext: nil, // No hidden context needed - using explicit contexts
+                explicitContexts: explicitContexts
             )
+            
+            // Clear context bundle after message is sent
+            chatManager.clearContext()
         }
     }
     
@@ -154,6 +193,47 @@ struct ChatView: View {
             attachedDocuments.removeAll()
             inputText = ""
         }
+    }
+    
+    // MARK: - PDF Selection Location Helpers
+    
+    private func extractPageNumbers(from selection: PDFSelection) -> [Int] {
+        var pageNumbers: Set<Int> = []
+        
+        for page in selection.pages {
+            if let document = page.document {
+                let pageIndex = document.index(for: page)
+                pageNumbers.insert(pageIndex + 1) // Convert to 1-based indexing
+            }
+        }
+        
+        return Array(pageNumbers).sorted()
+    }
+    
+    private func extractSelectionBounds(from selection: PDFSelection) -> [CGRect] {
+        var bounds: [CGRect] = []
+        
+        for page in selection.pages {
+            let selectionBounds = selection.bounds(for: page)
+            bounds.append(selectionBounds)
+        }
+        
+        return bounds
+    }
+    
+    private func extractCharacterRange(from selection: PDFSelection) -> NSRange? {
+        // Try to get the character range from the first page
+        guard let firstPage = selection.pages.first,
+              let pageString = firstPage.string,
+              let selectionString = selection.string else {
+            return nil
+        }
+        
+        // Find the range of the selection in the page text
+        let nsPageString = pageString as NSString
+        let range = nsPageString.range(of: selectionString)
+        
+        return range.location != NSNotFound ? range : nil
     }
 }
 

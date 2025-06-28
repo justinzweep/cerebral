@@ -18,7 +18,11 @@ struct UserMessage: View {
                 Spacer(minLength: DesignSystem.Spacing.xxl)
                 
                 // User message with inline clickable @mentions
-                FlowMessageText(text: message.text, documentReferences: message.documentReferences)
+                FlowMessageText(
+                    text: message.text, 
+                    documentReferences: message.documentReferences,
+                    contexts: message.contexts
+                )
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.vertical, DesignSystem.Spacing.sm)
                     .animation(DesignSystem.Animation.microInteraction, value: isHovered)

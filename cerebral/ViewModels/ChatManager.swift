@@ -59,11 +59,19 @@ import Foundation
         }
         
         do {
-            // Add explicit contexts to bundle
-            currentContextBundle.contexts.append(contentsOf: explicitContexts)
+            // CLEAR context bundle at the start of each message for fresh context
+            currentContextBundle = ChatContextBundle(sessionId: UUID(), contexts: [])
+            print("🧹 Cleared context bundle for new message")
             
-            // Convert legacy document context to new format if needed
-            if !documentContext.isEmpty || hiddenContext != nil {
+            // Add explicit contexts to bundle (these are the text selections)
+            if !explicitContexts.isEmpty {
+                currentContextBundle.contexts.append(contentsOf: explicitContexts)
+                print("📝 Added \(explicitContexts.count) explicit contexts (text selections)")
+            }
+            
+            // Convert legacy document context to new format if needed (only for full documents)
+            if !documentContext.isEmpty {
+                print("📄 Processing \(documentContext.count) full document contexts")
                 for doc in documentContext {
                     if let context = try? await contextService.createContext(
                         from: doc,

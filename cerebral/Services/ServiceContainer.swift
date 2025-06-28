@@ -312,6 +312,9 @@ final class AppState {
     var showPDFSelectionPills: Bool = false // Controls when to show selection pills
     var pendingTypedCharacter: String? = nil // NEW: Store the initial typed character
     
+    // MARK: - PDF Navigation
+    var pendingPageNavigation: Int?
+    
     // Methods for state management
     func selectDocument(_ document: Document?) {
         withAnimation(DesignSystem.Animation.smooth) {
@@ -651,5 +654,35 @@ final class AppState {
         if !pdfSelections.isEmpty {
             showPDFSelectionPills = true
         }
+    }
+    
+    func navigateToPDFPage(_ pageNumber: Int) {
+        print("📖 Requesting navigation to page \(pageNumber)")
+        pendingPageNavigation = pageNumber
+        
+        // Post notification for PDFViewCoordinator to handle
+        NotificationCenter.default.post(
+            name: NSNotification.Name("NavigateToPDFPage"), 
+            object: nil, 
+            userInfo: ["pageNumber": pageNumber]
+        )
+    }
+    
+    func navigateToSelectionBounds(bounds: [CGRect], onPage pageNumber: Int) {
+        print("🎯 Requesting navigation to selection bounds on page \(pageNumber)")
+        
+        // Post notification for PDFViewCoordinator to handle precise bounds navigation
+        NotificationCenter.default.post(
+            name: NSNotification.Name("NavigateToSelectionBounds"),
+            object: nil,
+            userInfo: [
+                "bounds": bounds,
+                "pageNumber": pageNumber
+            ]
+        )
+    }
+    
+    func clearPendingNavigation() {
+        pendingPageNavigation = nil
     }
 } 

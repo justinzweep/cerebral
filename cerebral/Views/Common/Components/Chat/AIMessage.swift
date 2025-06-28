@@ -84,26 +84,21 @@ struct AIMessage: View {
                 Spacer(minLength: DesignSystem.Spacing.xxl)
             }
             
-            // Context indicator
-            if message.hasContext && !message.isStreaming {
-                HStack {
-                    MessageContextIndicator(contexts: message.contexts)
-                        .frame(maxWidth: 300)
-                    Spacer(minLength: DesignSystem.Spacing.xxl)
-                }
-            }
+            // Context indicator removed from AI messages - only show in user messages
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
     }
     
     @ViewBuilder
     private var messageText: some View {
-        Text(LocalizedStringKey(displayedText))
-            .font(DesignSystem.Typography.body)
-            .foregroundColor(DesignSystem.Colors.primaryText)
-            .textSelection(.enabled)
-            .animation(.none, value: displayedText) // Disable animation for performance
-            .tint(DesignSystem.Colors.accent)
+        // Use FlowMessageText for clickable document references in AI messages
+        FlowMessageText(
+            text: displayedText, 
+            documentReferences: message.documentReferences,
+            contexts: message.contexts
+        )
+        .textSelection(.enabled)
+        .animation(.none, value: displayedText) // Disable animation for performance
     }
 }
 
