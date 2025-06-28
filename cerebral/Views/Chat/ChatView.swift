@@ -126,30 +126,40 @@ struct ChatView: View {
             
             // Create DocumentContext for each text selection with precise location data
             for selectionInfo in appState.pdfSelections {
-                if let selectedDocument = selectedDocument {
-                    // Extract location data from the original PDFSelection
-                    let pageNumbers = extractPageNumbers(from: selectionInfo.selection)
-                    let selectionBounds = extractSelectionBounds(from: selectionInfo.selection)
-                    let characterRange = extractCharacterRange(from: selectionInfo.selection)
-                    
-                    // Create a textSelection context with precise location metadata
-                    let selectionContext = DocumentContext(
-                        documentId: selectedDocument.id,
-                        documentTitle: selectedDocument.title,
-                        contextType: .textSelection,
-                        content: selectionInfo.text,
-                        metadata: ContextMetadata(
-                            pageNumbers: pageNumbers,
-                            selectionBounds: selectionBounds,
-                            characterRange: characterRange,
-                            extractionMethod: "PDFKit.userSelection",
-                            tokenCount: ServiceContainer.shared.tokenizerService.estimateTokenCount(for: selectionInfo.text),
-                            checksum: ServiceContainer.shared.tokenizerService.calculateChecksum(for: selectionInfo.text)
-                        )
-                    )
-                    explicitContexts.append(selectionContext)
-                    print("📝 Created text selection context with location: pages \(pageNumbers), bounds: \(selectionBounds.count) rects")
+                // Get the document from the PDF selection itself, not from sidebar selection
+                guard let pdfDocument = selectionInfo.selection.pages.first?.document else {
+                    print("❌ No PDF document found in selection")
+                    continue
                 }
+                
+                // Find the corresponding Document model by matching the PDF document
+                guard let documentModel = findDocumentModel(for: pdfDocument) else {
+                    print("❌ No Document model found for PDF selection")
+                    continue
+                }
+                
+                // Extract location data from the original PDFSelection
+                let pageNumbers = extractPageNumbers(from: selectionInfo.selection)
+                let selectionBounds = extractSelectionBounds(from: selectionInfo.selection)
+                let characterRange = extractCharacterRange(from: selectionInfo.selection)
+                
+                // Create a textSelection context with precise location metadata
+                let selectionContext = DocumentContext(
+                    documentId: documentModel.id,
+                    documentTitle: documentModel.title,
+                    contextType: .textSelection,
+                    content: selectionInfo.text,
+                    metadata: ContextMetadata(
+                        pageNumbers: pageNumbers,
+                        selectionBounds: selectionBounds,
+                        characterRange: characterRange,
+                        extractionMethod: "PDFKit.userSelection",
+                        tokenCount: ServiceContainer.shared.tokenizerService.estimateTokenCount(for: selectionInfo.text),
+                        checksum: ServiceContainer.shared.tokenizerService.calculateChecksum(for: selectionInfo.text)
+                    )
+                )
+                explicitContexts.append(selectionContext)
+                print("📝 Created text selection context for '\(documentModel.title)' with location: pages \(pageNumbers), bounds: \(selectionBounds.count) rects")
             }
         } else {
             // No text selections - handle attached documents normally
@@ -195,6 +205,33 @@ struct ChatView: View {
     }
     
     // MARK: - PDF Selection Location Helpers
+    
+    private func findDocumentModel(for pdfDocument: PDFDocument) -> Document? {
+        // Get the PDF document's URL
+        guard let documentURL = pdfDocument.documentURL else {
+            print("❌ PDF document has no URL")
+            return nil
+        }
+        
+        // Find the Document model that matches this URL
+        let allDocuments = ServiceContainer.shared.documentService.getAllDocuments()
+        
+        // First try exact URL match
+        if let exactMatch = allDocuments.first(where: { $0.filePath == documentURL }) {
+            return exactMatch
+        }
+        
+        // If no exact match, try matching by resolved paths (in case of symbolic links, etc.)
+        let targetPath = documentURL.resolvingSymlinksInPath().path
+        if let pathMatch = allDocuments.first(where: { 
+            $0.filePath.resolvingSymlinksInPath().path == targetPath 
+        }) {
+            return pathMatch
+        }
+        
+        print("❌ No Document model found for PDF at: \(documentURL.path)")
+        return nil
+    }
     
     private func extractPageNumbers(from selection: PDFSelection) -> [Int] {
         var pageNumbers: Set<Int> = []

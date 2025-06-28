@@ -60,6 +60,14 @@ final class KeyboardShortcutService {
         let modifierFlags = event.modifierFlags
         let characters = event.characters ?? ""
         
+        // Debug logging for Enter key specifically
+        if keyCode == 36 {
+            print("🔑 Global KeyboardShortcutService: Enter key detected")
+            print("   - isReadyForChatTransition: \(appState.isReadyForChatTransition)")
+            print("   - characters: '\(characters)'")
+            print("   - keyCode: \(keyCode)")
+        }
+        
         // ESC key (keyCode 53) - Handle hierarchically from most specific to most general
         if keyCode == 53 {
             if handleEscapeHierarchy() {
@@ -69,8 +77,12 @@ final class KeyboardShortcutService {
         
         // NEW: PDF-to-Chat typing detection
         // Only trigger if we have PDF selections and user types alphanumeric
+        // EXCLUDE Enter key (keyCode 36) and other special keys from this handling
         if appState.isReadyForChatTransition,
            !characters.isEmpty,
+           keyCode != 36, // Don't consume Enter key
+           keyCode != 48, // Don't consume Tab key
+           keyCode != 53, // Don't consume Escape key
            !modifierFlags.contains(.command), // Ignore cmd shortcuts
            !modifierFlags.contains(.control),  // Ignore ctrl shortcuts
            !modifierFlags.contains(.option),   // Ignore option shortcuts

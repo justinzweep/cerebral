@@ -36,7 +36,20 @@ struct SendButton: View {
     @State private var isPressed = false
     
     var body: some View {
-        Button(action: onSend) {
+        Button(action: {
+            print("🔲 SendButton clicked")
+            print("   - canSend: \(canSend)")
+            print("   - isLoading: \(isLoading)")
+            print("   - isStreaming: \(isStreaming)")
+            print("   - isButtonDisabled: \(isButtonDisabled)")
+            
+            if !isButtonDisabled {
+                print("✅ Button enabled - calling onSend()")
+                onSend()
+            } else {
+                print("❌ Button disabled - not calling onSend()")
+            }
+        }) {
             buttonContent
         }
         .frame(width: 32, height: 32)
@@ -50,7 +63,6 @@ struct SendButton: View {
         .animation(DesignSystem.Animation.micro, value: isPressed)
         .buttonStyle(.plain)
         .disabled(isButtonDisabled)
-        .keyboardShortcut(.return, modifiers: [])
         .onHover { isHovered = $0 }
         .pressEvents(
             onPress: { isPressed = true },

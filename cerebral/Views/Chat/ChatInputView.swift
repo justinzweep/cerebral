@@ -76,8 +76,21 @@ struct ChatInputView: View {
                         isDisabled: isLoading || isStreaming,
                         shouldFocus: $shouldFocusInput, // NEW: External focus control
                         onSubmit: {
-                            if !showingAutocomplete && canSend && !isLoading && !isStreaming {
-                                handleSendMessage() // NEW: Enhanced send handling
+                            print("🔄 ChatTextEditor onSubmit triggered")
+                            print("   - showingAutocomplete: \(showingAutocomplete)")
+                            print("   - canSend: \(canSend)")
+                            print("   - isLoading: \(isLoading)")
+                            print("   - isStreaming: \(isStreaming)")
+                            
+                            // Handle autocomplete selection first
+                            if showingAutocomplete && !autocompleteDocuments.isEmpty {
+                                print("📝 Autocomplete showing - inserting document reference")
+                                insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
+                            } else if canSend && !isLoading && !isStreaming {
+                                print("✅ All conditions met - calling handleSendMessage()")
+                                handleSendMessage()
+                            } else {
+                                print("❌ Conditions not met - submission blocked")
                             }
                         },
                         onTextChange: handleTextChange
@@ -152,13 +165,6 @@ struct ChatInputView: View {
             }
             return .ignored
         }
-        .onKeyPress(KeyEquivalent.return) {
-            if showingAutocomplete && !autocompleteDocuments.isEmpty {
-                insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
-                return .handled
-            }
-            return .ignored
-        }
         .onKeyPress(KeyEquivalent.upArrow) {
             if showingAutocomplete {
                 selectedAutocompleteIndex = max(0, selectedAutocompleteIndex - 1)
@@ -186,19 +192,22 @@ struct ChatInputView: View {
     
     // NEW: Enhanced send handling that includes PDF context and clears selections
     private func handleSendMessage() {
+        print("🚀 handleSendMessage called")
+        print("   - text: '\(text)'")
+        print("   - text length: \(text.count)")
+        
         // Don't modify the text field - just send it as-is
         // The PDF context will be passed as explicitContexts to the AI
         onSend()
+        
+        print("✅ onSend() called successfully")
         
         // Note: PDF selections and text clearing are handled by ChatView.sendMessage()
     }
     
     private var canSend: Bool {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedText.isEmpty else { return false }
-        
-        // Check if all @ references are valid
-        return areAllDocumentReferencesValid(in: trimmedText)
+        return !trimmedText.isEmpty
     }
     
     // MARK: - Autocomplete Logic

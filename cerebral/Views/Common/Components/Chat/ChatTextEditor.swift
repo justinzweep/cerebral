@@ -43,8 +43,8 @@ struct ChatTextEditor: View {
                     .padding(.vertical, 12)
             }
             
-            // Actual text field (normal colors)
-            TextField("Message...", text: $text, axis: .vertical)
+            // Actual text field (single line behavior, no multiline)
+            TextField("Message...", text: $text)
                 .textFieldStyle(.plain)
                 .background(Color.clear)
                 .font(.system(size: 16))
@@ -53,11 +53,24 @@ struct ChatTextEditor: View {
                 .padding(.leading, 16)
                 .padding(.trailing, 48) // Make room for send button
                 .padding(.vertical, 12)
-                .onSubmit(onSubmit)
+                .onSubmit {
+                    // Call the submit handler when Enter is pressed
+                    print("🚨 TextField onSubmit TRIGGERED")
+                    print("   - isFocused: \(isFocused)")
+                    print("   - isDisabled: \(isDisabled)")
+                    print("   - text: '\(text)'")
+                    onSubmit()
+                }
                 .onChange(of: text) { _, newValue in
                     onTextChange(newValue)
                 }
                 .disabled(isDisabled)
+                .onKeyPress(.return) { 
+                    print("🔴 ENTER KEY DETECTED in TextField")
+                    print("   - isFocused: \(isFocused)")
+                    print("   - isDisabled: \(isDisabled)")
+                    return .ignored  // Let TextField handle it normally
+                }
         }
         .frame(minHeight: minHeight)
         .background(
@@ -70,16 +83,23 @@ struct ChatTextEditor: View {
         )
         .animation(.easeInOut(duration: 0.2), value: isFocused)
         .onAppear {
+            print("🎯 ChatTextEditor onAppear - auto-focusing")
             // Auto-focus when the component appears
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isFocused = true
+                print("✅ ChatTextEditor focus set to true")
             }
         }
         .onChange(of: shouldFocus) { _, newValue in
+            print("🔄 shouldFocus changed to: \(newValue)")
             if newValue {
                 isFocused = true
                 shouldFocus = false
+                print("✅ Focus triggered externally")
             }
+        }
+        .onChange(of: isFocused) { _, newValue in
+            print("🎯 TextField focus changed to: \(newValue)")
         }
     }
 }
