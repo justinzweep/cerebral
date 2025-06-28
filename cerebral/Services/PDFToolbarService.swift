@@ -50,18 +50,40 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         }
         
         let pageIndex = document.index(for: page)
-        
-        let selectionBounds = selection.bounds(for: page)
         let text = selection.string ?? ""
         
-        // Create PDFKit annotation
-        let annotation = PDFAnnotation(bounds: selectionBounds, forType: .highlight, withProperties: nil)
-        annotation.color = color.nsColor
-        annotation.contents = "Cerebral Highlight"
+        // Get precise line-by-line selections for accurate highlighting
+        let lineSelections = selection.selectionsByLine()
         
-        // Add metadata to annotation
+        // Create highlight annotations for each line to ensure precision
+        var allBounds: [CGRect] = []
+        let highlightID = UUID().uuidString
+        
+        for (index, lineSelection) in lineSelections.enumerated() {
+            guard let linePage = lineSelection.pages.first else { continue }
+            
+            let lineBounds = lineSelection.bounds(for: linePage)
+            allBounds.append(lineBounds)
+            
+            // Create precise annotation for this line
+            let annotation = PDFAnnotation(bounds: lineBounds, forType: .highlight, withProperties: nil)
+            annotation.color = color.nsColor
+            annotation.contents = encodeAnnotationContents(color: color, groupID: highlightID)
+            
+            // Store line metadata
+            annotation.setValue("\(highlightID)_line_\(index)", forAnnotationKey: .textLabel)
+            
+            // Add annotation to page
+            linePage.addAnnotation(annotation)
+        }
+        
+        // Use the bounds of the first line for the highlight model
+        // (This is for compatibility with existing code that expects a single bounds)
+        let representativeBounds = allBounds.first ?? selection.bounds(for: page)
+        
+        // Create highlight model
         let highlight = PDFHighlight(
-            bounds: selectionBounds,
+            bounds: representativeBounds,
             color: color,
             pageIndex: pageIndex,
             text: text,
@@ -69,17 +91,10 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
             documentURL: documentURL
         )
         
-        // Store highlight ID in annotation for later retrieval
-        annotation.setValue(highlight.annotationID, forAnnotationKey: .textLabel)
-        annotation.setValue(color.rawValue, forAnnotationKey: .contents)
-        
-        // Add annotation to page
-        page.addAnnotation(annotation)
-        
         // Save the document if possible
         try await saveDocumentIfPossible(document, to: documentURL)
         
-        print("✅ Applied \(color.rawValue) highlight to: '\(text.prefix(50))...'")
+        print("✅ Applied precise \(color.rawValue) highlight to \(lineSelections.count) line(s): '\(text.prefix(50))...'")
         return highlight
     }
     
@@ -90,7 +105,7 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
     }
     
     func loadHighlights(from document: PDFDocument) -> [PDFHighlight] {
-        var highlights: [PDFHighlight] = []
+        var highlightGroups: [String: (color: HighlightColor, pageIndex: Int, bounds: [CGRect], text: String)] = [:]
         
         for pageIndex in 0..<document.pageCount {
             guard let page = document.page(at: pageIndex) else { continue }
@@ -98,10 +113,8 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
             for annotation in page.annotations {
                 // Only process highlight annotations created by Cerebral
                 guard annotation.type == "Highlight",
-                      annotation.contents == "Cerebral Highlight",
-                      let colorString = annotation.value(forAnnotationKey: .contents) as? String,
-                      let color = HighlightColor(rawValue: colorString),
-                      let highlightID = annotation.value(forAnnotationKey: .textLabel) as? String else {
+                      let contents = annotation.contents,
+                      let (color, groupID) = decodeAnnotationContents(contents) else {
                     continue
                 }
                 
@@ -109,17 +122,35 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
                 let selection = page.selection(for: annotation.bounds)
                 let text = selection?.string ?? ""
                 
-                let highlight = PDFHighlight(
-                    bounds: annotation.bounds,
-                    color: color,
-                    pageIndex: pageIndex,
-                    text: text,
-                    createdAt: Date(), // Could be stored in annotation if needed
-                    documentURL: document.documentURL ?? URL(fileURLWithPath: "")
-                )
-                
-                highlights.append(highlight)
+                // Group annotations by their highlight ID
+                if var existingGroup = highlightGroups[groupID] {
+                    existingGroup.bounds.append(annotation.bounds)
+                    existingGroup.text += text
+                    highlightGroups[groupID] = existingGroup
+                } else {
+                    highlightGroups[groupID] = (
+                        color: color,
+                        pageIndex: pageIndex,
+                        bounds: [annotation.bounds],
+                        text: text
+                    )
+                }
             }
+        }
+        
+        // Convert grouped annotations back to highlights
+        let highlights = highlightGroups.map { (groupID, group) in
+            // Use the first bounds as representative bounds
+            let representativeBounds = group.bounds.first ?? CGRect.zero
+            
+            return PDFHighlight(
+                bounds: representativeBounds,
+                color: group.color,
+                pageIndex: group.pageIndex,
+                text: group.text,
+                createdAt: Date(), // Could be stored in annotation if needed
+                documentURL: document.documentURL ?? URL(fileURLWithPath: "")
+            )
         }
         
         print("📖 Loaded \(highlights.count) highlights from document")
@@ -132,30 +163,45 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         }
         
         let pageIndex = document.index(for: page)
-        
         let selectionBounds = selection.bounds(for: page)
         
         // Check if selection overlaps with any existing highlights
         for annotation in page.annotations {
             guard annotation.type == "Highlight",
-                  annotation.contents == "Cerebral Highlight" else {
+                  let contents = annotation.contents,
+                  let (color, groupID) = decodeAnnotationContents(contents) else {
                 continue
             }
             
             // Check for bounds overlap
             if annotation.bounds.intersects(selectionBounds) {
-                guard let colorString = annotation.value(forAnnotationKey: .contents) as? String,
-                      let color = HighlightColor(rawValue: colorString) else {
-                    continue
+                
+                // Find all annotations that belong to this highlight group
+                var allText = ""
+                var representativeBounds = annotation.bounds
+                
+                for pageNum in 0..<document.pageCount {
+                    guard let checkPage = document.page(at: pageNum) else { continue }
+                    
+                    for checkAnnotation in checkPage.annotations {
+                        guard checkAnnotation.type == "Highlight",
+                              let checkContents = checkAnnotation.contents,
+                              let (_, checkGroupID) = decodeAnnotationContents(checkContents),
+                              checkGroupID == groupID else {
+                            continue
+                        }
+                        
+                        // Add text from this part of the highlight
+                        let annotationSelection = checkPage.selection(for: checkAnnotation.bounds)
+                        allText += annotationSelection?.string ?? ""
+                    }
                 }
                 
-                let text = selection.string ?? ""
-                
                 return PDFHighlight(
-                    bounds: annotation.bounds,
+                    bounds: representativeBounds,
                     color: color,
                     pageIndex: pageIndex,
-                    text: text,
+                    text: allText,
                     createdAt: Date(),
                     documentURL: document.documentURL ?? URL(fileURLWithPath: "")
                 )
@@ -170,68 +216,151 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         newColor: HighlightColor,
         in document: PDFDocument
     ) async throws -> PDFHighlight {
-        guard let page = document.page(at: highlight.pageIndex) else {
-            throw PDFToolbarError.pageNotFound
-        }
+        var groupID: String?
+        var updatedAnnotations = 0
         
-        // Find and update the existing annotation
-        for annotation in page.annotations {
-            guard annotation.type == "Highlight",
-                  annotation.contents == "Cerebral Highlight",
-                  annotation.bounds == highlight.bounds else {
-                continue
+        // First pass: find the group ID by looking for any annotation with matching bounds
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            
+            for annotation in page.annotations {
+                guard annotation.type == "Highlight",
+                      let contents = annotation.contents,
+                      let (_, foundGroupID) = decodeAnnotationContents(contents),
+                      annotation.bounds == highlight.bounds else {
+                    continue
+                }
+                
+                groupID = foundGroupID
+                break
             }
-            
-            // Update annotation color and metadata
-            annotation.color = newColor.nsColor
-            annotation.setValue(newColor.rawValue, forAnnotationKey: .contents)
-            
-            // Save document
-            try await saveDocumentIfPossible(document, to: highlight.documentURL)
-            
-            // Return updated highlight
-            let updatedHighlight = PDFHighlight(
-                bounds: highlight.bounds,
-                color: newColor,
-                pageIndex: highlight.pageIndex,
-                text: highlight.text,
-                createdAt: highlight.createdAt,
-                documentURL: highlight.documentURL
-            )
-            
-            print("🔄 Updated highlight color to \(newColor.rawValue)")
-            return updatedHighlight
+            if groupID != nil { break }
         }
         
-        throw PDFToolbarError.highlightNotFound
+        guard let foundGroupID = groupID else {
+            throw PDFToolbarError.highlightNotFound
+        }
+        
+        // Second pass: update all annotations in this group
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            
+            for annotation in page.annotations {
+                guard annotation.type == "Highlight",
+                      let contents = annotation.contents,
+                      let (_, annotationGroupID) = decodeAnnotationContents(contents),
+                      annotationGroupID == foundGroupID else {
+                    continue
+                }
+                
+                // Update annotation color and metadata
+                annotation.color = newColor.nsColor
+                annotation.contents = encodeAnnotationContents(color: newColor, groupID: foundGroupID)
+                updatedAnnotations += 1
+            }
+        }
+        
+        if updatedAnnotations == 0 {
+            throw PDFToolbarError.highlightNotFound
+        }
+        
+        // Save document
+        try await saveDocumentIfPossible(document, to: highlight.documentURL)
+        
+        // Return updated highlight
+        let updatedHighlight = PDFHighlight(
+            bounds: highlight.bounds,
+            color: newColor,
+            pageIndex: highlight.pageIndex,
+            text: highlight.text,
+            createdAt: highlight.createdAt,
+            documentURL: highlight.documentURL
+        )
+        
+        print("🔄 Updated \(updatedAnnotations) annotation(s) to \(newColor.rawValue)")
+        return updatedHighlight
     }
     
     func removeHighlight(_ highlight: PDFHighlight, from document: PDFDocument) async throws {
-        guard let page = document.page(at: highlight.pageIndex) else {
-            throw PDFToolbarError.pageNotFound
+        var groupID: String?
+        var removedAnnotations = 0
+        
+        // First pass: find the group ID by looking for any annotation with matching bounds
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            
+            for annotation in page.annotations {
+                guard annotation.type == "Highlight",
+                      let contents = annotation.contents,
+                      let (_, foundGroupID) = decodeAnnotationContents(contents),
+                      annotation.bounds == highlight.bounds else {
+                    continue
+                }
+                
+                groupID = foundGroupID
+                break
+            }
+            if groupID != nil { break }
         }
         
-        // Find and remove the annotation
-        for annotation in page.annotations {
-            guard annotation.type == "Highlight",
-                  annotation.contents == "Cerebral Highlight",
-                  annotation.bounds == highlight.bounds else {
-                continue
+        guard let foundGroupID = groupID else {
+            throw PDFToolbarError.highlightNotFound
+        }
+        
+        // Second pass: remove all annotations in this group
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            
+            // Collect annotations to remove (can't modify array while iterating)
+            var annotationsToRemove: [PDFAnnotation] = []
+            
+            for annotation in page.annotations {
+                guard annotation.type == "Highlight",
+                      let contents = annotation.contents,
+                      let (_, annotationGroupID) = decodeAnnotationContents(contents),
+                      annotationGroupID == foundGroupID else {
+                    continue
+                }
+                
+                annotationsToRemove.append(annotation)
             }
             
-            page.removeAnnotation(annotation)
-            
-            // Save document
-            try await saveDocumentIfPossible(document, to: highlight.documentURL)
-            
-            print("🗑️ Removed highlight")
-            return
+            // Remove the annotations
+            for annotation in annotationsToRemove {
+                page.removeAnnotation(annotation)
+                removedAnnotations += 1
+            }
         }
         
-        throw PDFToolbarError.highlightNotFound
+        if removedAnnotations == 0 {
+            throw PDFToolbarError.highlightNotFound
+        }
+        
+        // Save document
+        try await saveDocumentIfPossible(document, to: highlight.documentURL)
+        
+        print("🗑️ Removed \(removedAnnotations) annotation(s)")
     }
     
     // MARK: - Helper Methods
+    
+    private func encodeAnnotationContents(color: HighlightColor, groupID: String) -> String {
+        return "CEREBRAL_HIGHLIGHT_\(color.rawValue)_GROUP_\(groupID)"
+    }
+    
+    private func decodeAnnotationContents(_ contents: String) -> (color: HighlightColor, groupID: String)? {
+        let components = contents.components(separatedBy: "_")
+        guard components.count >= 5,
+              components[0] == "CEREBRAL",
+              components[1] == "HIGHLIGHT",
+              components[3] == "GROUP",
+              let color = HighlightColor(rawValue: components[2]) else {
+            return nil
+        }
+        
+        let groupID = components[4...].joined(separator: "_")
+        return (color: color, groupID: groupID)
+    }
     
     private func saveDocumentIfPossible(_ document: PDFDocument, to url: URL) async throws {
         // Check if document allows modifications
