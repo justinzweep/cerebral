@@ -31,24 +31,21 @@ struct DocumentRowView: View {
             
             Spacer()
             
-            // Add to Chat button (subtle, only shown on hover)
-            if isHovered {
-                Button {
-                    ServiceContainer.shared.appState.addDocumentToChat(document)
-                } label: {
-                    Image(systemName: "message")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DesignSystem.Colors.accent)
-                }
-                .buttonStyle(.plain)
-                .frame(width: 24, height: 24)
-                .background(
-                    Circle()
-                        .fill(DesignSystem.Colors.accent.opacity(0.1))
-                )
-                .contentShape(Circle())
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            // Add to Chat button - clean, always visible
+            Button {
+                ServiceContainer.shared.appState.addDocumentToChat(document)
+            } label: {
+                Image(systemName: "plus.message")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
             }
+            .buttonStyle(.plain)
+            .frame(width: 24, height: 24)
+            .background(
+                Circle()
+                    .fill(Color.clear)
+            )
+            .help("Add to Chat")
         
         }
         .padding(.horizontal, DesignSystem.Spacing.sm)

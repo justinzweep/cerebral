@@ -22,6 +22,7 @@ protocol PDFToolbarServiceProtocol {
     func updateHighlight(_ highlight: PDFHighlight, newColor: HighlightColor, in document: PDFDocument) async throws -> PDFHighlight
     func findOverlappingHighlights(for selection: PDFSelection, in document: PDFDocument) -> [PDFHighlight]
     func handleOverlappingHighlights(newSelection: PDFSelection, newColor: HighlightColor, overlappingHighlights: [PDFHighlight], in document: PDFDocument, documentURL: URL) async throws -> HighlightOperationResult
+    func reconstructHighlight(groupID: String, in document: PDFDocument) -> PDFHighlight?
 }
 
 // MARK: - Implementation
@@ -686,7 +687,7 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         }
     }
     
-    private func reconstructHighlight(groupID: String, in document: PDFDocument) -> PDFHighlight? {
+    func reconstructHighlight(groupID: String, in document: PDFDocument) -> PDFHighlight? {
         var color: HighlightColor?
         var pageIndex: Int = 0
         var allText = ""

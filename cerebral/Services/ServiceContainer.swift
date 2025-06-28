@@ -402,16 +402,12 @@ final class AppState {
             return
         }
         
-        // Apply the reverse operation
-        let redoOperation = applyReverseOperation(operation)
-        redoStack.append(redoOperation)
-        
-        // Trigger document save if needed
+        // Apply the reverse operation with PDF document integration
         Task { @MainActor in
-            await saveCurrentDocumentHighlights()
+            let redoOperation = await applyReverseOperationWithPDF(operation)
+            redoStack.append(redoOperation)
+            print("↩️ Undo applied")
         }
-        
-        print("↩️ Undo applied")
     }
     
     func performRedo() {
@@ -420,16 +416,12 @@ final class AppState {
             return
         }
         
-        // Apply the operation
-        let undoOperation = applyReverseOperation(operation)
-        undoStack.append(undoOperation)
-        
-        // Trigger document save if needed
+        // Apply the operation with PDF document integration
         Task { @MainActor in
-            await saveCurrentDocumentHighlights()
+            let undoOperation = await applyReverseOperationWithPDF(operation)
+            undoStack.append(undoOperation)
+            print("↪️ Redo applied")
         }
-        
-        print("↪️ Redo applied")
     }
     
     private func recordUndoOperation(_ operation: HighlightOperation) {
@@ -468,12 +460,143 @@ final class AppState {
         }
     }
     
+    private func applyReverseOperationWithPDF(_ operation: HighlightOperation) async -> HighlightOperation {
+        let toolbarService = ServiceContainer.shared.toolbarService
+        
+        switch operation {
+        case .add(let highlight):
+            // Remove highlight from memory
+            highlights.removeValue(forKey: highlight.id)
+            
+            // Remove from PDF document if we have access to it
+            if let document = getCurrentPDFDocument() {
+                do {
+                    try await toolbarService.removeHighlight(highlight, from: document)
+                    print("🗑️ Removed highlight from PDF during undo: '\(highlight.text.prefix(30))...'")
+                } catch {
+                    print("❌ Failed to remove highlight from PDF during undo: \(error)")
+                }
+            }
+            
+            return .remove(highlight)
+            
+        case .remove(let highlight):
+            // Add highlight back to memory
+            highlights[highlight.id] = highlight
+            
+            // Re-add to PDF document if we have access to it
+            if let document = getCurrentPDFDocument() {
+                do {
+                    // Create a selection for the highlight and re-apply it
+                    _ = try await toolbarService.applyHighlight(
+                        color: highlight.color,
+                        to: createSelectionForHighlight(highlight, in: document),
+                        in: document,
+                        documentURL: highlight.documentURL
+                    )
+                    print("✅ Re-added highlight to PDF during redo: '\(highlight.text.prefix(30))...'")
+                } catch {
+                    print("❌ Failed to re-add highlight to PDF during redo: \(error)")
+                }
+            }
+            
+            return .add(highlight)
+            
+        case .update(let old, let new):
+            // Remove new highlight and restore old one
+            highlights.removeValue(forKey: new.id)
+            highlights[old.id] = old
+            
+            if let document = getCurrentPDFDocument() {
+                do {
+                    // Remove new highlight and re-apply old one
+                    try await toolbarService.removeHighlight(new, from: document)
+                    _ = try await toolbarService.applyHighlight(
+                        color: old.color,
+                        to: createSelectionForHighlight(old, in: document),
+                        in: document,
+                        documentURL: old.documentURL
+                    )
+                    print("🔄 Updated highlight in PDF during undo")
+                } catch {
+                    print("❌ Failed to update highlight in PDF during undo: \(error)")
+                }
+            }
+            
+            return .update(old: new, new: old)
+            
+        case .batch(let operations):
+            var reverseOps: [HighlightOperation] = []
+            for op in operations.reversed() {
+                let reverseOp = await applyReverseOperationWithPDF(op)
+                reverseOps.append(reverseOp)
+            }
+            return .batch(reverseOps)
+        }
+    }
+    
     private func saveCurrentDocumentHighlights() async {
         guard let document = selectedDocument else { return }
         
         // This would trigger the PDF service to save highlights
         // Implementation depends on how highlights are persisted
         print("💾 Saving highlights after undo/redo operation")
+    }
+    
+    // Helper methods for PDF integration
+    private func getCurrentPDFDocument() -> PDFDocument? {
+        guard let document = selectedDocument else { 
+            print("⚠️ No selected document for undo/redo operation")
+            return nil 
+        }
+        
+        // Try to load the PDF document
+        do {
+            let pdfDocument = PDFDocument(url: document.filePath)
+            return pdfDocument
+        } catch {
+            print("❌ Failed to load PDF document for undo/redo: \(error)")
+            return nil
+        }
+    }
+    
+    private func createSelectionForHighlight(_ highlight: PDFHighlight, in document: PDFDocument) -> PDFSelection {
+        // Create a selection based on the highlight's stored information
+        guard let page = document.page(at: highlight.pageIndex) else {
+            print("⚠️ Could not find page \(highlight.pageIndex) for highlight")
+            return PDFSelection(document: document)
+        }
+        
+        // Try to find a selection that matches the highlight text and bounds
+        let fullPageSelection = page.selection(for: page.bounds(for: .mediaBox))
+        guard let pageText = fullPageSelection?.string else {
+            print("⚠️ Could not get page text for highlight reconstruction")
+            return PDFSelection(document: document)
+        }
+        
+        // Find the text in the page and create a selection for it
+        let highlightText = highlight.text
+        if let range = pageText.range(of: highlightText) {
+            // Convert string range to character indices
+            let startIndex = pageText.distance(from: pageText.startIndex, to: range.lowerBound)
+            let endIndex = pageText.distance(from: pageText.startIndex, to: range.upperBound)
+            
+            // Use PDFKit's native selection creation from character range
+            let startBounds = page.characterBounds(at: startIndex)
+            let endBounds = page.characterBounds(at: endIndex - 1)
+            
+            // Extract points from the character bounds (use the center-left for start, center-right for end)
+            let startPoint = CGPoint(x: startBounds.minX, y: startBounds.midY)
+            let endPoint = CGPoint(x: endBounds.maxX, y: endBounds.midY)
+            
+            if let selection = page.selection(from: startPoint, to: endPoint) {
+                return selection
+            }
+        }
+        
+        // Fallback: create selection from stored bounds
+        print("⚠️ Using fallback bounds-based selection for highlight")
+        return page.selection(for: highlight.bounds) ?? PDFSelection(document: document)
     }
 
     // MARK: - PDF-to-Chat Coordination Methods

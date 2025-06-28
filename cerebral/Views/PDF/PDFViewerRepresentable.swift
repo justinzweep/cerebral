@@ -15,7 +15,7 @@ struct PDFViewerRepresentable: NSViewRepresentable {
     @Binding var coordinator: PDFViewCoordinator?
     
     func makeNSView(context: Context) -> PDFView {
-        let pdfView = PDFView()
+        let pdfView = HighlightRemovalPDFView()
         
         // Configure PDF view with enhanced settings
         pdfView.autoScales = true
@@ -37,6 +37,9 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         pdfView.delegate = context.coordinator
         context.coordinator.pdfView = pdfView
         context.coordinator.documentURL = documentURL
+        
+        // Set up the coordinator for mouse click handling
+        pdfView.clickCoordinator = context.coordinator
         
         // Set up notifications with better handling
         NotificationCenter.default.addObserver(
@@ -118,6 +121,94 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                   let pdfView = notification.object as? PDFView else { return }
             self.handleSelectionChanged(pdfView: pdfView)
         }
+    }
+    
+    // MARK: - PDFViewDelegate Methods
+    
+    func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
+        // Handle link clicks if needed
+    }
+    
+    func pdfViewPerformFind(_ sender: PDFView) {
+        // Handle find operations if needed
+    }
+    
+    // MARK: - Mouse Event Handling for Highlight Removal
+    
+    func handleMouseClick(at point: CGPoint, in pdfView: PDFView, event: NSEvent) {
+        // Check if Option key is held for highlight removal
+        guard event.modifierFlags.contains(.option),
+              let page = pdfView.page(for: point, nearest: true) else {
+            return
+        }
+        
+        // Convert view coordinates to page coordinates using PDFKit's native method
+        let pagePoint = pdfView.convert(point, to: page)
+        
+        // Use PDFKit's native annotation detection
+        if let annotation = page.annotation(at: pagePoint),
+           annotation.type == "Highlight" {
+            
+            Task { @MainActor in
+                await removeHighlightAnnotation(annotation, from: pdfView)
+            }
+        }
+    }
+    
+    private func removeHighlightAnnotation(_ annotation: PDFAnnotation, from pdfView: PDFView) async {
+        guard let document = pdfView.document,
+              let contents = annotation.contents,
+              let (color, groupID) = decodeAnnotationContents(contents) else {
+            print("❌ Could not decode highlight annotation")
+            return
+        }
+        
+        do {
+            // Find the highlight model that corresponds to this annotation
+            if let highlight = findHighlightByGroupID(groupID, in: document) {
+                
+                // Remove using the existing service method
+                try await toolbarService.removeHighlight(highlight, from: document)
+                
+                // Update app state
+                appState.removeHighlight(highlight)
+                
+                print("🗑️ Removed highlight via Option+click")
+                
+            } else {
+                print("⚠️ Could not find highlight model for annotation")
+            }
+            
+        } catch {
+            print("❌ Failed to remove highlight: \(error)")
+            ServiceContainer.shared.errorManager.handle(error, context: "highlight_removal")
+        }
+    }
+    
+    private func findHighlightByGroupID(_ groupID: String, in document: PDFDocument) -> PDFHighlight? {
+        // Search through app state highlights to find matching group ID
+        for highlight in appState.highlights.values {
+            // We need to find a way to match the group ID with the highlight
+            // For now, we'll reconstruct the highlight from the document
+            if let reconstructed = toolbarService.reconstructHighlight(groupID: groupID, in: document) {
+                return reconstructed
+            }
+        }
+        return nil
+    }
+    
+    private func decodeAnnotationContents(_ contents: String) -> (color: HighlightColor, groupID: String)? {
+        let components = contents.components(separatedBy: "_")
+        guard components.count >= 5,
+              components[0] == "CEREBRAL",
+              components[1] == "HIGHLIGHT",
+              components[3] == "GROUP",
+              let color = HighlightColor(rawValue: components[2]) else {
+            return nil
+        }
+        
+        let groupID = components[4...].joined(separator: "_")
+        return (color: color, groupID: groupID)
     }
     
     // MARK: - Performance Optimized Debouncing
@@ -264,8 +355,6 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         return documentURL ?? URL(fileURLWithPath: "")
     }
     
-
-    
     // Cleanup method to prevent memory leaks
     func cleanup() {
         selectionDebounceTimer = nil
@@ -285,4 +374,87 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         currentPage: .constant(0),
         coordinator: .constant(nil)
     )
+} 
+
+// MARK: - Custom PDFView for Highlight Removal
+
+class HighlightRemovalPDFView: PDFView {
+    weak var clickCoordinator: PDFViewCoordinator?
+    private var trackingArea: NSTrackingArea?
+    
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        setupTrackingArea()
+    }
+    
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        setupTrackingArea()
+    }
+    
+    private func setupTrackingArea() {
+        // Remove existing tracking area
+        if let trackingArea = trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+        
+        // Create new tracking area for mouse movement
+        trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea!)
+    }
+    
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        updateCursorForHighlightRemoval(event: event)
+    }
+    
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        updateCursorForHighlightRemoval(event: event)
+    }
+    
+    private func updateCursorForHighlightRemoval(event: NSEvent) {
+        // Check if Option key is pressed
+        if event.modifierFlags.contains(.option) {
+            let locationInView = convert(event.locationInWindow, from: nil)
+            
+            // Check if we're over a highlight annotation
+            if let page = page(for: locationInView, nearest: true) {
+                let pagePoint = convert(locationInView, to: page)
+                
+                if let annotation = page.annotation(at: pagePoint),
+                   annotation.type == "Highlight" {
+                    // Show delete cursor when over highlight with Option key
+                    NSCursor.disappearingItem.set()
+                    return
+                }
+            }
+        }
+        
+        // Reset to default cursor
+        NSCursor.arrow.set()
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        // Convert event location to view coordinates
+        let locationInView = self.convert(event.locationInWindow, from: nil)
+        
+        // Handle highlight removal if Option key is pressed
+        if event.modifierFlags.contains(.option) {
+            clickCoordinator?.handleMouseClick(at: locationInView, in: self, event: event)
+        }
+        
+        // Always call super to maintain normal PDFView behavior
+        super.mouseDown(with: event)
+    }
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        setupTrackingArea()
+    }
 } 
