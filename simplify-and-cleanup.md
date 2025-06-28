@@ -1,347 +1,284 @@
-# Cerebral Codebase Cleanup & Simplification Plan
+# Cerebral Codebase Analysis and Refactoring Plan
+
+This document outlines a comprehensive plan to simplify the Cerebral codebase based on a detailed analysis of all files. The analysis reveals several areas where complexity has grown beyond necessity, creating maintenance challenges and architectural debt.
 
 ## Executive Summary
 
-After analyzing the entire Cerebral codebase (61 Swift files, 39 in Views), I've identified several areas for cleanup, simplification, and refactoring while maintaining full functionality. The app has a solid architecture but suffers from some redundancy, over-engineering in places, and inconsistent patterns.
+The Cerebral app is a sophisticated PDF reader with AI chat integration, featuring highlighting, context management, and document organization. However, the codebase has accumulated significant complexity through:
 
-## Current Architecture Analysis
+1. **Massive state objects** that violate single responsibility
+2. **Over-engineered service architecture** with excessive abstraction layers
+3. **Complex highlighting system** with deep PDF integration in state management
+4. **Inconsistent dependency injection** mixing singletons with service containers
+5. **Business logic scattered across views** instead of being centralized
 
-### Strengths
-- **Clear separation of concerns**: Services, ViewModels, Models, Views are well-organized
-- **Modern SwiftUI patterns**: Uses `@Observable`, proper state management
-- **Comprehensive error handling**: Robust error system with severity levels
-- **Design system**: Well-structured design tokens and components
-- **Service container pattern**: Good dependency injection approach
+## 1. Critical: AppState God Object
 
-### Issues Identified
-- **Dual context systems**: Legacy and new context management running in parallel
-- **Over-complex PDF toolbar service**: 765 lines with too many responsibilities
-- **Redundant message builders**: Multiple message building approaches
-- **Excessive view fragmentation**: 39 view files for relatively simple UI
-- **Inconsistent state management**: Mix of patterns across components
-- **Legacy compatibility code**: Maintaining old APIs unnecessarily
+### Analysis
 
-## Cleanup Plan
+The `AppState` class (434 lines) has become a massive god object managing:
 
-### Phase 1: Context System Consolidation 🔥 HIGH PRIORITY
+- **UI State**: `showingChat`, `showingSidebar`, `showingImporter`
+- **Document Selection**: `selectedDocument`, `documentToAddToChat`
+- **PDF-to-Chat Feature**: `pdfSelections`, `isReadyForChatTransition`, `shouldFocusChatInput`, `showPDFSelectionPills`, `pendingTypedCharacter`
+- **PDF Navigation**: `pendingPageNavigation`
+- **Complete Highlighting System**: `highlightingState`, `highlights` dictionary, full undo/redo stacks
+- **Complex PDF Operations**: Direct integration with `PDFToolbarService`, PDF document loading, selection recreation
 
-**Problem**: Dual context management systems creating confusion and redundancy
+**Most concerning**: The highlighting system includes 150+ lines of PDF manipulation code directly in the state manager, with async operations, error handling, and tight coupling to PDF services.
 
-**Files Affected**:
-- `Services/ContextManagementService.swift` (419 lines)
-- `Services/MessageBuilder.swift` (357 lines) 
-- `ViewModels/ChatManager.swift` (340 lines)
-- `Models/ChatSession.swift` (100 lines)
-- `Models/DocumentContext.swift` (169 lines)
+### Proposed Changes
 
-**Actions**:
-1. **Remove legacy context handling** from `ChatMessage` struct:
-   - Remove `documentReferences: [UUID]` property (use `contexts` instead)
-   - Remove `hiddenContext: String?` property (use structured contexts)
-   - Keep only `contexts: [DocumentContext]` for context management
+**Phase 1: Extract Highlighting System**
+```swift
+@Observable
+final class HighlightingManager {
+    var highlights: [UUID: PDFHighlight] = [:]
+    var highlightingState = HighlightingState()
+    private var undoStack: [HighlightOperation] = []
+    private var redoStack: [HighlightOperation] = []
+    
+    // Move all highlighting logic here
+    func addHighlight(_ highlight: PDFHighlight) { ... }
+    func performUndo() async { ... }
+    func performRedo() async { ... }
+}
+```
 
-2. **Simplify MessageBuilder**:
-   - Remove `buildMessage(userInput:documents:hiddenContext:)` legacy method
-   - Remove `buildEnhancedMessage` and related legacy code (lines 165-357)
-   - Keep only the new async context-aware methods
-   - Reduce from 357 lines to ~200 lines
+**Phase 2: Extract PDF-Chat Interaction**
+```swift
+@Observable
+final class PDFChatInteractionManager {
+    var pdfSelections: [PDFSelectionInfo] = []
+    var isReadyForChatTransition: Bool = false
+    var shouldFocusChatInput: Bool = false
+    var showPDFSelectionPills: Bool = false
+    var pendingTypedCharacter: String?
+    
+    // Move all PDF-to-chat coordination here
+}
+```
 
-3. **Streamline ChatManager**:
-   - Remove `sendMessageLegacy` method
-   - Remove dual document context handling
-   - Simplify to single context path using `DocumentContext`
-   - Reduce complexity by ~30%
+**Phase 3: Simplify Core AppState**
+```swift
+@Observable
+final class AppState {
+    // Only core UI and document state
+    var selectedDocument: Document?
+    var showingChat = true
+    var showingSidebar = true
+    var showingImporter = false
+    var pendingDocumentImport = false
+    var documentToAddToChat: Document?
+    var pendingPageNavigation: Int?
+}
+```
 
-4. **Clean up ContextManagementService**:
-   - Remove synchronous fallback methods
-   - Consolidate cache management (currently has both in-memory and persistent)
-   - Remove `createContextsSynchronously` method
-   - Simplify to single async context creation path
+## 2. Over-Engineered Service Architecture
 
-**Expected Impact**: 
-- Remove ~150 lines of redundant code
-- Eliminate context handling confusion
-- Improve performance by removing dual processing
+### Analysis
 
-### Phase 2: PDF Toolbar Service Refactoring 🔥 HIGH PRIORITY
+The service architecture has multiple layers of abstraction that add complexity without clear benefit:
 
-**Problem**: `PDFToolbarService.swift` is 765 lines with too many responsibilities
+1. **ServiceContainer**: Singleton that manages all services
+2. **Service Protocols**: Abstract interfaces for everything
+3. **Multiple Singleton Services**: Each service is also a singleton
+4. **Complex Service Dependencies**: Services depend on other services through the container
 
-**Current Responsibilities**:
-- Position calculation
-- Highlight management  
-- Annotation handling
-- Document saving
-- Overlap detection
-- Undo/redo operations
+**Example of over-engineering**:
+```swift
+// Current: 3 layers of indirection
+ServiceContainer.shared.documentService.importDocument(...)
 
-**Actions**:
-1. **Extract separate services**:
-   ```swift
-   // New files to create:
-   PDFHighlightManager.swift      // ~200 lines - highlight CRUD operations
-   PDFAnnotationService.swift     // ~150 lines - annotation management  
-   PDFPositionCalculator.swift    // ~100 lines - position calculations
-   PDFUndoManager.swift          // ~100 lines - undo/redo operations
-   ```
+// What's actually needed:
+DocumentService.importDocument(...)
+```
 
-2. **Simplify PDFToolbarService**:
-   - Reduce to coordinator role (~200 lines)
-   - Delegate to specialized services
-   - Remove complex overlap handling (simplify to basic replacement)
+### Proposed Changes
 
-3. **Remove over-engineering**:
-   - Simplify highlight reconstruction logic
-   - Remove complex grouping (use simpler annotation-per-selection approach)
-   - Reduce metadata complexity
+**Eliminate ServiceContainer Singleton**
+- Remove the global `ServiceContainer.shared`
+- Inject services directly through SwiftUI environment
+- Use `@Environment` for service access in views
 
-**Expected Impact**:
-- Reduce main service from 765 to ~200 lines
-- Improve testability and maintainability
-- Clearer separation of concerns
+**Simplify Service Architecture**
+```swift
+// Create environment keys
+extension EnvironmentValues {
+    var documentService: DocumentService {
+        get { self[DocumentServiceKey.self] }
+        set { self[DocumentServiceKey.self] = newValue }
+    }
+}
 
-### Phase 3: View Consolidation 🟡 MEDIUM PRIORITY
+// In CerebralApp.swift
+ContentView()
+    .environment(\.documentService, DocumentService())
+    .environment(\.pdfService, PDFService())
+```
 
-**Problem**: 39 view files creating unnecessary fragmentation
+**Remove Unnecessary Protocols**
+- Keep protocols only where actual abstraction is needed (testing, multiple implementations)
+- Remove protocols that have only one implementation
 
-**Actions**:
+## 3. Complex Context Management System
 
-1. **Merge small related views**:
-   ```swift
-   // Current: 4 files → Target: 2 files
-   Chat/ChatPane.swift (23 lines) + Chat/ChatView.swift → ChatView.swift
-   Chat/MessageView.swift + Chat/MessageActions.swift → MessageView.swift
-   
-   // Current: 6 files → Target: 3 files  
-   Components/Buttons/IconButton.swift + PrimaryButton.swift + SecondaryButton.swift → Buttons.swift
-   Components/Indicators/LoadingSpinner.swift + StatusBadge.swift → Indicators.swift
-   
-   // Current: 8 files → Target: 4 files
-   Components/Chat/UserMessage.swift + AIMessage.swift → MessageComponents.swift
-   Components/Chat/ChatActions.swift + ChatTextEditor.swift → ChatInputComponents.swift
-   Components/Chat/AttachmentList.swift + ActiveContextPanel.swift → ChatSupportComponents.swift
-   Components/Chat/MessageContextIndicator.swift + ContextTestView.swift → ContextComponents.swift
-   ```
+### Analysis
 
-2. **Remove wrapper views**:
-   - `ChatPane.swift` (23 lines) - just forwards to `ChatView`
-   - Inline simple wrapper components
+The context management system is overly complex with multiple overlapping concepts:
 
-3. **Consolidate design system files**:
-   ```swift
-   // Current: 6 files → Target: 3 files
-   DesignSystem/Colors.swift + Materials.swift → Theme.swift
-   DesignSystem/Typography.swift + Spacing.swift → Layout.swift  
-   DesignSystem/Animations.swift + Components.swift → Components.swift
-   ```
+- `DocumentContext` with 5 different types
+- `ChatContextBundle` for session management
+- `ContextManagementService` with caching layers
+- `MessageBuilder` and `EnhancedMessageBuilder` doing similar things
+- Complex token counting and optimization
 
-**Expected Impact**:
-- Reduce view files from 39 to ~25
-- Easier navigation and maintenance
-- Reduced import complexity
+**The system has 3 different ways to represent document content**:
+1. Raw `Document` objects
+2. `DocumentContext` with metadata
+3. `ChatContextBundle` for sessions
 
-### Phase 4: Service Container Simplification 🟡 MEDIUM PRIORITY
+### Proposed Changes
 
-**Problem**: `ServiceContainer.swift` is 688 lines with too many responsibilities
+**Simplify Context Representation**
+```swift
+// Single context type instead of 5
+enum DocumentContent {
+    case fullDocument(Document)
+    case textSelection(text: String, document: Document, metadata: SelectionMetadata)
+    case pageRange(pages: [Int], document: Document)
+}
 
-**Actions**:
+// Simplified message context
+struct MessageContext {
+    let content: DocumentContent
+    let tokenCount: Int
+}
+```
 
-1. **Extract error management**:
-   ```swift
-   // Move ErrorManager to separate file
-   Services/ErrorManager.swift  // ~150 lines
-   ```
+**Eliminate Redundant Services**
+- Merge `MessageBuilder` and `EnhancedMessageBuilder`
+- Simplify `ContextManagementService` by removing complex caching
+- Move token counting to a simple utility function
 
-2. **Simplify service registration**:
-   - Remove complex lazy initialization
-   - Use simpler dependency injection pattern
-   - Remove test replacement methods (move to test utilities)
+## 4. Business Logic in Views
 
-3. **Remove AppState from ServiceContainer**:
-   - Move to dedicated `AppStateManager.swift`
-   - Reduce coupling between services and global state
+### Analysis
 
-**Expected Impact**:
-- Reduce ServiceContainer from 688 to ~300 lines
-- Clearer service boundaries
-- Better testability
+Views contain substantial business logic that should be in dedicated managers:
 
-### Phase 5: Settings & Configuration Cleanup 🟢 LOW PRIORITY
+**ChatView.swift** (340 lines):
+- Complex `sendMessage()` function (60+ lines)
+- PDF selection processing logic
+- Document context creation
+- Error handling and retry logic
 
-**Problem**: Settings scattered across multiple files
+**ContentView.swift** (239 lines):
+- Complex layout calculations (6 helper methods)
+- Application lifecycle management
+- File import handling
+- Global error handling
 
-**Actions**:
+### Proposed Changes
 
-1. **Consolidate settings views**:
-   ```swift
-   // Current: 4 files → Target: 2 files
-   Settings/APIKeySettingsView.swift + GeneralSettingsView.swift + UserProfileView.swift → SettingsViews.swift
-   Settings/SettingsView.swift → Keep as main coordinator
-   ```
+**Extract ChatManager Business Logic**
+```swift
+// Move from ChatView to ChatManager
+func sendMessage(
+    text: String,
+    attachedDocuments: [Document],
+    pdfSelections: [PDFSelectionInfo]
+) async {
+    // All the complex processing logic goes here
+}
+```
 
-2. **Simplify SettingsManager**:
-   - Remove unused configuration options
-   - Consolidate related settings into groups
-   - Remove redundant validation methods
+**Create Layout Manager for ContentView**
+```swift
+@Observable
+final class LayoutManager {
+    var sidebarWidth: CGFloat = 280
+    var chatWidth: CGFloat = 320
+    
+    func constrainedSidebarWidth(for totalWidth: CGFloat) -> CGFloat { ... }
+    func updateSidebarWidth(delta: CGFloat, availableWidth: CGFloat) { ... }
+}
+```
 
-**Expected Impact**:
-- Reduce settings complexity
-- Easier configuration management
+## 5. Inconsistent Design System
 
-### Phase 6: Model Simplification 🟢 LOW PRIORITY
+### Analysis
 
-**Problem**: Some models have unnecessary complexity
+The design system has been partially consolidated but still has inconsistencies:
 
-**Actions**:
+- Some components use consolidated files (`Buttons.swift`, `Theme.swift`)
+- Others still use individual files or direct styling
+- Mixed usage of design tokens vs. hardcoded values
 
-1. **Simplify PDFToolbar model**:
-   - Remove unused state properties
-   - Consolidate related properties
-   - Reduce from 169 to ~100 lines
+### Proposed Changes
 
-2. **Clean up Document model**:
-   - Add computed properties for common operations
-   - Remove redundant metadata storage
+**Complete Design System Consolidation**
+- Move all remaining individual component files to consolidated ones
+- Ensure all views use design tokens instead of hardcoded values
+- Create view modifiers for common styling patterns
 
-**Expected Impact**:
-- Simpler data models
-- Reduced memory usage
+## 6. Redundant Error Handling
 
-## Implementation Strategy
+### Analysis
 
-### Phase 1 Implementation (Context System)
+Error handling is implemented at multiple levels:
 
-1. **Week 1**: Remove legacy context properties from `ChatMessage`
-   ```swift
-   // Remove these from ChatMessage:
-   var documentReferences: [UUID]  // REMOVE
-   let hiddenContext: String?      // REMOVE
-   // Keep only:
-   var contexts: [DocumentContext] // KEEP
-   ```
+- `AppError` enum with nested error types
+- `ErrorManager` for global error handling
+- Individual service error handling
+- View-level error handling
 
-2. **Week 1**: Update all references to use new context system
-   - Update `ChatView.sendMessage()` to only use `explicitContexts`
-   - Remove `documentContext` parameter usage
-   - Remove `hiddenContext` parameter usage
+This creates complexity without clear benefit, as most errors end up being displayed the same way.
 
-3. **Week 2**: Remove legacy methods from `MessageBuilder`
-   - Delete `buildMessage(userInput:documents:hiddenContext:)` 
-   - Delete `buildEnhancedMessage` and related methods
-   - Keep only async context-aware methods
+### Proposed Changes
 
-4. **Week 2**: Simplify `ChatManager`
-   - Remove `sendMessageLegacy` method
-   - Update all calls to use unified `sendMessage` method
-   - Remove dual context handling logic
+**Simplify Error Architecture**
+```swift
+// Single error type instead of nested hierarchy
+enum AppError: LocalizedError {
+    case apiKeyInvalid(String)
+    case networkFailure(String)
+    case documentImportFailed(String)
+    case pdfError(String)
+    
+    var errorDescription: String? { ... }
+    var recoverySuggestion: String? { ... }
+}
+```
 
-### Phase 2 Implementation (PDF Toolbar)
+## Implementation Priority
 
-1. **Week 3**: Extract highlight management
-   ```swift
-   // Create new file: Services/PDFHighlightManager.swift
-   class PDFHighlightManager {
-       func applyHighlight(...) -> PDFHighlight
-       func removeHighlight(...) 
-       func updateHighlight(...) -> PDFHighlight
-       func findExistingHighlight(...) -> PDFHighlight?
-   }
-   ```
+### Phase 1: Critical (Week 1-2)
+1. **Extract HighlightingManager** from AppState
+2. **Simplify ChatView** by moving business logic to ChatManager
+3. **Remove ServiceContainer** and implement environment-based DI
 
-2. **Week 3**: Extract annotation service
-   ```swift
-   // Create new file: Services/PDFAnnotationService.swift  
-   class PDFAnnotationService {
-       func saveAnnotations(...)
-       func loadAnnotations(...) -> [PDFAnnotation]
-       func encodeAnnotationContents(...)
-       func decodeAnnotationContents(...) 
-   }
-   ```
+### Phase 2: Important (Week 3-4)
+4. **Extract PDFChatInteractionManager** from AppState
+5. **Simplify ContentView** with LayoutManager
+6. **Consolidate context management** system
 
-3. **Week 4**: Update `PDFToolbarService` to coordinate
-   ```swift
-   // Reduce PDFToolbarService to coordinator role
-   class PDFToolbarService {
-       private let highlightManager = PDFHighlightManager()
-       private let annotationService = PDFAnnotationService()
-       private let positionCalculator = PDFPositionCalculator()
-       
-       // Delegate to specialized services
-   }
-   ```
+### Phase 3: Polish (Week 5-6)
+7. **Complete design system** consolidation
+8. **Simplify error handling** architecture
+9. **Remove redundant service layers**
 
-### Testing Strategy
+## Expected Outcomes
 
-1. **Unit Tests**: 
-   - Test each phase independently
-   - Maintain existing test coverage
-   - Add tests for new extracted services
-
-2. **Integration Tests**:
-   - Test context system end-to-end
-   - Test PDF highlighting workflow
-   - Test chat message flow
-
-3. **Manual Testing**:
-   - Test all user workflows after each phase
-   - Verify no functionality regression
-   - Performance testing for context handling
+- **Reduced complexity**: ~40% reduction in lines of code in core files
+- **Improved testability**: Clear separation of concerns enables unit testing
+- **Better maintainability**: Single responsibility principle followed throughout
+- **Enhanced performance**: Reduced object graph complexity and better state management
+- **Clearer architecture**: Explicit dependencies and focused components
 
 ## Risk Mitigation
 
-### High Risk Areas
-1. **Context system changes**: Could break chat functionality
-   - **Mitigation**: Implement feature flags, gradual rollout
-   - **Rollback plan**: Keep legacy methods temporarily
-
-2. **PDF toolbar refactoring**: Could break highlighting
-   - **Mitigation**: Comprehensive testing of highlight operations
-   - **Rollback plan**: Maintain original service as backup
-
-### Medium Risk Areas
-1. **View consolidation**: Could break UI layouts
-   - **Mitigation**: Careful component merging, preview testing
-   - **Rollback plan**: Easy to revert file splits
-
-### Testing Checkpoints
-- [ ] Context creation and usage works correctly
-- [ ] PDF highlighting functions normally  
-- [ ] Chat messages display properly
-- [ ] Document import/management works
-- [ ] Settings persistence works
-- [ ] Error handling functions correctly
-
-## Success Metrics
-
-### Code Quality
-- **Lines of code reduction**: Target 15-20% reduction (~800-1000 lines)
-- **File count reduction**: From 61 to ~50 Swift files
-- **Cyclomatic complexity**: Reduce average complexity by 25%
-
-### Performance  
-- **Context processing**: 30% faster context creation
-- **Memory usage**: 10-15% reduction in memory footprint
-- **App startup**: Maintain current startup performance
-
-### Maintainability
-- **Service responsibilities**: Each service <400 lines
-- **View complexity**: Each view <200 lines  
-- **Test coverage**: Maintain >80% coverage
-
-## Timeline
-
-- **Phase 1 (Context)**: 2 weeks
-- **Phase 2 (PDF Toolbar)**: 2 weeks  
-- **Phase 3 (Views)**: 2 weeks
-- **Phase 4 (Services)**: 1 week
-- **Phase 5 (Settings)**: 1 week
-- **Phase 6 (Models)**: 1 week
-
-**Total Duration**: 9 weeks with testing and validation
-
-## Conclusion
-
-This cleanup plan will significantly improve the codebase maintainability while preserving all functionality. The phased approach allows for careful validation at each step and easy rollback if issues arise. The focus on removing dual systems and consolidating responsibilities will make the codebase much easier to understand and extend.
-
-The most critical phases are 1 and 2 (Context and PDF Toolbar) as they address the biggest architectural issues. Phases 3-6 are primarily about code organization and can be done more gradually.
+- **Incremental changes**: Each phase can be implemented and tested separately
+- **Backward compatibility**: Maintain existing APIs during transition
+- **Feature preservation**: All current functionality will be preserved
+- **Testing strategy**: Add tests for extracted components before refactoring

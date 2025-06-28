@@ -1,11 +1,91 @@
 //
-//  IconButton.swift
+//  Buttons.swift
 //  cerebral
 //
-//  Reusable Icon Button Component
+//  Consolidated Button Components
 //
 
 import SwiftUI
+
+// MARK: - Primary Button
+
+struct PrimaryButton: View {
+    let title: String
+    let action: () -> Void
+    let isDisabled: Bool
+    let isLoading: Bool
+    
+    init(
+        _ title: String,
+        isDisabled: Bool = false,
+        isLoading: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.isDisabled = isDisabled
+        self.isLoading = isLoading
+        self.action = action
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.textOnAccent))
+                }
+                
+                Text(title)
+                    .font(DesignSystem.Typography.button)
+                    .foregroundColor(DesignSystem.Colors.textOnAccent)
+            }
+        }
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(isDisabled || isLoading)
+    }
+}
+
+// MARK: - Secondary Button
+
+struct SecondaryButton: View {
+    let title: String
+    let action: () -> Void
+    let isDisabled: Bool
+    let isLoading: Bool
+    
+    init(
+        _ title: String,
+        isDisabled: Bool = false,
+        isLoading: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.isDisabled = isDisabled
+        self.isLoading = isLoading
+        self.action = action
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.accent))
+                }
+                
+                Text(title)
+                    .font(DesignSystem.Typography.button)
+                    .foregroundColor(DesignSystem.Colors.accent)
+            }
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(isDisabled || isLoading)
+    }
+}
+
+// MARK: - Icon Button
 
 struct IconButton: View {
     let icon: String
@@ -82,7 +162,8 @@ struct IconButton: View {
     }
 }
 
-// Helper to type-erase button styles
+// MARK: - Helper for Type Erasure
+
 private struct AnyButtonStyle: ButtonStyle {
     private let _makeBody: (Configuration) -> AnyView
     
@@ -97,8 +178,22 @@ private struct AnyButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Previews
+
 #Preview {
-    VStack(spacing: 16) {
+    VStack(spacing: 20) {
+        // Primary and Secondary Buttons
+        VStack(spacing: 16) {
+            PrimaryButton("Normal Button") { }
+            PrimaryButton("Disabled Button", isDisabled: true) { }
+            PrimaryButton("Loading Button", isLoading: true) { }
+            
+            SecondaryButton("Normal Button") { }
+            SecondaryButton("Disabled Button", isDisabled: true) { }
+            SecondaryButton("Loading Button", isLoading: true) { }
+        }
+        
+        // Icon Buttons - Styles
         HStack(spacing: 16) {
             IconButton(icon: "plus", style: .primary) { }
             IconButton(icon: "minus", style: .secondary) { }
@@ -106,6 +201,7 @@ private struct AnyButtonStyle: ButtonStyle {
             IconButton(icon: "trash", style: .destructive) { }
         }
         
+        // Icon Buttons - Sizes
         HStack(spacing: 16) {
             IconButton(icon: "plus", style: .primary, size: .small) { }
             IconButton(icon: "plus", style: .primary, size: .medium) { }

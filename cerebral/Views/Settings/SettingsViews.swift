@@ -1,11 +1,13 @@
 //
-//  APIKeySettingsView.swift
+//  SettingsViews.swift
 //  cerebral
 //
-//  Created by Justin Zweep on 26/06/2025.
+//  Consolidated Settings Views
 //
 
 import SwiftUI
+
+// MARK: - API Key Settings View
 
 struct APIKeySettingsView: View {
     @Environment(SettingsManager.self) var settingsManager: SettingsManager
@@ -141,7 +143,95 @@ struct APIKeySettingsView: View {
     }
 }
 
-#Preview {
+// MARK: - General Settings View
+
+struct GeneralSettingsView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+            // Header
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                Text("General Settings")
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                Text("Configure general application preferences.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+            }
+            
+            // Placeholder for future general settings
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                Text("Coming Soon")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                
+                Text("General application settings will be available in a future update.")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
+            }
+            .padding(DesignSystem.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card)
+                    .fill(DesignSystem.Colors.secondaryBackground)
+            )
+            
+            Spacer()
+        }
+        .padding(DesignSystem.Spacing.lg)
+    }
+}
+
+// MARK: - User Profile View
+
+struct UserProfileView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+            // Header
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                Text("User Profile")
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                
+                Text("Manage your user profile and preferences.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+            }
+            
+            // Placeholder for future user profile settings
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                Text("Coming Soon")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                
+                Text("User profile management will be available in a future update.")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
+            }
+            .padding(DesignSystem.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card)
+                    .fill(DesignSystem.Colors.secondaryBackground)
+            )
+            
+            Spacer()
+        }
+        .padding(DesignSystem.Spacing.lg)
+    }
+}
+
+// MARK: - Previews
+
+#Preview("API Key Settings") {
     APIKeySettingsView()
+        .environment(SettingsManager.shared)
+}
+
+#Preview("General Settings") {
+    GeneralSettingsView()
+        .environment(SettingsManager.shared)
+}
+
+#Preview("User Profile") {
+    UserProfileView()
         .environment(SettingsManager.shared)
 } 

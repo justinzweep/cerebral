@@ -1,11 +1,52 @@
 //
-//  AIMessage.swift
+//  MessageComponents.swift
 //  cerebral
 //
-//  Reusable AI Message Component
+//  Consolidated Message Components
 //
 
 import SwiftUI
+
+// MARK: - User Message
+
+struct UserMessage: View {
+    let message: ChatMessage
+    let shouldGroup: Bool
+    @State private var isHovered = false
+    
+    var body: some View {
+        VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
+            HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                Spacer(minLength: DesignSystem.Spacing.xxl)
+                
+                // User message with inline clickable @mentions
+                FlowMessageText(
+                    text: message.text, 
+                    contexts: message.contexts
+                )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                    .animation(DesignSystem.Animation.microInteraction, value: isHovered)
+                    .onHover { isHovered = $0 }
+                    .contextMenu {
+                        MessageContextMenu(message: message)
+                    }
+            }
+            
+            // Context indicator
+            if message.hasContext {
+                HStack {
+                    Spacer(minLength: DesignSystem.Spacing.xxl)
+                    MessageContextIndicator(contexts: message.contexts)
+                        .frame(maxWidth: 300)
+                }
+            }
+        }
+        .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+    }
+}
+
+// MARK: - AI Message
 
 struct AIMessage: View {
     let message: ChatMessage
@@ -101,6 +142,8 @@ struct AIMessage: View {
     }
 }
 
+// MARK: - Streaming Waiting Animation
+
 struct StreamingWaitingAnimation: View {
     @State private var showCursor = false
     
@@ -126,8 +169,26 @@ struct StreamingWaitingAnimation: View {
     }
 }
 
+// MARK: - Previews
+
 #Preview {
     VStack(spacing: 16) {
+        UserMessage(
+            message: ChatMessage(
+                text: "Can you help me understand @document.pdf and also reference @research_paper.pdf?",
+                isUser: true
+            ),
+            shouldGroup: false
+        )
+        
+        UserMessage(
+            message: ChatMessage(
+                text: "Follow-up question about the same topic.",
+                isUser: true
+            ),
+            shouldGroup: true
+        )
+        
         AIMessage(
             message: ChatMessage(
                 text: "Hello, how can I help you with your documents today? I can analyze PDFs, answer questions about their content, and help you understand complex information.",

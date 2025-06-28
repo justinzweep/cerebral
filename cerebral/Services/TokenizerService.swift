@@ -12,7 +12,12 @@ import Foundation
 final class TokenizerService {
     static let shared = TokenizerService()
     
-    // Approximate token/character ratio for Claude models
+    // API Configuration
+    private let baseURL = "https://api.anthropic.com"
+    private let apiVersion = "2023-06-01"
+    private var settingsManager: SettingsManager?
+    
+    // Approximate token/character ratio for Claude models (fallback)
     private let averageCharactersPerToken: Double = 4.0
     
     // Token limits for different Claude models
@@ -25,6 +30,111 @@ final class TokenizerService {
     
     private init() {}
     
+    /// Inject SettingsManager dependency for API access
+    func configure(with settingsManager: SettingsManager) {
+        self.settingsManager = settingsManager
+    }
+    
+    // MARK: - API-Based Token Counting
+    
+    /// Accurately counts tokens using Claude API (preferred method)
+    func countTokensUsingAPI(
+        messages: [ClaudeMessage],
+        model: String = "claude-3-5-sonnet-20241022",
+        system: String? = nil
+    ) async throws -> Int {
+        guard let settingsManager = settingsManager,
+              !settingsManager.apiKey.isEmpty else {
+            // Fall back to approximation if no API key
+            let allText = messages.map { $0.content }.joined(separator: " ")
+            return estimateTokenCount(for: allText)
+        }
+        
+        guard let url = URL(string: "\(baseURL)/v1/messages/count_tokens") else {
+            throw TokenCountError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(settingsManager.apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(apiVersion, forHTTPHeaderField: "anthropic-version")
+        
+        let requestBody = TokenCountRequest(
+            model: model,
+            messages: messages,
+            system: system
+        )
+        
+        do {
+            let jsonData = try JSONEncoder().encode(requestBody)
+            request.httpBody = jsonData
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                guard httpResponse.statusCode == 200 else {
+                    throw TokenCountError.apiError(httpResponse.statusCode)
+                }
+            }
+            
+            let tokenResponse = try JSONDecoder().decode(TokenCountResponse.self, from: data)
+            return tokenResponse.inputTokens
+            
+        } catch let error as TokenCountError {
+            throw error
+        } catch {
+            // Fall back to approximation on any other error
+            let allText = messages.map { $0.content }.joined(separator: " ")
+            return estimateTokenCount(for: allText)
+        }
+    }
+    
+    /// Counts tokens for a simple text message
+    func countTokensForMessage(
+        _ text: String,
+        model: String = "claude-3-5-sonnet-20241022",
+        system: String? = nil
+    ) async throws -> Int {
+        let message = ClaudeMessage(role: "user", content: text)
+        return try await countTokensUsingAPI(messages: [message], model: model, system: system)
+    }
+    
+    /// Counts tokens for conversation history and context
+    func countTokensForConversation(
+        messages: [ChatMessage],
+        context: [Document] = [],
+        system: String? = nil,
+        model: String = "claude-3-5-sonnet-20241022"
+    ) async throws -> Int {
+        // Convert to Claude messages
+        var claudeMessages: [ClaudeMessage] = []
+        
+        for message in messages {
+            let role = message.isUser ? "user" : "assistant"
+            claudeMessages.append(ClaudeMessage(role: role, content: message.text))
+        }
+        
+        // Add context if present
+        if !context.isEmpty {
+            let contextText = buildDocumentContext(from: context)
+            if let lastMessage = claudeMessages.last, lastMessage.role == "user" {
+                // Combine context with last user message
+                claudeMessages[claudeMessages.count - 1] = ClaudeMessage(
+                    role: "user",
+                    content: "Document Context:\n\(contextText)\n\nUser Question: \(lastMessage.content)"
+                )
+            } else {
+                // Add as separate user message
+                claudeMessages.append(ClaudeMessage(role: "user", content: contextText))
+            }
+        }
+        
+        return try await countTokensUsingAPI(messages: claudeMessages, model: model, system: system)
+    }
+    
+    // MARK: - Fallback Estimation Methods (Original Implementation)
+    
     /// Estimates token count for a given text
     /// Uses a simple character-based approximation suitable for Claude models
     func estimateTokenCount(for text: String) -> Int {
@@ -32,7 +142,7 @@ final class TokenizerService {
         let cleanedText = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
         
         // Estimate based on character count
-        // This is a simplified estimation - in production, you'd use a proper tokenizer
+        // This is a simplified estimation - API counting is preferred
         let characterCount = cleanedText.count
         let estimatedTokens = Int(ceil(Double(characterCount) / averageCharactersPerToken))
         
@@ -168,5 +278,82 @@ final class TokenizerService {
         
         // Return first 16 characters of the hash
         return String(hash.prefix(16))
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func buildDocumentContext(from documents: [Document]) -> String {
+        var context = ""
+        
+        for document in documents {
+            context += "Document: \(document.title)\n"
+            context += "Added: \(document.dateAdded.formatted(date: .abbreviated, time: .omitted))\n"
+            
+            // Extract metadata
+            if let metadata = PDFService.shared.getDocumentMetadata(from: document) {
+                if let pageCount = metadata["pageCount"] as? Int {
+                    context += "Pages: \(pageCount)\n"
+                }
+                if let author = metadata["author"] as? String, !author.isEmpty {
+                    context += "Author: \(author)\n"
+                }
+                if let subject = metadata["subject"] as? String, !subject.isEmpty {
+                    context += "Subject: \(subject)\n"
+                }
+            }
+            
+            // Extract text content
+            if let extractedText = PDFService.shared.extractText(from: document, maxLength: 2000) {
+                context += "\nDocument Content (excerpt):\n"
+                context += extractedText
+            } else {
+                context += "Content: [Unable to extract text from PDF]\n"
+            }
+            
+            if let lastOpened = document.lastOpened {
+                context += "\nLast opened: \(lastOpened.formatted(date: .abbreviated, time: .omitted))\n"
+            }
+            context += "\n---\n\n"
+        }
+        
+        return context
+    }
+}
+
+// MARK: - Data Models for Token Counting API
+
+struct TokenCountRequest: Codable {
+    let model: String
+    let messages: [ClaudeMessage]
+    let system: String?
+}
+
+struct TokenCountResponse: Codable {
+    let inputTokens: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case inputTokens = "input_tokens"
+    }
+}
+
+// MARK: - Token Count Errors
+
+enum TokenCountError: Error, LocalizedError {
+    case invalidURL
+    case noAPIKey
+    case apiError(Int)
+    case decodingError
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid API URL"
+        case .noAPIKey:
+            return "No API key configured"
+        case .apiError(let statusCode):
+            return "API Error: HTTP \(statusCode)"
+        case .decodingError:
+            return "Failed to decode API response"
+        }
     }
 } 

@@ -63,7 +63,7 @@ struct ContentView: View {
                     .id("chat-divider")
                     
                     // Right Pane: Chat Panel
-                    ChatPane(selectedDocument: appState.selectedDocument)
+                    ChatView(selectedDocument: appState.selectedDocument)
                         .frame(width: constrainedChatWidth(for: geometry.size.width))
                         .background(DesignSystem.Colors.secondaryBackground)
                         .environment(settingsManager)

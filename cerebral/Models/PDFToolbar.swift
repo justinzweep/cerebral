@@ -115,41 +115,7 @@ struct PDFHighlight: Identifiable, Equatable {
     }
 }
 
-// MARK: - Toolbar Position Calculator
 
-struct ToolbarPositionCalculator {
-    static let toolbarSize = CGSize(width: 140, height: 50)
-    static let margin: CGFloat = 16
-    static let offsetFromSelection: CGFloat = 20
-    
-    static func calculatePosition(
-        for selection: PDFSelection,
-        in pdfView: PDFView,
-        toolbarSize: CGSize = toolbarSize
-    ) -> CGPoint {
-        guard let page = selection.pages.first else {
-            return CGPoint(x: 100, y: 100) // Safe fallback
-        }
-        
-        // Get the selection bounds on the PDF page
-        let selectionBounds = selection.bounds(for: page)
-        
-        // Convert to PDFView coordinates
-        let viewBounds = pdfView.convert(selectionBounds, from: page)
-        
-        // Use the center-top of the selection as reference point
-        let referencePoint = CGPoint(
-            x: viewBounds.midX,
-            y: viewBounds.minY
-        )
-        
-        print("📍 Selection bounds on page: \(selectionBounds)")
-        print("📍 Converted to view bounds: \(viewBounds)")
-        print("📍 Reference point: \(referencePoint)")
-        
-        return referencePoint
-    }
-}
 
 // MARK: - Toolbar Extensions
 
