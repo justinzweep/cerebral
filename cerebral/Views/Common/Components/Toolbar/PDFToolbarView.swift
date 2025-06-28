@@ -23,7 +23,7 @@ struct PDFHighlightToolbar: View {
                 onModeChanged(newMode)
             }) {
                 Image(systemName: "highlighter")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(highlightingState.mode == .disabled ? 
                                     DesignSystem.Colors.secondaryText : 
                                     DesignSystem.Colors.accent)
@@ -52,7 +52,7 @@ struct PDFHighlightToolbar: View {
                             .frame(width: 24, height: 24)
                             .overlay(
                                 Circle()
-                                    .stroke(Color.white, lineWidth: highlightingState.selectedColor == color ? 2 : 0)
+                                    .stroke(DesignSystem.Colors.background, lineWidth: highlightingState.selectedColor == color ? 2 : 0)
                                     .scaleEffect(highlightingState.selectedColor == color ? 1.1 : 1.0)
                             )
                     }

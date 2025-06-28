@@ -52,7 +52,7 @@ struct MessageToolbar: View {
             }
         }
         .opacity(isHovered ? 1.0 : 0.0)
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
+        .animation(DesignSystem.Animation.quick, value: isHovered)
         .onHover { isHovered = $0 }
     }
 }

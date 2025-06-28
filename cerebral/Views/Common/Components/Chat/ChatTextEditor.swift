@@ -38,21 +38,21 @@ struct ChatTextEditor: View {
             if text.contains("@") {
                 HighlightOverlay(text: text)
                     .allowsHitTesting(false)
-                    .padding(.leading, 16)
-                    .padding(.trailing, 48)
-                    .padding(.vertical, 12)
+                                .padding(.leading, DesignSystem.Spacing.md)
+            .padding(.trailing, DesignSystem.Spacing.xxl)
+            .padding(.vertical, DesignSystem.Spacing.sm)
             }
             
             // Actual text field (single line behavior, no multiline)
             TextField("Message...", text: $text)
                 .textFieldStyle(.plain)
                 .background(Color.clear)
-                .font(.system(size: 16))
+                .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.primaryText)
                 .focused($isFocused)
-                .padding(.leading, 16)
-                .padding(.trailing, 48) // Make room for send button
-                .padding(.vertical, 12)
+                .padding(.leading, DesignSystem.Spacing.md)
+                .padding(.trailing, DesignSystem.Spacing.xxl) // Make room for send button
+                .padding(.vertical, DesignSystem.Spacing.sm)
                 .onSubmit {
                     // Call the submit handler when Enter is pressed
                     print("🚨 TextField onSubmit TRIGGERED")
@@ -81,7 +81,7 @@ struct ChatTextEditor: View {
                     lineWidth: 1
                 )
         )
-        .animation(.easeInOut(duration: 0.2), value: isFocused)
+                    .animation(DesignSystem.Animation.quick, value: isFocused)
         .onAppear {
             print("🎯 ChatTextEditor onAppear - auto-focusing")
             // Auto-focus when the component appears

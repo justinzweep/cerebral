@@ -3,12 +3,12 @@
 //  cerebral
 //
 //  UI Components and Styles for Cerebral macOS App
-//  Modern interaction patterns and accessibility
+//  Modern interaction patterns and Apple typography best practices
 //
 
 import SwiftUI
 
-// MARK: - Enhanced Button Styles (Modern Interaction Patterns)
+// MARK: - Enhanced Button Styles (Apple Typography Best Practices)
 
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
@@ -16,7 +16,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(DesignSystem.Typography.button)
+            .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.textOnAccent)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.sm)
@@ -58,7 +58,7 @@ struct SecondaryButtonStyle: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(DesignSystem.Typography.button)
+            .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.accent)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.sm)
@@ -104,7 +104,7 @@ struct TertiaryButtonStyle: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(DesignSystem.Typography.button)
+            .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.secondaryText)
             .padding(.horizontal, DesignSystem.Spacing.sm)
             .padding(.vertical, DesignSystem.Spacing.xs)
@@ -146,7 +146,7 @@ struct DestructiveButtonStyle: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(DesignSystem.Typography.button)
+            .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.error)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.sm)
@@ -218,7 +218,7 @@ extension View {
     }
 }
 
-// MARK: - Modern Text Field Style
+// MARK: - Modern Text Field Style (Apple Typography)
 
 struct CerebralTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
@@ -230,7 +230,7 @@ struct CerebralTextFieldStyle: TextFieldStyle {
     
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
-            .font(DesignSystem.Typography.body)
+            .appleTextStyle(.body)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.sm)
             .background(
@@ -326,7 +326,7 @@ extension View {
     }
 }
 
-// MARK: - Modern Status Indicators
+// MARK: - Modern Status Indicators (Apple Typography)
 
 struct StatusIndicator: View {
     enum Status {
@@ -389,8 +389,70 @@ struct StatusIndicator: View {
             
             if showText {
                 Text(status.text)
-                    .font(DesignSystem.Typography.caption)
+                    .appleTextStyle(.caption)
                     .foregroundColor(status.color)
+            }
+        }
+    }
+}
+
+// MARK: - Typography Convenience Components
+
+/// A text view that automatically applies Apple typography best practices
+struct AppleText: View {
+    let text: String
+    let style: AppleTextStyle
+    let color: Color?
+    let multilineTextAlignment: TextAlignment
+    
+    init(_ text: String, style: AppleTextStyle = .body, color: Color? = nil, multilineTextAlignment: TextAlignment = .leading) {
+        self.text = text
+        self.style = style
+        self.color = color
+        self.multilineTextAlignment = multilineTextAlignment
+    }
+    
+    var body: some View {
+        Text(text)
+            .appleTextStyle(style)
+            .foregroundColor(color ?? defaultColor)
+            .multilineTextAlignment(multilineTextAlignment)
+    }
+    
+    private var defaultColor: Color {
+        switch style {
+        case .largeTitle, .title, .title2, .title3, .headline, .body:
+            return DesignSystem.Colors.primaryText
+        case .bodySecondary, .callout, .subheadline:
+            return DesignSystem.Colors.secondaryText
+        case .footnote, .caption, .caption2:
+            return DesignSystem.Colors.tertiaryText
+        case .button, .menuItem, .tabBar:
+            return DesignSystem.Colors.primaryText
+        }
+    }
+}
+
+/// A label component with proper Apple typography
+struct AppleLabel: View {
+    let title: String
+    let subtitle: String?
+    let titleStyle: AppleTextStyle
+    let subtitleStyle: AppleTextStyle
+    
+    init(_ title: String, subtitle: String? = nil, titleStyle: AppleTextStyle = .headline, subtitleStyle: AppleTextStyle = .caption) {
+        self.title = title
+        self.subtitle = subtitle
+        self.titleStyle = titleStyle
+        self.subtitleStyle = subtitleStyle
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
+            AppleText(title, style: titleStyle)
+            
+            if let subtitle = subtitle {
+                AppleText(subtitle, style: subtitleStyle, color: DesignSystem.Colors.secondaryText)
             }
         }
     }

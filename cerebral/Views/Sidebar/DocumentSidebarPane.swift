@@ -35,7 +35,7 @@ struct DocumentSidebarPane: View {
                     showingImporter = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(DesignSystem.Typography.callout)
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
                 .buttonStyle(.plain)

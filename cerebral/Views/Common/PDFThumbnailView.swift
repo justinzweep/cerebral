@@ -40,7 +40,7 @@ struct PDFThumbnailView: View {
                         // Fallback icon
                         Image(systemName: "doc.text.fill")
                             .foregroundColor(DesignSystem.Colors.accent)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(DesignSystem.Typography.callout)
                     }
                 }
             )

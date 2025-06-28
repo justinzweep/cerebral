@@ -78,7 +78,7 @@ struct SendButton: View {
             LoadingSpinner(size: .small, color: contentColor)
         } else {
             Image(systemName: "arrow.up")
-                .font(.system(size: 14, weight: .semibold))
+                                        .font(DesignSystem.Typography.button)
                 .foregroundColor(contentColor)
         }
     }

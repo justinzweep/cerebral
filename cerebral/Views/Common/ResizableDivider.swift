@@ -34,9 +34,7 @@ struct ResizableDivider: View {
                 )
                 .contentShape(Rectangle())
                 .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isHovered = hovering
-                    }
+                    isHovered = hovering
                     
                     // Better cursor management
                     if hovering {
@@ -96,7 +94,7 @@ struct ResizableDivider: View {
                     width: orientation == .vertical ? (isActive ? activeLineThickness : visualLineThickness) : nil,
                     height: orientation == .horizontal ? (isActive ? activeLineThickness : visualLineThickness) : nil
                 )
-                .animation(.easeInOut(duration: 0.2), value: isActive)
+
         }
     }
     
@@ -118,7 +116,7 @@ struct ResizableDivider: View {
 #Preview {
     HStack {
         Rectangle()
-            .fill(Color.blue)
+            .fill(DesignSystem.Colors.accent)
             .frame(width: 200, height: 300)
         
         ResizableDivider(orientation: .vertical) { delta in
@@ -126,7 +124,7 @@ struct ResizableDivider: View {
         }
         
         Rectangle()
-            .fill(Color.red)
+            .fill(DesignSystem.Colors.secondaryAccent)
             .frame(width: 200, height: 300)
     }
     .frame(width: 500, height: 300)

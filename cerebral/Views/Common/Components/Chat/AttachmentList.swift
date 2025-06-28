@@ -60,7 +60,7 @@ struct AttachmentPill: View {
         HStack(spacing: DesignSystem.Spacing.xs) {
             // Document icon
             Image(systemName: "doc.text")
-                .font(.system(size: 12, weight: .medium))
+                .font(DesignSystem.Typography.caption)
                 .foregroundColor(DesignSystem.Colors.accent)
             
             // Document title
@@ -159,7 +159,7 @@ struct PDFSelectionPill: View {
         HStack(spacing: DesignSystem.Spacing.xs) {
             // Context icon
             Image(systemName: "text.badge.checkmark")
-                .font(.system(size: 12, weight: .medium))
+                .font(DesignSystem.Typography.caption)
                 .foregroundColor(DesignSystem.Colors.accent)
             
             // Selected text preview

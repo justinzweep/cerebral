@@ -39,7 +39,7 @@ struct DocumentSidebarContent: View {
                     showingImporter = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(DesignSystem.Typography.callout)
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
                 .buttonStyle(.plain)
@@ -140,7 +140,7 @@ struct EmptyDocumentListView: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "doc.text")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.tertiaryText)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
@@ -174,7 +174,7 @@ struct EmptyDocumentSelectionView: View {
             
             VStack(spacing: DesignSystem.Spacing.lg) {
                 Image(systemName: "doc.text")
-                    .font(.system(size: 64))
+                    .font(DesignSystem.Typography.largeTitle)
                     .foregroundColor(DesignSystem.Colors.tertiaryText)
                 
                 VStack(spacing: DesignSystem.Spacing.sm) {

@@ -14,22 +14,35 @@ struct ActiveContextPanel: View {
     
     var body: some View {
         if !contextBundle.contexts.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                // Clean header like @ mentions
+                HStack(spacing: DesignSystem.Spacing.sm) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DesignSystem.Colors.accent)
+                    
                     Text("Active Context")
-                        .font(.caption)
+                        .appleTextStyle(.caption)
+                        .foregroundColor(DesignSystem.Colors.primaryText)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
                     
                     Spacer()
                     
-                    Text("~\(formattedTokenCount) tokens")
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.7))
+                    // Simple token badge
+                    Text("\(formattedTokenCount) tokens")
+                        .appleTextStyle(.caption2)
+                        .foregroundColor(DesignSystem.Colors.tertiaryText)
+                        .padding(.horizontal, DesignSystem.Spacing.xs)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(DesignSystem.Colors.tertiaryBackground)
+                        )
                 }
                 
+                // Context chips with horizontal scroll
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    LazyHStack(spacing: DesignSystem.Spacing.xs) {
                         ForEach(contextBundle.contexts) { context in
                             ContextChip(
                                 context: context,
@@ -37,42 +50,62 @@ struct ActiveContextPanel: View {
                             )
                         }
                         
-                        // Add context button
-                        Button(action: onAddContext) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.caption)
-                                Text("Add")
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.accentColor)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        // Add button like @ mentions
+                        AddContextButton(action: onAddContext)
                     }
+                    .padding(.horizontal, 1) // Prevent clipping
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.8))
-            )
+            .padding(DesignSystem.Spacing.md)
+            .card(elevation: .low)
         }
     }
     
     private var formattedTokenCount: String {
         let tokenCount = contextBundle.tokenCount()
-        if tokenCount > 1000 {
-            return "\(tokenCount / 1000)k"
+        if tokenCount >= 1000000 {
+            return String(format: "%.1fM", Double(tokenCount) / 1000000.0)
+        } else if tokenCount >= 1000 {
+            return String(format: "%.1fK", Double(tokenCount) / 1000.0)
         } else {
             return "\(tokenCount)"
         }
+    }
+}
+
+struct AddContextButton: View {
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .semibold))
+                
+                Text("Add")
+                    .appleTextStyle(.caption2)
+                    .fontWeight(.medium)
+            }
+            .foregroundColor(DesignSystem.Colors.accent)
+            .padding(.horizontal, DesignSystem.Spacing.sm)
+            .padding(.vertical, DesignSystem.Spacing.xs)
+            .background(
+                Capsule()
+                    .strokeBorder(DesignSystem.Colors.accent.opacity(0.3), lineWidth: 1)
+                    .background(
+                        Capsule()
+                            .fill(isHovered ? DesignSystem.Colors.accentSecondary : Color.clear)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(DesignSystem.Animation.micro) {
+                isHovered = hovering
+            }
+        }
+        .help("Add context to conversation")
     }
 }
 
@@ -82,91 +115,77 @@ struct ContextChip: View {
     @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: 6) {
-            Button(action: openDocument) {
-                HStack(spacing: 6) {
-                    Image(systemName: contextIcon)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(context.documentTitle)
-                            .font(.caption)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        
-                        Text(contextDescription)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .help(context.contextType == .textSelection ? 
-                  "Click to navigate to the selected text in \(context.documentTitle)" : 
-                  "Click to open \(context.documentTitle)")
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            // Context type dot indicator
+            Circle()
+                .fill(contextColor)
+                .frame(width: 6, height: 6)
             
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .opacity(isHovered ? 1 : 0.6)
+            // Document name (clickable)
+            Button(action: openDocument) {
+                Text(context.documentTitle)
+                    .appleTextStyle(.caption2)
+                    .foregroundColor(DesignSystem.Colors.primaryText)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
             }
             .buttonStyle(.plain)
+            .help("Open \(context.documentTitle)")
+            
+            // Context type badge
+            Text(contextTypeName)
+                .appleTextStyle(.caption2)
+                .foregroundColor(DesignSystem.Colors.tertiaryText)
+                .padding(.horizontal, DesignSystem.Spacing.xs)
+                .padding(.vertical, 1)
+                .background(
+                    Capsule()
+                        .fill(DesignSystem.Colors.tertiaryBackground)
+                )
+            
+            // Remove button
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(DesignSystem.Colors.tertiaryText)
+            }
+            .buttonStyle(.plain)
+            .opacity(isHovered ? 1.0 : 0.6)
             .help("Remove from context")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(NSColor.controlBackgroundColor))
+            Capsule()
+                .fill(DesignSystem.Colors.secondaryBackground)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+                    Capsule()
+                        .strokeBorder(DesignSystem.Colors.borderSecondary, lineWidth: 0.5)
                 )
         )
-        .scaleEffect(isHovered ? 1.02 : 1.0)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(DesignSystem.Animation.micro) {
                 isHovered = hovering
             }
         }
     }
     
     private func openDocument() {
-        // Find the document by ID
         guard let document = ServiceContainer.shared.documentService.findDocument(byId: context.documentId) else {
-            print("❌ Document not found for context: \(context.documentTitle)")
             return
         }
         
-        print("🔍 Opening document from context chip: '\(document.title)' (ID: \(document.id))")
-        
-        // Open the document in the PDF viewer
         ServiceContainer.shared.appState.selectDocument(document)
         
-        // Navigate to the specific context location
-        navigateToContext(context: context)
-        
-        print("📤 Updated AppState with selected document from context")
-    }
-    
-    private func navigateToContext(context: DocumentContext) {
-        print("🎯 Navigating to context: \(context.contextType.displayName)")
-        
-        // Schedule navigation after PDF loads
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Navigate to context location
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if let pageNumbers = context.metadata.pageNumbers, let firstPage = pageNumbers.first {
-                print("📄 Navigating to page \(firstPage) from context chip")
                 ServiceContainer.shared.appState.navigateToPDFPage(firstPage)
                 
-                // For text selections, try to navigate to the exact bounds within the page
                 if context.contextType == .textSelection,
                    let selectionBounds = context.metadata.selectionBounds,
                    !selectionBounds.isEmpty {
-                    
-                    // Wait a bit more for page navigation to complete, then scroll to selection bounds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         ServiceContainer.shared.appState.navigateToSelectionBounds(
                             bounds: selectionBounds,
                             onPage: firstPage
@@ -177,33 +196,25 @@ struct ContextChip: View {
         }
     }
     
-    private var contextIcon: String {
+    private var contextColor: Color {
         switch context.contextType {
-        case .fullDocument: return "doc.fill"
-        case .pageRange: return "doc.on.doc"
-        case .textSelection: return "text.viewfinder"
-        case .semanticChunk: return "brain"
+        case .fullDocument: return DesignSystem.Colors.accent
+        case .pageRange: return DesignSystem.Colors.secondaryAccent
+        case .textSelection: return DesignSystem.Colors.success
+        case .semanticChunk: return DesignSystem.Colors.warning
         }
     }
     
-    private var contextDescription: String {
+    private var contextTypeName: String {
         switch context.contextType {
-        case .fullDocument:
-            return "Full document"
+        case .fullDocument: return "Full"
         case .pageRange:
             if let pages = context.metadata.pageNumbers {
-                return pages.count == 1 ? "Page \(pages[0])" : "\(pages.count) pages"
+                return pages.count == 1 ? "Page" : "\(pages.count)p"
             }
             return "Pages"
-        case .textSelection:
-            // Show a preview of the selected text
-            if !context.content.isEmpty {
-                let preview = context.content.prefix(40)
-                return "\"\(preview)...\""
-            }
-            return "Selection"
-        case .semanticChunk:
-            return "Relevant section"
+        case .textSelection: return "Text"
+        case .semanticChunk: return "Section"
         }
     }
 }
@@ -215,7 +226,7 @@ struct ContextChip: View {
                 contexts: [
                     DocumentContext(
                         documentId: UUID(),
-                        documentTitle: "Research Paper.pdf",
+                        documentTitle: "Machine Learning Research.pdf",
                         contextType: .fullDocument,
                         content: "Content",
                         metadata: ContextMetadata(
@@ -226,22 +237,35 @@ struct ContextChip: View {
                     ),
                     DocumentContext(
                         documentId: UUID(),
-                        documentTitle: "Meeting Notes with a very long title.pdf",
+                        documentTitle: "Neural Networks.pdf",
+                        contextType: .textSelection,
+                        content: "Selected text",
+                        metadata: ContextMetadata(
+                            pageNumbers: [42],
+                            extractionMethod: "UserSelection",
+                            tokenCount: 256,
+                            checksum: "def456"
+                        )
+                    ),
+                    DocumentContext(
+                        documentId: UUID(),
+                        documentTitle: "Conference Proceedings.pdf",
                         contextType: .pageRange,
                         content: "Content",
                         metadata: ContextMetadata(
                             pageNumbers: [1, 2, 3],
                             extractionMethod: "PDFKit",
                             tokenCount: 1234,
-                            checksum: "def456"
+                            checksum: "ghi789"
                         )
                     )
                 ]
             )),
-            onRemoveContext: { _ in print("Remove context") },
-            onAddContext: { print("Add context") }
+            onRemoveContext: { _ in },
+            onAddContext: { }
         )
         .frame(width: 600)
         .padding()
     }
+    .background(DesignSystem.Colors.background)
 } 

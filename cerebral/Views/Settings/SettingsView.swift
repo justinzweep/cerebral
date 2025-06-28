@@ -39,7 +39,7 @@ struct SettingsView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(DesignSystem.Typography.button)
                         .foregroundColor(DesignSystem.Colors.secondaryText)
                 }
                 .buttonStyle(.plain)
@@ -57,7 +57,7 @@ struct SettingsView: View {
                     } label: {
                         HStack(spacing: DesignSystem.Spacing.xs) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(DesignSystem.Typography.caption)
                             
                             Text(tab.rawValue)
                                 .font(DesignSystem.Typography.caption)

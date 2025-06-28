@@ -121,7 +121,7 @@ struct EmptyPDFStateView: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.xl) {
             Image(systemName: "doc.text")
-                .font(.system(size: 64))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.tertiaryText)
             
             VStack(spacing: DesignSystem.Spacing.sm) {

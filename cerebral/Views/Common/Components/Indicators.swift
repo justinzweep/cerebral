@@ -118,7 +118,7 @@ struct StatusBadge: View {
         HStack(spacing: DesignSystem.Spacing.xxs) {
             if showIcon {
                 Image(systemName: status.icon)
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(DesignSystem.Typography.caption2)
                     .foregroundColor(status.color)
                     .rotationEffect(.degrees(status == .loading && isAnimating ? 360 : 0))
                     .animation(

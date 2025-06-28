@@ -31,59 +31,81 @@ struct ChatView: View {
             )
             
             if settingsManager.isAPIKeyValid {
-                // Chat Messages Area with performance optimizations
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            if chatManager.messages.isEmpty {
-                                EmptyStateView(hasAttachedDocuments: !attachedDocuments.isEmpty)
-                                    .padding(.top, DesignSystem.Spacing.huge)
-                                    .id("empty-state") // Stable ID for animations
-                            } else {
-                                // Use stable IDs and minimize re-renders
-                                ForEach(Array(chatManager.messages.enumerated()), id: \.element.id) { index, message in
-                                    let shouldGroup = chatManager.shouldGroupMessage(at: index)
-                                    
-                                    MessageView(
-                                        message: message,
-                                        shouldGroup: shouldGroup
-                                    )
-                                    .id(message.id) // Stable ID for each message
-                                    .padding(.horizontal, DesignSystem.Spacing.md)
-                                    .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+                // Chat Messages Area with floating input
+                ZStack(alignment: .bottom) {
+                    // Messages area that extends full height
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                if chatManager.messages.isEmpty {
+                                    EmptyStateView(hasAttachedDocuments: !attachedDocuments.isEmpty)
+                                        .padding(.top, DesignSystem.Spacing.huge)
+                                        .id("empty-state") // Stable ID for animations
+                                } else {
+                                    // Use stable IDs and minimize re-renders
+                                    ForEach(Array(chatManager.messages.enumerated()), id: \.element.id) { index, message in
+                                        let shouldGroup = chatManager.shouldGroupMessage(at: index)
+                                        
+                                        MessageView(
+                                            message: message,
+                                            shouldGroup: shouldGroup
+                                        )
+                                        .id(message.id) // Stable ID for each message
+                                        .padding(.horizontal, DesignSystem.Spacing.md)
+                                        .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+                                    }
+                                }
+                            }
+                            .padding(.bottom, 120) // Add bottom padding so messages don't hide behind input
+                        }
+                        .scrollIndicators(.hidden) // Performance optimization
+                        .onChange(of: chatManager.messages.count) { _, newCount in
+                            // Optimize scroll-to-bottom with debouncing
+                            if let lastMessage = chatManager.messages.last {
+                                withAnimation(DesignSystem.Animation.smooth) {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
                                 }
                             }
                         }
-                        .padding(.bottom, DesignSystem.Spacing.md)
-                    }
-                    .scrollIndicators(.hidden) // Performance optimization
-                    .onChange(of: chatManager.messages.count) { _, newCount in
-                        // Optimize scroll-to-bottom with debouncing
-                        if let lastMessage = chatManager.messages.last {
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        .onChange(of: chatManager.isStreaming) { _, isStreaming in
+                            // Auto-scroll when streaming starts
+                            if isStreaming, let lastMessage = chatManager.messages.last {
+                                withAnimation(DesignSystem.Animation.smooth) {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                        .onChange(of: chatManager.messages.last?.text) { _, _ in
+                            // Auto-scroll during streaming text updates
+                            if chatManager.isStreaming, let lastMessage = chatManager.messages.last {
+                                // Use a faster animation for streaming updates to feel more responsive
+                                withAnimation(DesignSystem.Animation.quick) {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                                }
                             }
                         }
                     }
-                }
-                
-                
-                // Enhanced Chat Input
-                ChatInputView(
-                    text: $inputText,
-                    isLoading: chatManager.isLoading,
-                    isStreaming: chatManager.isStreaming,
-                    attachedDocuments: attachedDocuments,
-                    onSend: {
-                        sendMessage()
-                    },
-                    onRemoveDocument: { document in
-                        withAnimation(DesignSystem.Animation.smooth) {
-                            attachedDocuments.removeAll { $0.id == document.id }
-                        }
+                    
+                    // Floating Chat Input at the bottom
+                    VStack(spacing: 0) {
+                        // Chat Input with background
+                        ChatInputView(
+                            text: $inputText,
+                            isLoading: chatManager.isLoading,
+                            isStreaming: chatManager.isStreaming,
+                            attachedDocuments: attachedDocuments,
+                            onSend: {
+                                sendMessage()
+                            },
+                            onRemoveDocument: { document in
+                                withAnimation(DesignSystem.Animation.smooth) {
+                                    attachedDocuments.removeAll { $0.id == document.id }
+                                }
+                            }
+                        )
+                        .disabled(!settingsManager.isAPIKeyValid)
                     }
-                )
-                .disabled(!settingsManager.isAPIKeyValid)
+                }
                 
             } else {
                 // API Key Required State
@@ -280,21 +302,32 @@ struct ChatHeaderView: View {
     let onNewSession: () -> Void
     
     var body: some View {
-        HStack {            
+        HStack {
+            
+            Text("Chat")
+                .font(DesignSystem.Typography.title3)
+                .foregroundColor(DesignSystem.Colors.primaryText)
+            
+            
             Spacer()
             
             HStack(spacing: DesignSystem.Spacing.xs) {
                 // New session button
                 Button(action: onNewSession) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(DesignSystem.Typography.callout)
+                        .foregroundColor(DesignSystem.Colors.accent)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.plain)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
                 .foregroundColor(DesignSystem.Colors.secondaryText)
             }
+            .padding(DesignSystem.Spacing.md)
+
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
-        .padding(.vertical, DesignSystem.Spacing.sm)
+        .padding(.bottom, DesignSystem.Spacing.lg)
     }
 }
 
@@ -307,7 +340,7 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {                  
         }
-        .frame(maxWidth: 320)
+        .frame(maxWidth: 400)  // Increased from 320
     }
 }
 
@@ -318,8 +351,8 @@ struct APIKeyRequiredView: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             // Icon
             Image(systemName: "key.slash")
-                .font(.system(size: 42))
-//                .foregroundColor(DesignSystem.Colors.warningOrange)
+                .font(DesignSystem.Typography.largeTitle)
+                .foregroundColor(DesignSystem.Colors.error)
             
             VStack(spacing: DesignSystem.Spacing.sm) {
                 // Title
@@ -348,9 +381,9 @@ struct APIKeyRequiredView: View {
                     .foregroundColor(DesignSystem.Colors.tertiaryText)
             }
         }
-        .frame(maxWidth: 280)
-        .padding(DesignSystem.Spacing.xl)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: 400)  // Increased from 330
+        .padding(DesignSystem.Spacing.xs)
+//        .frame(maxHeight: .infinity)
     }
 }
 
@@ -358,5 +391,5 @@ struct APIKeyRequiredView: View {
 
 #Preview {
     ChatView(selectedDocument: nil)
-        .frame(width: 400, height: 600)
+        .frame(width: 480, height: 600)  // Increased from 400 to match new chat width
 }

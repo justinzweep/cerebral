@@ -38,15 +38,22 @@ struct HighlightedMessageText: View {
     }
     
     var body: some View {
-        Text(buildHighlightedAttributedString())
-            .font(DesignSystem.Typography.body)
-            .textSelection(.enabled)
-            .onTapGesture { location in
-                handleTap(at: location)
-            }
-            .onAppear {
-                loadReferencedDocuments()
-            }
+        ZStack {
+            // Background highlighting layer
+            Text(buildBackgroundHighlightString())
+                .font(DesignSystem.Typography.body)
+            
+            // Foreground text layer
+            Text(buildForegroundTextString())
+                .font(DesignSystem.Typography.body)
+                .textSelection(.enabled)
+        }
+        .onTapGesture { location in
+            handleTap(at: location)
+        }
+        .onAppear {
+            loadReferencedDocuments()
+        }
     }
     
     private func loadReferencedDocuments() {
@@ -57,10 +64,66 @@ struct HighlightedMessageText: View {
         }
     }
     
-    private func buildHighlightedAttributedString() -> AttributedString {
+    private func buildBackgroundHighlightString() -> AttributedString {
         var result = AttributedString(text)
         
-        // Apply default text color
+        // Make all text transparent for background layer
+        result.foregroundColor = Color.clear
+        
+        // Find and highlight @mentions using shared pattern
+        let pattern = DocumentReferenceResolver.documentReferencePattern
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return result
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        for match in matches {
+            let matchText = nsString.substring(with: match.range)
+            let documentName = DocumentReferenceResolver.extractDocumentName(from: matchText)
+            
+            // Find document and context
+            let document = findReferencedDocument(for: documentName)
+            
+            // Convert NSRange to AttributedString range
+            let utf16Range = match.range
+            let utf16Start = String.Index(utf16Offset: utf16Range.location, in: text)
+            let utf16End = String.Index(utf16Offset: utf16Range.location + utf16Range.length, in: text)
+            
+            if let attrStart = AttributedString.Index(utf16Start, within: result),
+               let attrEnd = AttributedString.Index(utf16End, within: result) {
+                let attributedRange = attrStart..<attrEnd
+                
+                if document != nil {
+                    // Valid reference - blue background only
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.15)
+                } else {
+                    // Invalid reference - red background only
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.error.opacity(0.15)
+                }
+                // Keep text transparent
+                result[attributedRange].foregroundColor = Color.clear
+            }
+        }
+        
+        return result
+    }
+    
+    private func buildForegroundTextString() -> AttributedString {
+        // First, try to parse as markdown
+        var result: AttributedString
+        
+        do {
+            // Parse markdown and create AttributedString
+            result = try AttributedString(markdown: text, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))
+        } catch {
+            // Fallback to plain text if markdown parsing fails
+            result = AttributedString(text)
+        }
+        
+        // Apply default text color to all text
         result.foregroundColor = DesignSystem.Colors.primaryText
         
         // Find and highlight @mentions using shared pattern
@@ -91,32 +154,20 @@ struct HighlightedMessageText: View {
                 let attributedRange = attrStart..<attrEnd
                 
                 if document != nil {
-                    // Valid reference - highlight with blue color (same as ChatInputView)
-                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.2)
+                    // Valid reference - blue text styling
                     result[attributedRange].foregroundColor = DesignSystem.Colors.accent
                     result[attributedRange].font = .system(size: DesignSystem.Typography.FontSize.body, weight: .medium)
                 } else {
-                    // Invalid reference - red highlight
-                    result[attributedRange].backgroundColor = Color.red.opacity(0.2)
-                    result[attributedRange].foregroundColor = Color.red
+                    // Invalid reference - red text styling  
+                    result[attributedRange].foregroundColor = DesignSystem.Colors.error
+                    result[attributedRange].font = .system(size: DesignSystem.Typography.FontSize.body, weight: .medium)
                 }
             }
         }
         
         return result
     }
-    
-    // private func getContextColor(for context: DocumentContext?) -> Color {
-    //     guard let context = context else { return Color.blue }
         
-    //     switch context.contextType {
-    //     case .fullDocument: return Color.blue
-    //     case .pageRange: return Color.purple
-    //     case .textSelection: return Color.orange
-    //     case .semanticChunk: return Color.green
-    //     }
-    // }
-    
     private func findReferencedDocument(for documentName: String) -> Document? {
         let foundInReferences = referencedDocuments.first { document in
             if document.title.lowercased() == documentName.lowercased() {
@@ -201,13 +252,18 @@ struct HighlightedMessageText: View {
 #Preview {
     VStack(spacing: DesignSystem.Spacing.md) {
         MessageView(message: ChatMessage(
-            text: "Hello, how can I help you with your documents today? I can analyze PDFs, answer questions about their content, and help you understand complex information.",
+            text: "Hello, how can I help you with your **documents** today? I can analyze PDFs, answer questions about their content, and help you understand *complex* information.",
             isUser: false
         ))
         
         MessageView(message: ChatMessage(
-            text: "Can you help me understand @document.pdf and also reference @research_paper.pdf in this longer message?",
+            text: "Can you help me understand @document.pdf and also reference @research_paper.pdf in this longer message with **bold text** and *italic text*?",
             isUser: true
+        ))
+        
+        MessageView(message: ChatMessage(
+            text: "Here are some `code examples` and **important points**:\n\n- First bullet point\n- Second bullet point with *emphasis*\n- Third point with @some_document.pdf reference",
+            isUser: false
         ))
         
         MessageView(message: ChatMessage(
@@ -217,16 +273,16 @@ struct HighlightedMessageText: View {
         ))
         
         MessageView(message: ChatMessage(
-            text: "Sure! I can definitely help you with that.",
+            text: "Sure! I can definitely help you with that. Here's what I found in @document.pdf:\n\n1. **Key finding**: Important data\n2. *Secondary point*: Additional context\n3. `Technical detail`: Specific implementation",
             isUser: false
         ), shouldGroup: false)
         
         MessageView(message: ChatMessage(
-            text: "What specific aspects would you like me to explain?",
+            text: "What **specific aspects** would you like me to explain?",
             isUser: false
         ), shouldGroup: true)
     }
     .padding()
-    .frame(width: 400)
+    .frame(width: 480)
     .background(DesignSystem.Colors.background)
 } 

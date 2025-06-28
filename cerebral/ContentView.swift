@@ -9,8 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var sidebarWidth: CGFloat = 280
-    @State private var chatWidth: CGFloat = 320
+    @State private var sidebarWidth: CGFloat = 300
+    @State private var chatWidth: CGFloat = 600
     @State private var appState = ServiceContainer.shared.appState
     @State private var errorManager = ServiceContainer.shared.errorManager
     @State private var keyboardService: KeyboardShortcutService?
@@ -20,7 +20,7 @@ struct ContentView: View {
     
     // Layout constraints
     private let sidebarWidthRange: ClosedRange<CGFloat> = 200...400
-    private let chatWidthRange: ClosedRange<CGFloat> = 250...500
+    private let chatWidthRange: ClosedRange<CGFloat> = 280...600
     private let centerMinWidth: CGFloat = 300
     
     var body: some View {
@@ -74,8 +74,8 @@ struct ContentView: View {
                         .id("chat-panel")
                 }
             }
-            .animation(.easeInOut(duration: 0.25), value: appState.showingSidebar)
-            .animation(.easeInOut(duration: 0.25), value: appState.showingChat)
+            .animation(DesignSystem.Animation.interface, value: appState.showingSidebar)
+            .animation(DesignSystem.Animation.interface, value: appState.showingChat)
             .onChange(of: appState.showingSidebar) { _, _ in
                 handlePanelToggle()
             }

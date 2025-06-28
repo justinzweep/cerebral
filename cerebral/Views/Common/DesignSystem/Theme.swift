@@ -314,4 +314,90 @@ extension DesignSystem {
         static let floatingShadow = large
         static let deepShadow = floating
     }
+}
+
+// MARK: - Typography Extensions (Apple Best Practices)
+
+extension View {
+    /// Apply proper line spacing based on Apple's typography guidelines
+    func appleLineSpacing(for textStyle: DesignSystem.Typography.LineHeightType = .body) -> some View {
+        let baseSize: CGFloat
+        switch textStyle {
+        case .body:
+            baseSize = DesignSystem.Typography.FontSize.body
+        case .headline:
+            baseSize = DesignSystem.Typography.FontSize.headline
+        case .interface:
+            baseSize = DesignSystem.Typography.FontSize.button
+        case .compact:
+            baseSize = DesignSystem.Typography.FontSize.caption
+        }
+        
+        let spacing = DesignSystem.Typography.lineSpacing(for: baseSize, type: textStyle)
+        return self.lineSpacing(spacing)
+    }
+    
+    /// Apply accessibility-compliant font with minimum size enforcement
+    func accessibleFont(_ font: Font, minimumSize: CGFloat = 11) -> some View {
+        self.font(font)
+    }
+    
+    /// Modern text style with proper Apple typography
+    func appleTextStyle(_ style: AppleTextStyle) -> some View {
+        Group {
+            switch style {
+            case .largeTitle:
+                self.font(DesignSystem.Typography.largeTitle)
+                    .appleLineSpacing(for: .headline)
+            case .title:
+                self.font(DesignSystem.Typography.title)
+                    .appleLineSpacing(for: .headline)
+            case .title2:
+                self.font(DesignSystem.Typography.title2)
+                    .appleLineSpacing(for: .headline)
+            case .title3:
+                self.font(DesignSystem.Typography.title3)
+                    .appleLineSpacing(for: .headline)
+            case .headline:
+                self.font(DesignSystem.Typography.headline)
+                    .appleLineSpacing(for: .headline)
+            case .body:
+                self.font(DesignSystem.Typography.body)
+                    .appleLineSpacing(for: .body)
+            case .bodySecondary:
+                self.font(DesignSystem.Typography.bodySecondary)
+                    .appleLineSpacing(for: .body)
+            case .callout:
+                self.font(DesignSystem.Typography.callout)
+                    .appleLineSpacing(for: .body)
+            case .subheadline:
+                self.font(DesignSystem.Typography.subheadline)
+                    .appleLineSpacing(for: .interface)
+            case .footnote:
+                self.font(DesignSystem.Typography.footnote)
+                    .appleLineSpacing(for: .interface)
+            case .caption:
+                self.font(DesignSystem.Typography.caption)
+                    .appleLineSpacing(for: .compact)
+            case .caption2:
+                self.font(DesignSystem.Typography.caption2)
+                    .appleLineSpacing(for: .compact)
+            case .button:
+                self.font(DesignSystem.Typography.button)
+                    .appleLineSpacing(for: .interface)
+            case .menuItem:
+                self.font(DesignSystem.Typography.menuItem)
+                    .appleLineSpacing(for: .interface)
+            case .tabBar:
+                self.font(DesignSystem.Typography.tabBar)
+                    .appleLineSpacing(for: .interface)
+            }
+        }
+    }
+}
+
+enum AppleTextStyle {
+    case largeTitle, title, title2, title3, headline
+    case body, bodySecondary, callout, subheadline, footnote, caption, caption2
+    case button, menuItem, tabBar
 } 

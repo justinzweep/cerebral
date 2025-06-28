@@ -36,7 +36,7 @@ struct DocumentRowView: View {
                 ServiceContainer.shared.appState.addDocumentToChat(document)
             } label: {
                 Image(systemName: "plus.message")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(DesignSystem.Typography.footnote)
                     .foregroundColor(DesignSystem.Colors.tertiaryText)
             }
             .buttonStyle(.plain)

@@ -65,6 +65,7 @@ struct ChatInputView: View {
                 attachedDocuments: attachedDocuments,
                 onRemoveDocument: onRemoveDocument
             )
+            .frame(maxWidth: 400)
             
             // Input container with integrated send button
             HStack(spacing: 0) {
@@ -103,13 +104,19 @@ struct ChatInputView: View {
                         isStreaming: isStreaming,
                         onSend: handleSendMessage // NEW: Enhanced send handling
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, DesignSystem.Spacing.sm)
                 }
             }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, DesignSystem.Spacing.md)
+            .shadow(
+                color: DesignSystem.Shadows.subtle,
+                radius: DesignSystem.Shadows.large.radius,
+                x: DesignSystem.Shadows.large.x,
+                y: DesignSystem.Shadows.large.y
+            )
             .overlay(alignment: .topLeading) {
-                // Autocomplete dropdown overlay - completely independent of input layout
+                // Autocomplete dropdown overlay - positioned relative to input
                 if showingAutocomplete && !autocompleteDocuments.isEmpty {
                     AutocompleteDropdown(
                         documents: autocompleteDocuments,
@@ -118,32 +125,41 @@ struct ChatInputView: View {
                             insertDocumentReference(document)
                         }
                     )
+                    .offset(
+                        x: DesignSystem.Spacing.md, // Align with text input padding
+                        y: showAutocompleteAbove 
+                            ? -(CGFloat(min(autocompleteDocuments.count, 5)) * 44 + DesignSystem.Spacing.md + DesignSystem.Spacing.sm) 
+                            : (minHeight + DesignSystem.Spacing.xs)
+                    )
+                    .zIndex(1000)
                     .background(
                         GeometryReader { geometry in
                             Color.clear
                                 .onAppear {
-                                    // Calculate optimal position based on screen space
-                                    let dropdownHeight: CGFloat = CGFloat(min(autocompleteDocuments.count, 5)) * 40 + 16
-                                    let globalFrame = geometry.frame(in: .global)
-                                    let screenHeight = NSScreen.main?.frame.height ?? 800
-                                    let spaceBelow = screenHeight - globalFrame.minY - 50
+                                    // Calculate actual dropdown height
+                                    let itemHeight: CGFloat = 44 + DesignSystem.Spacing.xxxs
+                                    let containerPadding = DesignSystem.Spacing.xs * 2
+                                    let shadowPadding: CGFloat = 12 // Account for shadow
+                                    let actualItemCount = min(autocompleteDocuments.count, 5)
+                                    let dropdownHeight = CGFloat(actualItemCount) * itemHeight + containerPadding + shadowPadding
                                     
-                                    showAutocompleteAbove = spaceBelow < dropdownHeight
+                                    // Get input field position in global coordinates
+                                    let globalFrame = geometry.frame(in: .global)
+                                    let screenHeight = NSScreen.main?.frame.height ?? 1000
+                                    let spaceBelow = screenHeight - globalFrame.maxY - 20 // Buffer for safety
+                                    
+                                    // Show above only if genuinely not enough space below
+                                    showAutocompleteAbove = spaceBelow < dropdownHeight && globalFrame.minY > dropdownHeight
                                 }
                         }
                     )
-                    .offset(
-                        x: 16,
-                        y: showAutocompleteAbove ? -(CGFloat(min(autocompleteDocuments.count, 5)) * 40 + 24) : (minHeight + 8)
-                    )
-                    .zIndex(1000)
                 }
             }
         }
 
-        .animation(.easeInOut(duration: 0.2), value: attachedDocuments.count)
-        .animation(.easeInOut(duration: 0.15), value: showingAutocomplete)
-        .animation(.easeInOut(duration: 0.2), value: appState.showPDFSelectionPills) // Watch for pill visibility, not count
+        .animation(DesignSystem.Animation.quick, value: attachedDocuments.count)
+        .animation(DesignSystem.Animation.micro, value: showingAutocomplete)
+        .animation(DesignSystem.Animation.quick, value: appState.showPDFSelectionPills) // Watch for pill visibility, not count
         // NEW: Observe focus trigger
         .onChange(of: appState.shouldFocusChatInput) { _, shouldFocus in
             if shouldFocus {
@@ -326,46 +342,71 @@ struct AutocompleteDropdown: View {
     let selectedIndex: Int
     let onSelect: (Document) -> Void
     
+    @State private var hoveredIndex: Int? = nil
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
             ForEach(Array(documents.enumerated()), id: \.element.id) { index, document in
                 Button(action: {
                     onSelect(document)
                 }) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
                         Image(systemName: "doc.text")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.accent)
-                            .frame(width: 16)
+                            .frame(width: 16, height: 16)
                         
                         Text(document.title)
-                            .font(.system(size: 14))
-                            .foregroundColor(DesignSystem.Colors.primaryText)
+                            .font(DesignSystem.Typography.body)
+                            .foregroundColor(
+                                index == selectedIndex 
+                                    ? DesignSystem.Colors.accent 
+                                    : DesignSystem.Colors.primaryText
+                            )
+                            .fontWeight(index == selectedIndex ? .medium : .regular)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         
-                        Spacer()
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                    .frame(minHeight: 44) // Apple's minimum touch target
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(index == selectedIndex ? DesignSystem.Colors.accent.opacity(0.1) : Color.clear)
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                            .fill(
+                                index == selectedIndex 
+                                    ? DesignSystem.Colors.selectedBackground
+                                    : (hoveredIndex == index ? DesignSystem.Colors.hoverBackground : Color.clear)
+                            )
                     )
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle()) // Ensure entire area is tappable
+                .onHover { isHovered in
+                    hoveredIndex = isHovered ? index : nil
+                }
             }
         }
+        .padding(DesignSystem.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(DesignSystem.Colors.background)
-                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                .fill(DesignSystem.Colors.cardBackground)
+                .shadow(
+                    color: DesignSystem.Shadows.medium,
+                    radius: DesignSystem.Shadows.large.radius,
+                    x: DesignSystem.Shadows.large.x,
+                    y: DesignSystem.Shadows.large.y
+                )
         )
-        .frame(maxWidth: 300)
+        .frame(maxWidth: 320)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(DesignSystem.Colors.border.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                .stroke(DesignSystem.Colors.border, lineWidth: 0.5)
         )
+        .opacity(1.0)
+        .scaleEffect(1.0)
+        .animation(DesignSystem.Animation.quick, value: documents.count)
     }
 }
 
@@ -376,13 +417,13 @@ struct HighlightOverlay: View {
     
     var body: some View {
         Text(buildHighlightedAttributedString())
-            .font(.system(size: 16))
+                            .font(DesignSystem.Typography.body)
     }
     
     private func buildHighlightedAttributedString() -> AttributedString {
         var result = AttributedString(text)
         
-        // Make ALL text completely transparent - no foreground text at all
+        // Make ALL text completely transparent so underlying text input shows through
         result.foregroundColor = Color.clear
         
         // Find and highlight @mentions using shared pattern
@@ -412,15 +453,21 @@ struct HighlightOverlay: View {
                let attrEnd = AttributedString.Index(utf16End, within: result) {
                 let attributedRange = attrStart..<attrEnd
                 
-                // Only add background color, keep text transparent
+                // Apply highlighting with same colors as MessageComponents
+                // Background color is visible, foreground text remains transparent (shows underlying input)
                 if documentExists {
-                    // Valid reference - blue background only
-                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.2)
+                    // Valid reference - blue background (matches HighlightedMessageText exactly)
+                    result[attributedRange].foregroundColor = DesignSystem.Colors.accent
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.15)
+                    result[attributedRange].font = .system(size: DesignSystem.Typography.FontSize.body, weight: .medium)
                 } else {
-                    // Invalid reference - red background only
-                    result[attributedRange].backgroundColor = DesignSystem.Colors.accent.opacity(0.2)
+                    // Invalid reference - red background (matches HighlightedMessageText exactly) 
+                    result[attributedRange].foregroundColor = DesignSystem.Colors.error
+                    result[attributedRange].font = .system(size: DesignSystem.Typography.FontSize.body, weight: .medium)
+                    result[attributedRange].backgroundColor = DesignSystem.Colors.error.opacity(0.15)
+
                 }
-                // Keep foregroundColor transparent - no text rendering
+                // Keep foreground transparent so underlying text field text is visible
                 result[attributedRange].foregroundColor = Color.clear
             }
         }
@@ -432,26 +479,43 @@ struct HighlightOverlay: View {
 
 
 #Preview {
-    @Previewable @State var inputText = "Hello @document.pdf"
-    
-    return VStack {
-        Spacer()
-        
+    VStack(spacing: 20) {
         ChatInputView(
-            text: $inputText,
+            text: .constant(""),
             isLoading: false,
-            isStreaming: false,
+            attachedDocuments: []
+        ) {
+            print("Send tapped")
+        } onRemoveDocument: { _ in
+            print("Remove document")
+        }
+        ChatInputView(
+            text: .constant("This is a longer message to test the multiline behavior and how it looks when the user types more content than fits on a single line."),
+            isLoading: false,
             attachedDocuments: [
-                Document(title: "Sample Document.pdf", filePath: URL(fileURLWithPath: "/path/to/document.pdf")),
-                Document(title: "Research Paper.pdf", filePath: URL(fileURLWithPath: "/path/to/research.pdf"))
+                Document(
+                    title: "Sample Document.pdf", filePath: URL(fileURLWithPath: "/Users/user/Documents/sample.pdf")
+                )
             ]
         ) {
-            print("Send message")
-        } onRemoveDocument: { document in
-            print("Remove document: \(document.title)")
+            print("Send tapped")
+        } onRemoveDocument: { _ in
+            print("Remove document")
         }
+
+        ChatInputView(
+            text: .constant("Loading state example..."),
+            isLoading: true,
+            attachedDocuments: []
+        ) {
+            print("Send tapped")
+        } onRemoveDocument: { _ in
+            print("Remove document")
+        }
+        
+        Spacer()
     }
-    .frame(width: 600, height: 400)
-    .background(Color(NSColor.windowBackgroundColor))
+    .padding()
+    .frame(width: 480, height: 400)  // Increased width from 600 to 480 to match chat panel
 }
 

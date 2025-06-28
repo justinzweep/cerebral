@@ -17,7 +17,7 @@ struct UserMessage: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
             HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                Spacer(minLength: DesignSystem.Spacing.xxl)
+                Spacer(minLength: DesignSystem.Spacing.lg)
                 
                 // User message with inline clickable @mentions
                 HighlightedMessageText(
@@ -36,9 +36,9 @@ struct UserMessage: View {
             // Context indicator
             if message.hasContext {
                 HStack {
-                    Spacer(minLength: DesignSystem.Spacing.xxl)
+                    Spacer(minLength: DesignSystem.Spacing.lg)
                     MessageContextIndicator(contexts: message.contexts)
-                        .frame(maxWidth: 300)
+                        .frame(maxWidth: 400)
                 }
             }
         }
@@ -60,11 +60,11 @@ struct AIMessage: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-            HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+            HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
                 // AI message with streaming support
                 HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
                     // Streaming text with waiting animation
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                         if message.isStreaming && displayedText.isEmpty {
                             StreamingWaitingAnimation()
                         } else {
@@ -115,19 +115,14 @@ struct AIMessage: View {
                 .contextMenu {
                     MessageContextMenu(message: message)
                     
-                    Divider()
-                    
-                    Button("Regenerate Response") {
-                        // TODO: Implement regenerate functionality
-                    }
+    
                 }
                 
-                Spacer(minLength: DesignSystem.Spacing.xxl)
+                Spacer(minLength: DesignSystem.Spacing.lg)
             }
             
-            // Context indicator removed from AI messages - only show in user messages
         }
-        .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
+        .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xxxs)
     }
     
     @ViewBuilder
@@ -213,6 +208,6 @@ struct StreamingWaitingAnimation: View {
             shouldGroup: true
         )
     }
-    .frame(width: 400)
+    .frame(width: 480)
     .padding()
 } 

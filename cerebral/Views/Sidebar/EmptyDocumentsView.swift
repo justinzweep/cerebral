@@ -13,7 +13,7 @@ struct EmptyDocumentsView: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "doc.text")
-                .font(.system(size: 48))
+                .font(DesignSystem.Typography.largeTitle)
                 .foregroundColor(DesignSystem.Colors.tertiaryText)
             
             VStack(spacing: DesignSystem.Spacing.sm) {

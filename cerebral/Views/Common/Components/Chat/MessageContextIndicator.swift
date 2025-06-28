@@ -14,167 +14,177 @@ struct MessageContextIndicator: View {
     
     var body: some View {
         if !contexts.isEmpty && settingsManager.showContextIndicators {
-            VStack(alignment: .leading, spacing: 4) {
-                // Summary view
-                HStack(spacing: 6) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(contextSummary)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() } }) {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                // Clean summary header like @ mentions
+                Button(action: toggleExpansion) {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
+                        // Context icon
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(DesignSystem.Colors.accent)
+                        
+                        // Context summary
+                        Text(contextSummary)
+                            .appleTextStyle(.caption2)
+                            .foregroundColor(DesignSystem.Colors.secondaryText)
+                        
+                        Spacer()
+                        
+                        // Simple chevron
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(DesignSystem.Colors.tertiaryText)
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .buttonStyle(.plain)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                        .fill(DesignSystem.Colors.tertiaryBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                                .strokeBorder(DesignSystem.Colors.borderSecondary, lineWidth: 0.5)
+                        )
                 )
                 
-                // Expanded details
+                // Expanded details - simple fade in/out
                 if isExpanded {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(groupedContexts.sorted(by: { $0.key < $1.key }), id: \.key) { documentTitle, docContexts in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(documentTitle)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                
-                                ForEach(docContexts) { context in
-                                    ContextDetailRow(context: context)
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            )
+                    LazyVStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                        ForEach(contexts) { context in
+                            ContextRow(context: context)
                         }
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .padding(.top, DesignSystem.Spacing.xs)
                 }
             }
+        }
+    }
+    
+    private func toggleExpansion() {
+        withAnimation(DesignSystem.Animation.quick) {
+            isExpanded.toggle()
         }
     }
     
     private var contextSummary: String {
         let docCount = Set(contexts.map { $0.documentId }).count
         let tokenCount = contexts.reduce(0) { $0 + $1.metadata.tokenCount }
-        let formattedTokenCount = tokenCount > 1000 ? "\(tokenCount / 1000)k" : "\(tokenCount)"
+        let formattedTokenCount = formatTokenCount(tokenCount)
         
-        if docCount == 1 {
-            return "\(docCount) document, ~\(formattedTokenCount) tokens"
-        } else {
-            return "\(docCount) documents, ~\(formattedTokenCount) tokens"
-        }
+        let docText = docCount == 1 ? "document" : "documents"
+        return "\(docCount) \(docText) • \(formattedTokenCount) tokens"
     }
     
-    private var groupedContexts: [String: [DocumentContext]] {
-        Dictionary(grouping: contexts, by: { $0.documentTitle })
+    private func formatTokenCount(_ count: Int) -> String {
+        if count >= 1000000 {
+            return String(format: "%.1fM", Double(count) / 1000000.0)
+        } else if count >= 1000 {
+            return String(format: "%.1fK", Double(count) / 1000.0)
+        } else {
+            return "\(count)"
+        }
     }
 }
 
-struct ContextDetailRow: View {
+struct ContextRow: View {
     let context: DocumentContext
     @State private var isHovered = false
     
     var body: some View {
         Button(action: openDocument) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: contextTypeIcon)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .frame(width: 16)
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                // Context type dot
+                Circle()
+                    .fill(contextColor)
+                    .frame(width: 6, height: 6)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(context.contextType.displayName)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    
-                    if let pageNumbers = context.metadata.pageNumbers, !pageNumbers.isEmpty {
-                        Text(pageDescription(pageNumbers))
-                            .font(.caption2)
-                            .foregroundColor(.secondary.opacity(0.7))
+                    // Document name and type
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Text(context.documentTitle)
+                            .appleTextStyle(.caption2)
+                            .foregroundColor(DesignSystem.Colors.primaryText)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                        
+                        Text("•")
+                            .appleTextStyle(.caption2)
+                            .foregroundColor(DesignSystem.Colors.tertiaryText)
+                        
+                        Text(contextTypeName)
+                            .appleTextStyle(.caption2)
+                            .foregroundColor(DesignSystem.Colors.tertiaryText)
+                        
+                        if let pageNumbers = context.metadata.pageNumbers, !pageNumbers.isEmpty {
+                            Text("•")
+                                .appleTextStyle(.caption2)
+                                .foregroundColor(DesignSystem.Colors.tertiaryText)
+                            
+                            Text(pageDescription(pageNumbers))
+                                .appleTextStyle(.caption2)
+                                .foregroundColor(DesignSystem.Colors.tertiaryText)
+                        }
+                        
+                        Spacer()
+                        
+                        // Token count
+                        Text("\(context.metadata.tokenCount)")
+                            .appleTextStyle(.caption2)
+                            .foregroundColor(DesignSystem.Colors.tertiaryText)
+                            .padding(.horizontal, DesignSystem.Spacing.xs)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule()
+                                    .fill(DesignSystem.Colors.tertiaryBackground)
+                            )
                     }
                     
-                    // Show text preview for text selections
+                    // Text preview for selections
                     if context.contextType == .textSelection && !context.content.isEmpty {
-                        Text("\"\(context.content.prefix(60))...\"")
-                            .font(.caption2)
-                            .foregroundColor(.secondary.opacity(0.8))
+                        Text("\"\(context.content.prefix(80))...\"")
+                            .appleTextStyle(.caption2)
+                            .foregroundColor(DesignSystem.Colors.tertiaryText)
                             .italic()
                             .lineLimit(2)
                     }
-                    
-                    Text("\(context.metadata.tokenCount) tokens")
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.7))
                 }
                 
                 Spacer()
             }
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(isHovered ? Color.secondary.opacity(0.1) : Color.clear)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xs)
+                .fill(isHovered ? DesignSystem.Colors.hoverBackground : Color.clear)
         )
-        .scaleEffect(isHovered ? 1.02 : 1.0)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(DesignSystem.Animation.micro) {
                 isHovered = hovering
             }
         }
-        .help(context.contextType == .textSelection ? 
-              "Click to navigate to the selected text in \(context.documentTitle)" : 
-              "Click to open \(context.documentTitle)")
+        .help("Open \(context.documentTitle)")
     }
     
     private func openDocument() {
-        // Find the document by ID
         guard let document = ServiceContainer.shared.documentService.findDocument(byId: context.documentId) else {
-            print("❌ Document not found for context: \(context.documentTitle)")
             return
         }
         
-        print("🔍 Opening document from context detail: '\(document.title)' (ID: \(document.id))")
-        
-        // Open the document in the PDF viewer
         ServiceContainer.shared.appState.selectDocument(document)
         
-        // Navigate to the specific context location
-        navigateToContext(context: context)
-        
-        print("📤 Updated AppState with selected document from context detail")
-    }
-    
-    private func navigateToContext(context: DocumentContext) {
-        print("🎯 Navigating to context: \(context.contextType.displayName)")
-        
-        // Schedule navigation after PDF loads
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Navigate to context location
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if let pageNumbers = context.metadata.pageNumbers, let firstPage = pageNumbers.first {
-                print("📄 Navigating to page \(firstPage) from context detail")
                 ServiceContainer.shared.appState.navigateToPDFPage(firstPage)
                 
-                // For text selections, try to navigate to the exact bounds within the page
                 if context.contextType == .textSelection,
                    let selectionBounds = context.metadata.selectionBounds,
                    !selectionBounds.isEmpty {
-                    
-                    // Wait a bit more for page navigation to complete, then scroll to selection bounds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         ServiceContainer.shared.appState.navigateToSelectionBounds(
                             bounds: selectionBounds,
                             onPage: firstPage
@@ -185,12 +195,21 @@ struct ContextDetailRow: View {
         }
     }
     
-    private var contextTypeIcon: String {
+    private var contextColor: Color {
         switch context.contextType {
-        case .fullDocument: return "doc.fill"
-        case .pageRange: return "doc.on.doc"
-        case .textSelection: return "text.viewfinder"
-        case .semanticChunk: return "brain"
+        case .fullDocument: return DesignSystem.Colors.accent
+        case .pageRange: return DesignSystem.Colors.secondaryAccent
+        case .textSelection: return DesignSystem.Colors.success
+        case .semanticChunk: return DesignSystem.Colors.warning
+        }
+    }
+    
+    private var contextTypeName: String {
+        switch context.contextType {
+        case .fullDocument: return "Full document"
+        case .pageRange: return "Page range"
+        case .textSelection: return "Text selection"
+        case .semanticChunk: return "Section"
         }
     }
     
@@ -207,33 +226,59 @@ struct ContextDetailRow: View {
 
 #Preview {
     VStack(spacing: 20) {
+        // Single document context
         MessageContextIndicator(contexts: [
             DocumentContext(
                 documentId: UUID(),
-                documentTitle: "Research Paper.pdf",
+                documentTitle: "Machine Learning Research.pdf",
                 contextType: .fullDocument,
-                content: "Sample content",
+                content: "Sample content from the document about machine learning algorithms...",
                 metadata: ContextMetadata(
-                    pageNumbers: [1, 2, 3, 4, 5],
-                    extractionMethod: "PDFKit",
-                    tokenCount: 5432,
+                    pageNumbers: [1, 2, 3],
+                    selectionBounds: [],
+                    characterRange: nil,
+                    extractionMethod: "full",
+                    tokenCount: 1500,
                     checksum: "abc123"
+                )
+            )
+        ])
+        
+        // Multiple documents context
+        MessageContextIndicator(contexts: [
+            DocumentContext(
+                documentId: UUID(),
+                documentTitle: "Neural Networks.pdf",
+                contextType: .textSelection,
+                content: "Selected text from neural networks document discussing backpropagation algorithms",
+                metadata: ContextMetadata(
+                    pageNumbers: [5],
+                    selectionBounds: [],
+                    characterRange: NSRange(location: 100, length: 50),
+                    extractionMethod: "user_selection",
+                    tokenCount: 250,
+                    checksum: "def456"
                 )
             ),
             DocumentContext(
                 documentId: UUID(),
-                documentTitle: "Meeting Notes.pdf",
-                contextType: .textSelection,
-                content: "Selected text",
+                documentTitle: "Conference Proceedings.pdf",
+                contextType: .pageRange,
+                content: "Content from pages covering recent advances",
                 metadata: ContextMetadata(
-                    pageNumbers: [2],
-                    extractionMethod: "PDFKit",
-                    tokenCount: 234,
-                    checksum: "def456"
+                    pageNumbers: [2, 3, 4],
+                    selectionBounds: [],
+                    characterRange: nil,
+                    extractionMethod: "page_range",
+                    tokenCount: 800,
+                    checksum: "ghi789"
                 )
             )
         ])
-        .frame(width: 400)
-        .padding()
+        
+        Spacer()
     }
+    .padding()
+    .frame(width: 500)
+    .background(DesignSystem.Colors.background)
 } 

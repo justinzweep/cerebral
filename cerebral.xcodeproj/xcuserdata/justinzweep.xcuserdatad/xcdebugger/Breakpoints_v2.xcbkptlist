@@ -16,7 +16,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "253"
             endingLineNumber = "253"
-            landmarkName = "extractSelectionBounds(from:)"
+            landmarkName = "findDocumentModel(for:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

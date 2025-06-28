@@ -32,7 +32,7 @@ struct ErrorAlert: View {
             HStack(spacing: DesignSystem.Spacing.sm) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(DesignSystem.Colors.error)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(DesignSystem.Typography.title3)
                 
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text("Error")
