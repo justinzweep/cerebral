@@ -47,7 +47,7 @@ import Foundation
         explicitContexts: [DocumentContext] = []
     ) async {
         // Validate API key
-        guard settingsManager.isAPIKeyValid else {
+        guard !settingsManager.apiKey.isEmpty && settingsManager.validateAPIKey(settingsManager.apiKey) else {
             let errorMessage = ChatMessage(
                 text: "Please configure your Claude API key in Settings to use the chat feature.",
                 isUser: false,
@@ -226,22 +226,6 @@ import Foundation
             !message.text.contains("Request failed") &&
             !message.text.contains("Failed to process message")
         }
-    }
-    
-    func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {
-        guard settingsManager.isAPIKeyValid else {
-            hasConnectionError = true
-            return false
-        }
-        
-        let isValid = await streamingService.validateAPIConnection(settingsManager: settingsManager)
-        hasConnectionError = !isValid
-        
-        if !isValid {
-            lastError = "Failed to connect to Claude API"
-        }
-        
-        return isValid
     }
     
     // MARK: - Private Helpers

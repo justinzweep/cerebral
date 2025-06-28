@@ -14,7 +14,6 @@ final class SettingsManager: SettingsServiceProtocol {
     static let shared = SettingsManager()
     
     var apiKey: String = ""
-    var isAPIKeyValid: Bool = false
     var lastError: String?
     
     private let keychainService = KeychainService.shared
@@ -62,7 +61,6 @@ final class SettingsManager: SettingsServiceProtocol {
         do {
             if let key = try keychainService.getAPIKey() {
                 apiKey = key
-                isAPIKeyValid = validateAPIKey(key)
             }
         } catch let error as KeychainError {
             print("Error loading API key: \(error)")
@@ -81,7 +79,6 @@ final class SettingsManager: SettingsServiceProtocol {
         do {
             try keychainService.saveAPIKey(key)
             apiKey = key
-            isAPIKeyValid = true
             lastError = nil
         } catch let error as KeychainError {
             let settingsError = SettingsError.keychainAccessFailed(error.localizedDescription)
@@ -98,7 +95,6 @@ final class SettingsManager: SettingsServiceProtocol {
         do {
             try keychainService.deleteAPIKey()
             apiKey = ""
-            isAPIKeyValid = false
             lastError = nil
         } catch let error as KeychainError {
             let settingsError = SettingsError.keychainAccessFailed(error.localizedDescription)
@@ -109,13 +105,6 @@ final class SettingsManager: SettingsServiceProtocol {
             lastError = settingsError.localizedDescription
             throw settingsError
         }
-    }
-    
-    func validateSettings() async -> Bool {
-        guard isAPIKeyValid else { return false }
-        
-        // Could add additional validation here like testing API connection
-        return true
     }
     
     func validateAPIKey(_ key: String) -> Bool {

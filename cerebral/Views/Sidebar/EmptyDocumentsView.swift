@@ -12,25 +12,25 @@ struct EmptyDocumentsView: View {
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "doc.text")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.tertiaryText)
+            // Image(systemName: "doc.text")
+            //     .font(DesignSystem.Typography.largeTitle)
+            //     .foregroundColor(DesignSystem.Colors.tertiaryText)
             
-            VStack(spacing: DesignSystem.Spacing.sm) {
-                Text("No Documents")
-                    .font(DesignSystem.Typography.headline)
-                    .foregroundColor(DesignSystem.Colors.primaryText)
+            // VStack(spacing: DesignSystem.Spacing.sm) {
+            //     Text("No Documents")
+            //         .font(DesignSystem.Typography.headline)
+            //         .foregroundColor(DesignSystem.Colors.primaryText)
                 
-                Text("Import your first PDF to get started")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.secondaryText)
-                    .multilineTextAlignment(.center)
-            }
+            //     Text("Import your first PDF to get started")
+            //         .font(DesignSystem.Typography.body)
+            //         .foregroundColor(DesignSystem.Colors.secondaryText)
+            //         .multilineTextAlignment(.center)
+            // }
             
-            Button("Import PDF") {
-                showingImporter = true
-            }
-            .buttonStyle(PrimaryButtonStyle())
+            // Button("Import PDF") {
+            //     showingImporter = true
+            // }
+            // .buttonStyle(PrimaryButtonStyle())
         }
         .padding(DesignSystem.Spacing.xl)
         .frame(maxWidth: .infinity)

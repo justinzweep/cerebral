@@ -30,7 +30,7 @@ struct ChatView: View {
                 }
             )
             
-            if settingsManager.isAPIKeyValid {
+            if !settingsManager.apiKey.isEmpty && settingsManager.validateAPIKey(settingsManager.apiKey) {
                 // Chat Messages Area with floating input
                 ZStack(alignment: .bottom) {
                     // Messages area that extends full height
@@ -103,7 +103,7 @@ struct ChatView: View {
                                 }
                             }
                         )
-                        .disabled(!settingsManager.isAPIKeyValid)
+                        .disabled(!(!settingsManager.apiKey.isEmpty && settingsManager.validateAPIKey(settingsManager.apiKey)))
                     }
                 }
                 
@@ -125,10 +125,8 @@ struct ChatView: View {
             }
         }
         .onAppear {
-            if settingsManager.isAPIKeyValid {
-                Task {
-                    _ = await chatManager.validateAPIConnection(settingsManager: settingsManager)
-                }
+            if !settingsManager.apiKey.isEmpty && settingsManager.validateAPIKey(settingsManager.apiKey) {
+                // API key is configured and valid format, ready to use
             }
         }
     }

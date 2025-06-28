@@ -13,7 +13,6 @@ import AppKit
 
 protocol ChatServiceProtocol {
     func sendStreamingMessage(_ text: String, context: [Document], conversationHistory: [ChatMessage]) -> AsyncThrowingStream<StreamingResponse, Error>
-    func validateConnection() async throws -> Bool
 }
 
 // MARK: - PDF Service Protocol
@@ -45,8 +44,6 @@ protocol DocumentServiceProtocol {
 @MainActor
 protocol SettingsServiceProtocol {
     var apiKey: String { get set }
-    var isAPIKeyValid: Bool { get }
-    func validateSettings() async -> Bool
     func saveAPIKey(_ key: String) throws
     func deleteAPIKey() throws
     func loadAPIKey()
@@ -65,9 +62,6 @@ protocol StreamingChatServiceProtocol {
     ) async
     
     func cancelCurrentStreaming()
-    
-    @MainActor
-    func validateAPIConnection(settingsManager: SettingsManager) async -> Bool
 }
 
 // MARK: - Document Reference Service Protocol

@@ -10,6 +10,10 @@ import SwiftUI
 struct DocumentRowView: View {
     let document: Document
     @State private var isHovered = false
+    @State private var showingEditTitle = false
+    @State private var showingDeleteConfirmation = false
+    @State private var editedTitle = ""
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
@@ -60,6 +64,73 @@ struct DocumentRowView: View {
             }
         }
         .contentShape(Rectangle())
+        .contextMenu {
+            Button {
+                editedTitle = document.title
+                showingEditTitle = true
+            } label: {
+                Label("Edit Title", systemImage: "pencil")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .alert("Edit Title", isPresented: $showingEditTitle) {
+            TextField("Document Title", text: $editedTitle)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                saveTitle()
+            }
+            .disabled(editedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        } message: {
+            Text("Enter a new title for this document")
+        }
+        .alert("Delete Document", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteDocument()
+            }
+        } message: {
+            Text("Are you sure you want to delete \"\(document.title)\"? This action cannot be undone.")
+        }
+    }
+    
+    private func saveTitle() {
+        let trimmedTitle = editedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+        
+        document.title = trimmedTitle
+        
+        do {
+            try modelContext.save()
+        } catch {
+            ServiceContainer.shared.errorManager.handle(error, context: "document_title_update")
+        }
+    }
+    
+    private func deleteDocument() {
+        // Delete the physical file first
+        do {
+            if FileManager.default.fileExists(atPath: document.filePath.path) {
+                try FileManager.default.removeItem(at: document.filePath)
+            }
+        } catch {
+            ServiceContainer.shared.errorManager.handle(error, context: "document_file_deletion")
+        }
+        
+        // Delete from SwiftData
+        modelContext.delete(document)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            ServiceContainer.shared.errorManager.handle(error, context: "document_model_deletion")
+        }
     }
     
     private func relativeDateString(from date: Date) -> String {

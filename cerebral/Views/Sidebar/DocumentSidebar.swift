@@ -38,7 +38,7 @@ struct DocumentSidebarContent: View {
                 Button {
                     showingImporter = true
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "doc.badge.plus")
                         .font(DesignSystem.Typography.callout)
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
@@ -73,6 +73,13 @@ struct DocumentSidebarContent: View {
                 .padding(.bottom, DesignSystem.Spacing.lg)
             }
             .scrollIndicators(.never)
+        }
+        .onChange(of: documents) {
+            // Clear selection if the selected document no longer exists
+            if let currentSelection = selectedDocument,
+               !documents.contains(where: { $0.id == currentSelection.id }) {
+                selectedDocument = nil
+            }
         }
         .fileImporter(
             isPresented: $showingImporter,
@@ -126,9 +133,9 @@ struct DocumentSidebarContent: View {
             modelContext.insert(document)
             
             try modelContext.save()
-                                } catch {
-                            ServiceContainer.shared.errorManager.handle(error, context: "document_import_single")
-                        }
+        } catch {
+            ServiceContainer.shared.errorManager.handle(error, context: "document_import_single")
+        }
     }
 }
 
@@ -139,72 +146,32 @@ struct EmptyDocumentListView: View {
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            Image(systemName: "doc.text")
-                .font(DesignSystem.Typography.largeTitle)
-                .foregroundColor(DesignSystem.Colors.tertiaryText)
+            // Image(systemName: "doc.text")
+            //     .font(DesignSystem.Typography.largeTitle)
+            //     .foregroundColor(DesignSystem.Colors.tertiaryText)
             
-            VStack(spacing: DesignSystem.Spacing.sm) {
-                Text("No Documents")
-                    .font(DesignSystem.Typography.headline)
-                    .foregroundColor(DesignSystem.Colors.primaryText)
+            // VStack(spacing: DesignSystem.Spacing.sm) {
+            //     Text("No Documents")
+            //         .font(DesignSystem.Typography.headline)
+            //         .foregroundColor(DesignSystem.Colors.primaryText)
                 
-                Text("Import your first PDF to get started")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.secondaryText)
-                    .multilineTextAlignment(.center)
-            }
+            //     Text("Import your first PDF to get started")
+            //         .font(DesignSystem.Typography.body)
+            //         .foregroundColor(DesignSystem.Colors.secondaryText)
+            //         .multilineTextAlignment(.center)
+            // }
             
-            Button("Import PDF") {
-                showingImporter = true
-            }
-            .buttonStyle(PrimaryButtonStyle())
+            // Button("Import PDF") {
+            //     showingImporter = true
+            // }
+            // .buttonStyle(PrimaryButtonStyle())
         }
         .padding(DesignSystem.Spacing.xl)
         .frame(maxWidth: .infinity)
     }
 }
 
-// Legacy empty selection view - no longer used
-struct EmptyDocumentSelectionView: View {
-    @Binding var showingImporter: Bool
-    
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.xl) {
-            Spacer()
-            
-            VStack(spacing: DesignSystem.Spacing.lg) {
-                Image(systemName: "doc.text")
-                    .font(DesignSystem.Typography.largeTitle)
-                    .foregroundColor(DesignSystem.Colors.tertiaryText)
-                
-                VStack(spacing: DesignSystem.Spacing.sm) {
-                    Text("Welcome to Cerebral")
-                        .font(DesignSystem.Typography.title2)
-                        .foregroundColor(DesignSystem.Colors.primaryText)
-                    
-                    Text("Import your first PDF to get started.")
-                        .font(DesignSystem.Typography.body)
-                        .foregroundColor(DesignSystem.Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                }
-                
-                Button {
-                    showingImporter = true
-                } label: {
-                    HStack(spacing: DesignSystem.Spacing.xs) {
-                        Image(systemName: "doc.badge.plus")
-                        Text("Import PDF")
-                    }
-                }
-                .buttonStyle(PrimaryButtonStyle())
-            }
-            
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DesignSystem.Colors.secondaryBackground)
-    }
-}
+
 
 #Preview {
     DocumentSidebar(selectedDocument: .constant(nil))

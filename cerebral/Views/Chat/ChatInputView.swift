@@ -84,7 +84,7 @@ struct ChatInputView: View {
                             print("   - isStreaming: \(isStreaming)")
                             
                             // Handle autocomplete selection first
-                            if showingAutocomplete && !autocompleteDocuments.isEmpty {
+                            if showingAutocomplete && !autocompleteDocuments.isEmpty && selectedAutocompleteIndex < autocompleteDocuments.count {
                                 print("📝 Autocomplete showing - inserting document reference")
                                 insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
                             } else if canSend && !isLoading && !isStreaming {
@@ -175,7 +175,7 @@ struct ChatInputView: View {
             }
         }
         .onKeyPress(KeyEquivalent.tab) {
-            if showingAutocomplete && !autocompleteDocuments.isEmpty {
+            if showingAutocomplete && !autocompleteDocuments.isEmpty && selectedAutocompleteIndex < autocompleteDocuments.count {
                 insertDocumentReference(autocompleteDocuments[selectedAutocompleteIndex])
                 return .handled
             }

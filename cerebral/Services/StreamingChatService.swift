@@ -142,33 +142,6 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         Task { @MainActor in
         }
     }
-    
-    /// Validate API connection
-    @MainActor
-    func validateAPIConnection(settingsManager: SettingsManager) async -> Bool {
-        guard settingsManager.isAPIKeyValid else {
-            return false
-        }
-        
-        if claudeAPIService == nil {
-            claudeAPIService = ClaudeAPIService(settingsManager: settingsManager)
-        }
-        
-        do {
-            let isValid = try await claudeAPIService?.validateConnection() ?? false
-            
-            // Clear API service if validation fails to force re-initialization
-            if !isValid {
-                claudeAPIService = nil
-            }
-            
-            return isValid
-        } catch {
-            // Clear API service on error to force re-initialization
-            claudeAPIService = nil
-            return false
-        }
-    }
 }
 
 // MARK: - StreamingChatServiceDelegate

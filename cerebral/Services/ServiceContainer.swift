@@ -87,19 +87,8 @@ final class ServiceContainer {
     func performHealthCheck() async -> [String: Bool] {
         var results: [String: Bool] = [:]
         
-        // Check settings service
-        results["settings"] = settingsService.isAPIKeyValid
-        
-        // Check chat service if API key is valid
-        if settingsService.isAPIKeyValid {
-            do {
-                results["chat"] = try await chatService().validateConnection()
-            } catch {
-                results["chat"] = false
-            }
-        } else {
-            results["chat"] = false
-        }
+        // Check settings service (API key is configured)
+        results["settings"] = !settingsService.apiKey.isEmpty
         
         // Check document service
         let documents = documentService.getAllDocuments()

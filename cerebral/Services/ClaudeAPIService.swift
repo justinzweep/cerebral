@@ -96,56 +96,6 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
         }
     }
     
-    func validateConnection() async throws -> Bool {
-        logger.info("Validating Claude API connection")
-        
-        guard !settingsManager.apiKey.isEmpty else {
-            throw ChatError.noAPIKey
-        }
-        
-        // Simple health check with minimal token usage
-        let testStream = sendStreamingMessage(
-            "Hi", 
-            context: [], 
-            conversationHistory: []
-        )
-        
-        do {
-            var receivedResponse = false
-            for try await response in testStream {
-                if case .textDelta = response {
-                    receivedResponse = true
-                    break
-                }
-            }
-            
-            let isValid = receivedResponse
-            logger.info("Connection validation completed - isValid: \(isValid)")
-            return isValid
-            
-        } catch {
-            logger.error("Connection validation failed - error: \(error)")
-            
-            // Map specific error types for better user experience
-            if let urlError = error as? URLError {
-                switch urlError.code {
-                case .cannotFindHost:
-                    throw ChatError.connectionFailed("Cannot reach Anthropic API servers. Please check your internet connection and DNS settings.")
-                case .notConnectedToInternet:
-                    throw ChatError.connectionFailed("No internet connection available.")
-                case .timedOut:
-                    throw ChatError.connectionFailed("Connection timed out. Please try again.")
-                case .networkConnectionLost:
-                    throw ChatError.connectionFailed("Network connection lost. Please check your connection.")
-                default:
-                    throw ChatError.connectionFailed("Network error: \(urlError.localizedDescription)")
-                }
-            }
-            
-            throw ChatError.connectionFailed(error.localizedDescription)
-        }
-    }
-    
     // MARK: - Request Validation
     
     private func validateRequest(message: String, context: [Document]) async throws {

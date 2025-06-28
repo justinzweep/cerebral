@@ -248,17 +248,11 @@ struct ContentView: View {
     private func handleRetryAction(for error: AppError) {
         switch error {
         case .networkFailure, .chatServiceUnavailable:
-            // For network errors, we could trigger a connection test
-            Task {
-                do {
-                    _ = try await ServiceContainer.shared.chatService().validateConnection()
-                } catch {
-                    ServiceContainer.shared.errorManager.handle(error)
-                }
-            }
+            // For network errors, just clear the current error since validation happens naturally when user sends messages
+            ServiceContainer.shared.errorManager.clearError()
         case .chatError(.connectionFailed), .chatError(.requestFailed):
-            // Similar retry logic for chat errors
-            break
+            // Similar retry logic for chat errors - clear and let natural validation occur
+            ServiceContainer.shared.errorManager.clearError()
         default:
             break
         }

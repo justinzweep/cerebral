@@ -34,7 +34,7 @@ struct DocumentSidebarPane: View {
                 Button {
                     showingImporter = true
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "doc.badge.plus")
                         .font(DesignSystem.Typography.callout)
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
@@ -51,10 +51,8 @@ struct DocumentSidebarPane: View {
                         EmptyDocumentsView(showingImporter: $showingImporter)
                             .id("empty-documents") // Stable ID
                     } else {
-                        // Use optimized ForEach with proper identifiers
-                        ForEach(documents.indices, id: \.self) { index in
-                            let document = documents[index]
-                            
+                        // Use ForEach directly over documents for safety
+                        ForEach(documents) { document in
                             DocumentRowView(document: document)
                                 .onTapGesture {
                                     withAnimation(DesignSystem.Animation.smooth) {
@@ -68,7 +66,6 @@ struct DocumentSidebarPane: View {
                                               Color.clear)
                                 )
                                 .animation(DesignSystem.Animation.microInteraction, value: selectedDocument?.id)
-                                .id(document.id) // Stable ID based on document
                         }
                     }
                 }
