@@ -15,15 +15,13 @@ struct PDFViewerView: View {
     @State private var currentPage: Int = 0
     @State private var showingError: Bool = false
     @State private var errorMessage: String = ""
-    
-    // Highlighting state
-    @State private var selectedText: PDFSelection?
-    @State private var showHighlightPopup: Bool = false
-    @State private var highlightPopupPosition: CGPoint = .zero
     @State private var pdfViewCoordinator: PDFViewCoordinator?
     
     // PDF selection state for escape key handling
     @State private var appState = ServiceContainer.shared.appState
+    
+    // Toolbar integration
+    @State private var toolbarService = ServiceContainer.shared.toolbarService
     
     @Environment(\.modelContext) private var modelContext
     
@@ -31,41 +29,26 @@ struct PDFViewerView: View {
         Group {
             if let currentDocument = document {
                 if let pdfDocument = pdfDocument {
-                    // PDF Content with highlighting overlay
+                    // PDF Content with Toolbar Overlay
                     ZStack {
                         PDFViewerRepresentable(
                             document: pdfDocument,
                             currentPage: $currentPage,
-                            selectedText: $selectedText,
-                            showHighlightPopup: $showHighlightPopup,
-                            highlightPopupPosition: $highlightPopupPosition,
                             coordinator: $pdfViewCoordinator
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .clipped()
                         .background(DesignSystem.Colors.secondaryBackground)
                         .onTapGesture {
-                            // Dismiss highlight popup when tapping outside
-                            if showHighlightPopup {
-                                showHighlightPopup = false
-                                selectedText = nil
-                            }
+                            // Hide toolbar when clicking outside selection
+                            appState.hideToolbar()
                         }
                         
-                        // Highlight color picker overlay
-                        if showHighlightPopup {
-                            HighlightColorPicker(
-                                position: highlightPopupPosition,
-                                onColorSelected: { color in
-                                    handleHighlightSelection(color: color)
-                                },
-                                onDismiss: {
-                                    showHighlightPopup = false
-                                    selectedText = nil
-                                }
-                            )
-                            .zIndex(1000) // Ensure it appears above everything
-                        }
+                        // Toolbar Overlay
+                        PDFToolbarContainer(
+                            pdfDocument: pdfDocument,
+                            documentURL: currentDocument.filePath
+                        )
                     }
                 } else {
                     // Enhanced Loading State
@@ -84,14 +67,6 @@ struct PDFViewerView: View {
         }
         .onAppear {
             loadPDF()
-        }
-        // NEW: Clear selections on Escape key
-        .onKeyPress(KeyEquivalent.escape) {
-            if !appState.pdfSelections.isEmpty {
-                pdfViewCoordinator?.clearMultipleSelections()
-                return .handled
-            }
-            return .ignored
         }
         .alert("Error Loading PDF", isPresented: $showingError) {
             Button("OK") { }
@@ -113,54 +88,21 @@ struct PDFViewerView: View {
         if FileManager.default.fileExists(atPath: document.filePath.path) {
             pdfDocument = PDFDocument(url: document.filePath)
             
-            if pdfDocument == nil {
+            if let pdfDoc = pdfDocument {
+                // Load existing highlights
+                Task { @MainActor in
+                    let existingHighlights = toolbarService.loadHighlights(from: pdfDoc)
+                    for highlight in existingHighlights {
+                        appState.addHighlight(highlight)
+                    }
+                }
+            } else {
                 errorMessage = "Failed to load PDF. The file may be corrupted or in an unsupported format."
                 showingError = true
             }
         } else {
             errorMessage = "PDF file not found. It may have been moved or deleted."
             showingError = true
-        }
-    }
-    
-    private func handleHighlightSelection(color: NSColor) {
-        print("🎯 === HANDLE HIGHLIGHT SELECTION ===")
-        print("🎨 Color: \(color)")
-        
-        // Capture the selection and coordinator immediately
-        let currentSelection = selectedText
-        let currentCoordinator = pdfViewCoordinator ?? PDFViewCoordinator.sharedCoordinator
-        
-        print("📄 Current selection exists: \(currentSelection != nil)")
-        print("🔗 Current coordinator exists: \(currentCoordinator != nil)")
-        print("🔗 Shared coordinator exists: \(PDFViewCoordinator.sharedCoordinator != nil)")
-        
-        guard let selection = currentSelection else { 
-            print("❌ Missing selection")
-            showHighlightPopup = false
-            selectedText = nil
-            return 
-        }
-        
-        guard let coordinator = currentCoordinator else {
-            print("❌ Missing coordinator - trying to highlight anyway")
-            showHighlightPopup = false
-            selectedText = nil
-            return
-        }
-        
-        print("✅ Selection text: '\(selection.string?.prefix(50) ?? "nil")...'")
-        print("✅ Selection pages count: \(selection.pages.count)")
-        
-        // Hide popup immediately
-        showHighlightPopup = false
-        
-        // Use the coordinator to add the highlight
-        coordinator.addHighlight(to: selection, color: color)
-        
-        // Clear selection after highlighting
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.selectedText = nil
         }
     }
 }
@@ -202,10 +144,11 @@ struct EmptyPDFStateView: View {
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.tertiaryText)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .background(DesignSystem.Colors.secondaryBackground.opacity(0.5))
+        .padding(DesignSystem.Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DesignSystem.Colors.secondaryBackground)
     }
 }
 

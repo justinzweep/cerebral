@@ -56,7 +56,6 @@ extension DesignSystem {
         static let secondary = secondaryText
         static let pdfRed = error
         static let folderBlue = info
-        static let highlightYellow = Color(NSColor.systemYellow)
         static let successGreen = success
         static let warningOrange = warning
         static let errorRed = error

@@ -11,9 +11,6 @@ import PDFKit
 struct PDFViewerRepresentable: NSViewRepresentable {
     let document: PDFDocument?
     @Binding var currentPage: Int
-    @Binding var selectedText: PDFSelection?
-    @Binding var showHighlightPopup: Bool
-    @Binding var highlightPopupPosition: CGPoint
     @Binding var coordinator: PDFViewCoordinator?
     
     func makeNSView(context: Context) -> PDFView {
@@ -51,17 +48,6 @@ struct PDFViewerRepresentable: NSViewRepresentable {
             currentPage = pageIndex
         }
         
-        // Listen for selection changes
-        NotificationCenter.default.addObserver(
-            forName: .PDFViewSelectionChanged,
-            object: pdfView,
-            queue: nil  // Use nil to avoid main queue issues
-        ) { notification in
-            guard let coordinator = coordinator,
-                  let pdfView = notification.object as? PDFView else { return }
-            coordinator.handleSelectionChanged(pdfView: pdfView)
-        }
-        
         return pdfView
     }
     
@@ -77,13 +63,6 @@ struct PDFViewerRepresentable: NSViewRepresentable {
             }
         }
         
-        // Update coordinator bindings
-        context.coordinator.updateBindings(
-            selectedText: $selectedText,
-            showHighlightPopup: $showHighlightPopup,
-            highlightPopupPosition: $highlightPopupPosition
-        )
-        
         // Ensure coordinator has reference to PDFView
         context.coordinator.pdfView = nsView
         
@@ -93,59 +72,60 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         }
     }
     
-    func makeCoordinator() -> PDFViewCoordinator {
-        return PDFViewCoordinator(
-            selectedText: $selectedText,
-            showHighlightPopup: $showHighlightPopup,
-            highlightPopupPosition: $highlightPopupPosition
-        )
+    @MainActor func makeCoordinator() -> PDFViewCoordinator {
+        return PDFViewCoordinator()
     }
     
     static func dismantleNSView(_ nsView: PDFView, coordinator: PDFViewCoordinator) {
         // Clean up all notifications for this specific PDFView instance
         NotificationCenter.default.removeObserver(coordinator, name: .PDFViewPageChanged, object: nsView)
-        NotificationCenter.default.removeObserver(coordinator, name: .PDFViewSelectionChanged, object: nsView)
     }
 }
 
 // MARK: - Coordinator
 
+@MainActor
 class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
-    var selectedText: Binding<PDFSelection?>
-    var showHighlightPopup: Binding<Bool>
-    var highlightPopupPosition: Binding<CGPoint>
     weak var pdfView: PDFView?
     
-    // NEW: Multiple selection management
+    // Multiple selection management for chat integration
     private var currentSelections: [UUID: PDFSelection] = [:]
     private var appState = ServiceContainer.shared.appState
     
-    // Store a strong reference to prevent deallocation
-    static var sharedCoordinator: PDFViewCoordinator?
+    // Toolbar integration
+    private var toolbarService = ServiceContainer.shared.toolbarService
     
-    init(selectedText: Binding<PDFSelection?>, showHighlightPopup: Binding<Bool>, highlightPopupPosition: Binding<CGPoint>) {
-        self.selectedText = selectedText
-        self.showHighlightPopup = showHighlightPopup
-        self.highlightPopupPosition = highlightPopupPosition
+    // Store a strong reference to prevent deallocation
+    @MainActor static var sharedCoordinator: PDFViewCoordinator?
+    
+    override init() {
         super.init()
         
         // Keep a strong reference
         PDFViewCoordinator.sharedCoordinator = self
         print("📋 PDFViewCoordinator initialized")
-    }
-    
-    func updateBindings(selectedText: Binding<PDFSelection?>, showHighlightPopup: Binding<Bool>, highlightPopupPosition: Binding<CGPoint>) {
-        self.selectedText = selectedText
-        self.showHighlightPopup = showHighlightPopup
-        self.highlightPopupPosition = highlightPopupPosition
+        
+        // Listen for selection changes
+        NotificationCenter.default.addObserver(
+            forName: .PDFViewSelectionChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let pdfView = notification.object as? PDFView else { return }
+            self.handleSelectionChanged(pdfView: pdfView)
+        }
     }
     
     // MARK: - Performance Optimized Debouncing
     
+    nonisolated(unsafe) private var _selectionDebounceTimer: Timer?
+    
     private var selectionDebounceTimer: Timer? {
-        willSet {
-            // Ensure proper cleanup of existing timer
-            selectionDebounceTimer?.invalidate()
+        get { _selectionDebounceTimer }
+        set {
+            _selectionDebounceTimer?.invalidate()
+            _selectionDebounceTimer = newValue
         }
     }
     
@@ -153,8 +133,8 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         // Cancel previous timer to debounce rapid selection changes
         selectionDebounceTimer?.invalidate()
         
-        // Use weak self to prevent retain cycles
-        selectionDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] timer in
+        // Use shorter debounce for toolbar responsiveness
+        selectionDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] timer in
             defer { timer.invalidate() } // Ensure timer cleanup
             
             guard let self = self else { return }
@@ -163,48 +143,45 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                   let selectionString = selection.string,
                   !selectionString.isEmpty,
                   selectionString.count > 1 else { // Ignore single character selections
-                // No meaningful selection
-                DispatchQueue.main.async { [weak self] in
-                    self?.selectedText.wrappedValue = nil
-                    self?.showHighlightPopup.wrappedValue = false
-                }
+                // No meaningful selection - already on MainActor
+                self.clearMultipleSelections()
+                self.appState.hideToolbar()
                 return
             }
             
             print("📝 Final selection: '\(selectionString.prefix(50))...'")
             
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
+            // Already on MainActor, no need for DispatchQueue.main.async
+            // Check for Cmd key to add to multiple selections
+            let currentEvent = NSApp.currentEvent
+            if currentEvent?.modifierFlags.contains(.command) == true {
+                // Add to multiple selections for chat
+                self.addToMultipleSelections(selection)
+                // Don't show toolbar for multi-selection mode
+                self.appState.hideToolbar()
+            } else {
+                // Single selection - handle both chat and toolbar
+                self.handleSingleSelection(selection)
                 
-                self.selectedText.wrappedValue = selection
-                
-                // NEW: Check for Cmd key to add to multiple selections
-                let currentEvent = NSApp.currentEvent
-                if currentEvent?.modifierFlags.contains(.command) == true {
-                    // Add to multiple selections
-                    self.addToMultipleSelections(selection)
-                } else {
-                    // Single selection - clear previous and show highlight popup
-                    self.handleSingleSelection(selection, pdfView: pdfView)
+                // Show toolbar for highlighting if selection is valid
+                if selection.isValidForHighlighting {
+                    self.showToolbarForSelection(selection, in: pdfView)
                 }
             }
         }
     }
     
-    // NEW: Multiple selection handling
-    @MainActor private func addToMultipleSelections(_ selection: PDFSelection) {
+    // Multiple selection handling
+    private func addToMultipleSelections(_ selection: PDFSelection) {
         let selectionId = UUID()
         currentSelections[selectionId] = selection
         
         // Add to AppState for coordination with chat
         appState.addPDFSelection(selection, selectionId: selectionId)
-        
-        // Update visual state - hide highlight popup when multiple selections
-        showHighlightPopup.wrappedValue = false
     }
     
-    // NEW: Single selection handling (existing behavior)
-    @MainActor private func handleSingleSelection(_ selection: PDFSelection, pdfView: PDFView) {
+    // Single selection handling
+    private func handleSingleSelection(_ selection: PDFSelection) {
         // Clear previous multiple selections
         clearMultipleSelections()
         
@@ -212,132 +189,48 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         let selectionId = UUID()
         currentSelections[selectionId] = selection
         appState.addPDFSelection(selection, selectionId: selectionId)
-        
-        // Show highlight popup for single selections (existing behavior)
-        if let firstPage = selection.pages.first,
-           let pdfView = pdfView as? PDFView {
-            let bounds = selection.bounds(for: firstPage)
-            let convertedBounds = pdfView.convert(bounds, from: firstPage)
-            
-            let popupX = convertedBounds.midX
-            let popupY = convertedBounds.minY - 10
-            
-            self.highlightPopupPosition.wrappedValue = CGPoint(x: popupX, y: popupY)
-            self.showHighlightPopup.wrappedValue = true
-        }
     }
     
-    // NEW: Clear multiple selections
-    @MainActor func clearMultipleSelections() {
+    // Clear multiple selections
+    func clearMultipleSelections() {
         currentSelections.removeAll()
         appState.clearAllPDFSelections()
-        showHighlightPopup.wrappedValue = false
     }
     
-    // NEW: Remove specific selection (for Cmd+click removal)
-    @MainActor func removeSelection(withId id: UUID) {
+    // Remove specific selection (for Cmd+click removal)
+    func removeSelection(withId id: UUID) {
         currentSelections.removeValue(forKey: id)
         appState.removePDFSelection(withId: id)
     }
     
+    // MARK: - Toolbar Integration
+    
+    private func showToolbarForSelection(_ selection: PDFSelection, in pdfView: PDFView) {
+        // Calculate toolbar position
+        let position = toolbarService.calculateToolbarPosition(for: selection, in: pdfView)
+        
+        // Check for existing highlight at selection
+        let existingHighlight = findExistingHighlight(for: selection, in: pdfView)
+        
+        // Show toolbar
+        appState.showToolbar(at: position, for: selection, existingHighlight: existingHighlight)
+    }
+    
+    private func findExistingHighlight(for selection: PDFSelection, in pdfView: PDFView) -> PDFHighlight? {
+        guard let document = pdfView.document else { return nil }
+        
+        return toolbarService.findExistingHighlight(for: selection, in: document)
+    }
+    
     // Cleanup method to prevent memory leaks
     func cleanup() {
-        selectionDebounceTimer?.invalidate()
         selectionDebounceTimer = nil
     }
     
-    func addHighlight(to selection: PDFSelection, color: NSColor) {
-        print("=== STARTING HIGHLIGHT PROCESS ===")
-        print("Selection text: '\(selection.string?.prefix(50) ?? "nil")...'")
-        
-        // Get selections by line for proper highlighting
-        let selections = selection.selectionsByLine()
-        print("Processing \(selections.count) line selections")
-        
-        for (index, lineSelection) in selections.enumerated() {
-            print("Processing line selection \(index + 1)")
-            
-            for page in lineSelection.pages {
-                let bounds = lineSelection.bounds(for: page)
-                print("Line \(index + 1) bounds: \(bounds)")
-                
-                // Create new highlight annotation - simplified approach
-                let highlight = PDFAnnotation(bounds: bounds, forType: .highlight, withProperties: nil)
-                highlight.color = color.withAlphaComponent(0.5) // Semi-transparent
-                
-                print("Created highlight:")
-                print("  - Type: \(highlight.type ?? "nil")")
-                print("  - Bounds: \(highlight.bounds)")
-                print("  - Color: \(highlight.color)")
-                
-                // Add annotation to page
-                page.addAnnotation(highlight)
-                print("Added annotation to page. Page now has \(page.annotations.count) annotations")
-                
-                // Force immediate refresh
-                DispatchQueue.main.async { [weak self] in
-                    guard let pdfView = self?.pdfView else { return }
-                    pdfView.annotationsChanged(on: page)
-                    pdfView.needsDisplay = true
-                    pdfView.documentView?.needsDisplay = true
-                }
-            }
-        }
-        
-        print("=== HIGHLIGHT PROCESS COMPLETE ===")
-        
-        // Clear selection after a brief delay to ensure highlighting completes first
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.pdfView?.clearSelection()
-        }
-        
-        // Try to save the document
-        if let document = selection.pages.first?.document {
-            print("Attempting to save document...")
-            saveDocument(document)
-        }
-    }
-    
-    private func findExistingHighlight(on page: PDFPage, bounds: CGRect) -> PDFAnnotation? {
-        return page.annotations.first { annotation in
-            // Check if it's a highlight annotation and bounds overlap significantly
-            annotation.type?.lowercased().contains("highlight") == true && 
-            annotation.bounds.intersects(bounds)
-        }
-    }
-    
-    private func saveDocument(_ document: PDFDocument?) {
-        guard let document = document else { 
-            print("Cannot save document - no document")
-            return 
-        }
-        
-        guard let originalURL = document.documentURL else {
-            print("Cannot save document - no original URL")
-            return
-        }
-        
-        // Check if we can write to the original location
-        let fileManager = FileManager.default
-        if fileManager.isWritableFile(atPath: originalURL.path) {
-            // Save directly to original location
-            let success = document.write(to: originalURL)
-            print("Document save to original location result: \(success)")
-        } else {
-            // Original file is read-only (like from app bundle)
-            // Try to save to the same location but this might fail
-            print("Original document is read-only at: \(originalURL.path)")
-            
-            // For now, just try to save anyway (this will update the in-memory document)
-            // The annotations will persist in the current session
-            let success = document.write(to: originalURL)
-            print("Attempted save to read-only location result: \(success)")
-            
-            // In a real app, you might want to:
-            // 1. Copy the PDF to Documents folder first
-            // 2. Show a "Save As" dialog
-            // 3. Or just keep annotations in memory for the session
-        }
+    deinit {
+        // Handle cleanup safely from deinit using nonisolated storage
+        _selectionDebounceTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
     }
 }
 
@@ -345,9 +238,6 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
     PDFViewerRepresentable(
         document: nil,
         currentPage: .constant(0),
-        selectedText: .constant(nil),
-        showHighlightPopup: .constant(false),
-        highlightPopupPosition: .constant(.zero),
         coordinator: .constant(nil)
     )
 } 

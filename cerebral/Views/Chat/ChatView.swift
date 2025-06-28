@@ -126,6 +126,9 @@ struct ChatView: View {
             }
         }
         
+        // Get PDF selections as hidden context
+        let pdfContext = appState.formatSelectionsForMessage()
+        
         // Clear input and attachments immediately
         inputText = ""
         withAnimation(DesignSystem.Animation.smooth) {
@@ -138,7 +141,7 @@ struct ChatView: View {
                 messageText,
                 settingsManager: settingsManager,
                 documentContext: documentsToSend,
-                hiddenContext: nil
+                hiddenContext: pdfContext // Pass PDF context as hidden context
             )
         }
     }

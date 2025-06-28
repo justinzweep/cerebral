@@ -1,560 +1,200 @@
-# PDF Text Selection to Chat Feature Specification
+# PDF Highlighter Feature Specification
 
-## Problem Statement
+**Product:** Cursor IDE for PDFs  
+**Feature:** Text Highlighting with Color Selection Modal  
+**Platform:** macOS (SwiftUI + PDFKit)  
+**Version:** 1.0  
+**Date:** June 2025
 
-Users reading PDFs frequently want to ask questions about specific passages, but the current workflow is friction-heavy: select text → copy → switch to chat → paste → formulate question. This breaks reading flow and creates cognitive overhead, reducing user engagement with both the PDF content and AI assistant.
+## Executive Summary
 
-## Solution Overview
+Implement an intuitive text highlighting system that allows users to quickly select and highlight text in PDFs with visual color coding. The feature should feel as natural as highlighting in physical books while providing the precision and convenience of digital tools.
 
-**Core Feature**: When a user selects text in the PDF viewer and begins typing, automatically transition focus to the chat input field and include all selected text as context for the AI query. Multiple selections can be accumulated and managed before sending.
+## Feature Overview
 
-**User Journey**: 
-1. User highlights text in PDF with cursor (creates first selection)
-2. User can optionally make additional selections or remove existing ones
-3. User starts typing their question
-4. Chat input gains focus seamlessly
-5. All selected text appears as quoted context
-6. User continues typing their question
-7. AI receives both context and question for RAG processing
-8. Upon sending message, all PDF selections are cleared
+### Vision Statement
+Enable users to effortlessly highlight and organize information in PDFs through an elegant, context-aware color selection interface that appears exactly when and where they need it.
 
-## Detailed Behavior Specification
+### Core Value Proposition
+- **Instant feedback**: Immediate visual confirmation of selections
+- **Minimal friction**: No menu diving or toolbar hunting
+- **Contextual interaction**: Modal appears precisely where the user is working
+- **Persistent memory**: All highlights are automatically saved to the PDF
 
-### Primary Flow
+## User Experience Flow
 
-**Text Selection State**
-- User selects text in PDF using standard text selection (click + drag)
-- Selected text remains visually highlighted with distinct selection color
-- Multiple selections can be made by holding modifier key (Cmd) while selecting additional text
-- Selections persist until chat message is sent or manually removed
-- Individual selections can be removed by Cmd+clicking on highlighted text
-- All selections can be cleared with Escape key when PDF viewer has focus
+### Primary Happy Path
 
-**Typing Trigger**
-- Any alphanumeric key press while text is selected triggers the feature
-- Special keys (Escape, Arrow keys, Tab) should NOT trigger transition
-- Modifier keys (Cmd+C, Ctrl+V) should NOT trigger transition
+1. **Text Selection**
+   - User clicks and drags to select text in PDF
+   - Selection is visually indicated with system selection styling
+   - Cursor changes to indicate active selection mode
 
-**Chat Transition**
-- Focus immediately shifts to chat input field
-- Chat input field becomes active with cursor positioned after context block
-- PDF selection remains visually highlighted during chat interaction
+2. **Modal Appearance**
+   - Small, elegant modal appears 8px above the end of selection
+   - Modal contains 4 color options in a horizontal row
+   - Smooth fade-in animation (150ms ease-out)
+   - Modal is positioned to avoid screen edges and PDF boundaries
 
-**Context Formatting**
-- All selected text appears in chat input as separate quoted blocks
-- Format: `> [SELECTION_1]\n\n> [SELECTION_2]\n\n` etc.
-- Selections appear in chronological order (first selected appears first)
-- User's typed character appears immediately after all context blocks
-- Context blocks are read-only (user cannot edit them directly)
-- Upon message send, all PDF selections are automatically cleared
+3. **Color Selection**
+   - User clicks desired highlight color
+   - Selected text immediately transforms with chosen highlight color
+   - Modal disappears with fade-out animation (100ms ease-out)
+   - Highlight data is automatically saved to the PDF
 
-### Example Flow
-```
-PDF contains: "Machine learning algorithms require large datasets..." and later "Neural networks excel at pattern recognition..."
+4. **Completion**
+   - Text remains selected briefly (500ms) to confirm action
+   - Selection clears automatically
+   - User can immediately make new selections
 
-User selects: "Machine learning algorithms"
-User Cmd+selects: "Neural networks"
-User types: "w"
+### Secondary Flows
 
-Chat input auto-populates with:
-> Machine learning algorithms
+**Cancellation Behavior**
+- User clicks elsewhere in PDF → Modal disappears, no highlight applied
+- User presses Escape key → Modal disappears, no highlight applied
+- User starts new selection → Previous modal disappears, new selection begins
 
-> Neural networks
+**Existing Highlight Interaction**
+- User selects already-highlighted text → Modal shows current color as "selected" state
+- User can change highlight color or remove highlight entirely
+- Remove option appears as small "×" icon in modal
 
-w[cursor here]
-```
+## Design Specifications
 
-## Implementation Specification
+### Modal Design
 
-### Architecture Overview
+**Dimensions**
+- Width: 140px
+- Height: 36px
+- Corner radius: 8px
+- Shadow: 0px 4px 12px rgba(0, 0, 0, 0.15)
 
-This feature integrates into the existing SwiftUI architecture using:
-- **AppState**: Extended for PDF-to-chat coordination state
-- **KeyboardShortcutService**: Enhanced for typing detection
-- **PDFViewCoordinator**: Extended for multiple selection management
-- **ChatInputView**: Enhanced for context insertion
-- **ServiceContainer**: Coordinating service dependencies
+**Color Palette**
+1. **Yellow** (#FFEB3B) - Default/most common highlighting
+2. **Green** (#4CAF50) - Important concepts, definitions
+3. **Blue** (#2196F3) - References, citations, links
+4. **Pink** (#E91E63) - Questions, unclear items, review needed
 
-### 1. AppState Extensions
+**Color Swatches**
+- Size: 24px × 24px circles
+- Spacing: 8px between swatches
+- Border: 2px white border when selected
+- Hover state: Slight scale (1.1x) and shadow enhancement
 
-**File**: `cerebral/Services/ServiceContainer.swift` (AppState class)
+**Positioning Logic**
+- **Primary**: 8px above selection end point
+- **Fallback 1**: 8px below selection start point (if insufficient space above)
+- **Fallback 2**: 8px to the right of selection end (if vertical space limited)
+- **Constraint**: Always keep modal fully within PDF view bounds
 
-Add new state properties to coordinate PDF selections with chat:
+### Highlight Appearance
 
-```swift
-// MARK: - PDF to Chat Feature State
-var pdfSelections: [PDFSelectionInfo] = []
-var isReadyForChatTransition: Bool = false
-var pendingChatContext: String?
+**Visual Treatment**
+- Opacity: 0.4 for optimal text readability
+- Blend mode: Multiply for natural appearance
+- Border radius: 2px for subtle softness
+- No border or outline to maintain clean aesthetic
 
-// Methods for PDF-to-chat coordination
-func addPDFSelection(_ selection: PDFSelection, selectionId: UUID = UUID()) {
-    let selectionInfo = PDFSelectionInfo(
-        id: selectionId,
-        selection: selection,
-        text: selection.string ?? "",
-        timestamp: Date()
-    )
-    pdfSelections.append(selectionInfo)
-    updateChatTransitionState()
-}
+**Animation**
+- Highlight appears with 200ms fade-in
+- Color changes use 150ms cross-fade transition
 
-func removePDFSelection(withId id: UUID) {
-    pdfSelections.removeAll { $0.id == id }
-    updateChatTransitionState()
-}
+## Technical Considerations
 
-func clearAllPDFSelections() {
-    pdfSelections.removeAll()
-    isReadyForChatTransition = false
-    pendingChatContext = nil
-}
+### PDFKit Integration
 
-private func updateChatTransitionState() {
-    isReadyForChatTransition = !pdfSelections.isEmpty
-    pendingChatContext = formatSelectionsForChat()
-}
+**Text Selection Detection**
+- Leverage PDFKit's native text selection capabilities
+- Hook into `PDFSelection` objects for precise text boundaries
+- Monitor selection change notifications for modal triggering
 
-private func formatSelectionsForChat() -> String? {
-    guard !pdfSelections.isEmpty else { return nil }
-    
-    let sortedSelections = pdfSelections.sorted { $0.timestamp < $1.timestamp }
-    let quotedTexts = sortedSelections.map { "> \($0.text)" }
-    return quotedTexts.joined(separator: "\n\n") + "\n\n"
-}
+**Coordinate Mapping**
+- Convert PDF coordinate space to view coordinate space for modal positioning
+- Handle zoom levels and document scaling correctly
+- Account for page margins and multi-column layouts
 
-func triggerChatTransition(withCharacter character: String) {
-    guard isReadyForChatTransition,
-          let context = pendingChatContext else { return }
-    
-    // This will be observed by ChatInputView
-    pendingChatContext = context + character
-}
-```
+**Persistence Strategy**
+- Store highlights as PDF annotations using PDFKit's annotation system
+- Ensure highlights persist when PDF is saved and reopened
 
-**Create supporting model**:
+### Performance Requirements
 
-```swift
-struct PDFSelectionInfo: Identifiable {
-    let id: UUID
-    let selection: PDFSelection
-    let text: String
-    let timestamp: Date
-}
-```
+**Responsiveness**
+- Modal must appear within 100ms of selection completion
+- No perceptible lag during highlight application
+- Smooth scrolling performance maintained with multiple highlights
 
-### 2. KeyboardShortcutService Enhancement
-
-**File**: `cerebral/Services/KeyboardShortcutService.swift`
-
-Extend the existing service to detect typing while PDF has selections:
-
-```swift
-// Add to existing handleKeyEvent method
-private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
-    let keyCode = event.keyCode
-    let modifierFlags = event.modifierFlags
-    let characters = event.characters ?? ""
-    
-    // Existing keyboard shortcuts...
-    // ESC key (keyCode 53) - Clear document selection AND PDF selections
-    if keyCode == 53 {
-        appState.selectDocument(nil)
-        appState.clearAllPDFSelections() // New functionality
-        return nil
-    }
-    
-    // NEW: PDF-to-Chat typing detection
-    // Only trigger if we have PDF selections and user types alphanumeric
-    if appState.isReadyForChatTransition,
-       !characters.isEmpty,
-       !modifierFlags.contains(.command), // Ignore cmd shortcuts
-       !modifierFlags.contains(.control),  // Ignore ctrl shortcuts
-       !modifierFlags.contains(.option),   // Ignore option shortcuts
-       isAlphanumericCharacter(characters.first!) {
-        
-        // Trigger chat transition with the typed character
-        appState.triggerChatTransition(withCharacter: characters)
-        
-        // Ensure chat panel is visible
-        if !appState.showingChat {
-            appState.toggleChatPanel()
-        }
-        
-        return nil // Consume the event
-    }
-    
-    // Existing shortcuts (Command + L, Command + K)...
-    
-    return event
-}
-
-private func isAlphanumericCharacter(_ char: Character) -> Bool {
-    return char.isLetter || char.isNumber || char.isWhitespace || char.isPunctuation
-}
-```
-
-### 3. PDFViewCoordinator Enhancement
-
-**File**: `cerebral/Views/PDF/PDFViewerRepresentable.swift`
-
-Extend the coordinator to support multiple selections and coordinate with AppState:
-
-```swift
-class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
-    // Existing properties...
-    
-    // NEW: Multiple selection management
-    private var currentSelections: [UUID: PDFSelection] = [:]
-    private var appState = ServiceContainer.shared.appState
-    
-    // Existing init and methods...
-    
-    // ENHANCED: Selection handling for multiple selections
-    func handleSelectionChanged(pdfView: PDFView) {
-        selectionDebounceTimer?.invalidate()
-        
-        selectionDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] timer in
-            defer { timer.invalidate() }
-            
-            guard let self = self else { return }
-            
-            guard let selection = pdfView.currentSelection,
-                  let selectionString = selection.string,
-                  !selectionString.isEmpty,
-                  selectionString.count > 1 else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.selectedText.wrappedValue = nil
-                    self?.showHighlightPopup.wrappedValue = false
-                }
-                return
-            }
-            
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                
-                self.selectedText.wrappedValue = selection
-                
-                // NEW: Check for Cmd key to add to multiple selections
-                let currentEvent = NSApp.currentEvent
-                if currentEvent?.modifierFlags.contains(.command) == true {
-                    // Add to multiple selections
-                    self.addToMultipleSelections(selection)
-                } else {
-                    // Single selection - clear previous and show highlight popup
-                    self.handleSingleSelection(selection, pdfView: pdfView)
-                }
-            }
-        }
-    }
-    
-    // NEW: Multiple selection handling
-    private func addToMultipleSelections(_ selection: PDFSelection) {
-        let selectionId = UUID()
-        currentSelections[selectionId] = selection
-        
-        // Add to AppState for coordination with chat
-        appState.addPDFSelection(selection, selectionId: selectionId)
-        
-        // Update visual state - hide highlight popup when multiple selections
-        showHighlightPopup.wrappedValue = false
-    }
-    
-    // NEW: Single selection handling (existing behavior)
-    private func handleSingleSelection(_ selection: PDFSelection, pdfView: PDFView) {
-        // Clear previous multiple selections
-        clearMultipleSelections()
-        
-        // Add current selection to AppState
-        let selectionId = UUID()
-        currentSelections[selectionId] = selection
-        appState.addPDFSelection(selection, selectionId: selectionId)
-        
-        // Show highlight popup for single selections (existing behavior)
-        if let firstPage = selection.pages.first,
-           let pdfView = pdfView as? PDFView {
-            let bounds = selection.bounds(for: firstPage)
-            let convertedBounds = pdfView.convert(bounds, from: firstPage)
-            
-            let popupX = convertedBounds.midX
-            let popupY = convertedBounds.minY - 10
-            
-            self.highlightPopupPosition.wrappedValue = CGPoint(x: popupX, y: popupY)
-            self.showHighlightPopup.wrappedValue = true
-        }
-    }
-    
-    // NEW: Clear multiple selections
-    func clearMultipleSelections() {
-        currentSelections.removeAll()
-        appState.clearAllPDFSelections()
-        showHighlightPopup.wrappedValue = false
-    }
-    
-    // NEW: Remove specific selection (for Cmd+click removal)
-    func removeSelection(withId id: UUID) {
-        currentSelections.removeValue(forKey: id)
-        appState.removePDFSelection(withId: id)
-    }
-}
-```
-
-### 4. ChatInputView Enhancement
-
-**File**: `cerebral/Views/Chat/ChatInputView.swift`
-
-Add context insertion capability and observe AppState for PDF selections:
-
-```swift
-struct ChatInputView: View {
-    // Existing properties...
-    
-    // NEW: PDF context state
-    @State private var appState = ServiceContainer.shared.appState
-    @State private var shouldFocusInput = false
-    
-    // Existing body implementation...
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // Existing AttachmentList...
-            
-            HStack(spacing: 0) {
-                ZStack(alignment: .trailing) {
-                    ChatTextEditor(
-                        text: $text,
-                        isDisabled: isLoading || isStreaming,
-                        shouldFocus: $shouldFocusInput, // NEW: External focus control
-                        onSubmit: {
-                            if !showingAutocomplete && canSend && !isLoading && !isStreaming {
-                                handleSendMessage() // NEW: Enhanced send handling
-                            }
-                        },
-                        onTextChange: handleTextChange
-                    )
-                    
-                    // Existing ChatActions...
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            
-            // Existing autocomplete overlay...
-        }
-        // Existing animations and key press handlers...
-        
-        // NEW: Observe PDF selections for context insertion
-        .onChange(of: appState.pendingChatContext) { _, newContext in
-            if let context = newContext {
-                insertPDFContext(context)
-            }
-        }
-    }
-    
-    // NEW: Insert PDF context and focus input
-    private func insertPDFContext(_ context: String) {
-        text = context
-        shouldFocusInput = true
-        
-        // Clear the pending context after insertion
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            appState.pendingChatContext = nil
-        }
-    }
-    
-    // NEW: Enhanced send handling that clears PDF selections
-    private func handleSendMessage() {
-        onSend()
-        
-        // Clear PDF selections after sending
-        appState.clearAllPDFSelections()
-    }
-}
-```
-
-### 5. ChatTextEditor Enhancement
-
-**File**: `cerebral/Views/Common/Components/Chat/ChatTextEditor.swift`
-
-Add external focus control:
-
-```swift
-struct ChatTextEditor: View {
-    @Binding var text: String
-    @FocusState private var isFocused: Bool
-    @Binding var shouldFocus: Bool // NEW: External focus control
-    
-    // Existing properties...
-    
-    init(
-        text: Binding<String>,
-        isDisabled: Bool = false,
-        shouldFocus: Binding<Bool> = .constant(false), // NEW: Parameter
-        onSubmit: @escaping () -> Void = {},
-        onTextChange: @escaping (String) -> Void = { _ in }
-    ) {
-        self._text = text
-        self.isDisabled = isDisabled
-        self._shouldFocus = shouldFocus // NEW: Binding
-        self.onSubmit = onSubmit
-        self.onTextChange = onTextChange
-    }
-    
-    var body: some View {
-        // Existing ZStack and TextField implementation...
-        
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isFocused = true
-            }
-        }
-        // NEW: External focus control
-        .onChange(of: shouldFocus) { _, newValue in
-            if newValue {
-                isFocused = true
-                shouldFocus = false // Reset the trigger
-            }
-        }
-    }
-}
-```
-
-### 6. Visual Selection Enhancements
-
-**File**: `cerebral/Views/PDF/PDFViewerView.swift`
-
-Add visual feedback for multiple selections:
-
-```swift
-struct PDFViewerView: View {
-    // Existing properties...
-    
-    // NEW: Multiple selection state
-    @State private var multipleSelections: [PDFSelectionInfo] = []
-    @State private var appState = ServiceContainer.shared.appState
-    
-    var body: some View {
-        Group {
-            if let currentDocument = document {
-                if let pdfDocument = pdfDocument {
-                    ZStack {
-                        PDFViewerRepresentable(
-                            // Existing parameters...
-                        )
-                        // Existing implementation...
-                        
-                        // NEW: Multiple selection indicators
-                        ForEach(appState.pdfSelections) { selectionInfo in
-                            MultipleSelectionIndicator(
-                                selectionInfo: selectionInfo,
-                                onRemove: { id in
-                                    pdfViewCoordinator?.removeSelection(withId: id)
-                                }
-                            )
-                        }
-                        
-                        // Existing highlight popup...
-                    }
-                } else {
-                    // Existing loading state...
-                }
-            } else {
-                // Existing empty state...
-            }
-        }
-        // Existing modifiers...
-        
-        // NEW: Clear selections on Escape key
-        .onKeyPress(KeyEquivalent.escape) {
-            if !appState.pdfSelections.isEmpty {
-                pdfViewCoordinator?.clearMultipleSelections()
-                return .handled
-            }
-            return .ignored
-        }
-    }
-}
-
-// NEW: Multiple selection indicator component
-struct MultipleSelectionIndicator: View {
-    let selectionInfo: PDFSelectionInfo
-    let onRemove: (UUID) -> Void
-    
-    var body: some View {
-        // Visual indicator for multiple selections
-        // Position based on selection bounds
-        // Show remove button on hover
-        // Implementation details...
-    }
-}
-```
+**Memory Management**
+- Efficient handling of large PDFs with extensive highlighting
+- Proper cleanup of animation resources
 
 ## Edge Cases & Error Handling
 
 ### Selection Edge Cases
-- **Cross-page selections**: Use PDFKit's existing cross-page support in `PDFSelection`
-- **Mixed content**: Extract text-only using `selection.string` property
-- **Empty selections**: Filter out in `handleSelectionChanged` with existing validation
-- **Overlapping selections**: Prevent by clearing previous selections unless Cmd is held
-- **Selection limits**: Implement maximum of 10 selections with user feedback
 
-### Input Edge Cases
-- **Chat already focused**: If input already has content, prepend context with newline separator
-- **Rapid typing**: Use existing debouncing in `KeyboardShortcutService`
-- **Selection removal**: Handle via `removePDFSelection(withId:)` method
+**Multi-page selections**
+- If selection spans pages: Show modal at end of first page
+- Apply highlighting to all selected text across pages
+- Provide visual feedback that multi-page highlighting occurred
 
-### Performance Considerations
-- **Large PDFs**: Use existing PDFKit optimization in `PDFViewCoordinator`
-- **Memory management**: Leverage existing cleanup patterns in coordinator
-- **Real-time updates**: Use existing SwiftUI `@Observable` pattern for reactive updates
+**Partial word selections**
+- Allow highlighting of partial words (letter-level precision)
+- Maintain readable highlight boundaries
+
+**Overlapping highlights**
+- New highlight overwrites existing highlight color
+- Maintain original highlight boundaries unless new selection extends beyond
+- Provide visual preview of overlap before confirming
+
+### Error States
+
+**PDF Write Permissions**
+- If PDF is read-only: Show gentle error message in modal location
+- Clear error messaging without breaking user flow
 
 ## Success Metrics
 
-### Engagement Metrics
-- **Adoption rate**: Track usage via AppState analytics hooks
-- **Frequency**: Monitor selection-to-chat conversion rate
-- **User retention**: Correlate feature usage with overall app engagement
+### User Engagement
+- **Primary**: Highlight usage frequency (highlights per session)
+- **Secondary**: Color distribution usage patterns
+- **Tertiary**: Time from selection to highlight completion
 
-### UX Quality Metrics
-- **Time to query**: Measure via existing performance monitoring
-- **Error rate**: Track failed transitions through existing error management
-- **User feedback**: Integrate with existing feedback systems
+### User Experience
+- **Modal appearance latency**: < 100ms for 95% of interactions
+- **User error rate**: < 5% accidental highlight applications
+- **Feature discovery**: > 80% of users discover highlighting within first session
 
-## Implementation Priority
+### Technical Performance
+- **Rendering performance**: No dropped frames during highlight application
+- **Memory usage**: < 10MB additional memory for 100 highlights
+- **Persistence reliability**: 99.9% highlight save success rate to PDF
 
-### Phase 1 (MVP - Estimated 2-3 days)
-1. AppState extensions for selection coordination
-2. KeyboardShortcutService typing detection
-3. Basic ChatInputView context insertion
-4. Simple selection clearing on message send
+## Future Enhancement Opportunities
 
-### Phase 2 (Enhancement - Estimated 2-3 days)
-1. Multiple selection support in PDFViewCoordinator
-2. Visual selection indicators
-3. Advanced selection management (Cmd+click removal)
-4. Escape key clearing
+### Phase 2 Features
+- Highlight notes/annotations
+- Additional highlight colors
+- Highlight removal tool
+- Undo/redo for highlight actions
 
-### Phase 3 (Polish - Estimated 1-2 days)
-1. Visual animations and transitions
-2. Error handling edge cases
-3. Performance optimization
-4. User testing and refinement
+## Implementation Timeline
 
-## Testing Strategy
+**Week 1-2**: Core text selection and modal positioning
+**Week 3**: Color application and persistence
+**Week 4**: Polish, animations, and edge case handling
+**Week 5**: Testing and performance optimization
 
-### Unit Tests
-- `AppState` selection management methods
-- `KeyboardShortcutService` typing detection logic
-- Context formatting in `formatSelectionsForChat`
+## Acceptance Criteria
 
-### Integration Tests
-- PDF selection → Chat context flow
-- Multiple selection coordination
-- Selection clearing on message send
+- [ ] User can select text and see modal appear consistently
+- [ ] All 4 colors apply correctly and persist when PDF is reopened
+- [ ] Modal positioning works correctly across different zoom levels
+- [ ] Highlighting works on all PDF types (text-based, not image-based)
+- [ ] Performance remains smooth with 100+ highlights in document
+- [ ] Feature works correctly with existing PDF annotations
+- [ ] Keyboard shortcuts work (Escape to cancel)
+- [ ] Color accessibility meets WCAG guidelines
 
-### UI Tests (using existing XCTest framework)
-- Complete user workflow automation
-- Keyboard shortcut integration
-- Cross-component state synchronization
+---
 
-This implementation leverages your existing architecture patterns and maintains consistency with the current codebase design while adding the new PDF-to-chat functionality.
+*This specification prioritizes user experience while ensuring technical feasibility within the SwiftUI/PDFKit ecosystem. The design balances simplicity with functionality, creating a highlighting experience that feels both familiar and delightfully responsive.*

@@ -33,6 +33,7 @@ final class ServiceContainer {
     private(set) lazy var settingsService: SettingsServiceProtocol = SettingsManager()
     private(set) lazy var messageBuilderService: MessageBuilderServiceProtocol = MessageBuilder.shared
     private(set) lazy var documentReferenceService: DocumentReferenceServiceProtocol = DocumentReferenceResolver.shared
+    private(set) lazy var toolbarService: PDFToolbarServiceProtocol = PDFToolbarService.shared
     
     // Chat-related services
     private var _chatService: ChatServiceProtocol?
@@ -93,6 +94,10 @@ final class ServiceContainer {
     
     func replaceChatService(_ service: ChatServiceProtocol) {
         _chatService = service
+    }
+    
+    func replaceToolbarService(_ service: PDFToolbarServiceProtocol) {
+        toolbarService = service
     }
     
     // MARK: - Service Health Check
@@ -318,6 +323,43 @@ final class AppState {
         documentToAddToChat = document
     }
     
+    // MARK: - Toolbar State Management
+    var toolbarState = ToolbarState()
+    var highlights: [UUID: PDFHighlight] = [:]
+    
+    func showToolbar(at position: CGPoint, for selection: PDFSelection, existingHighlight: PDFHighlight? = nil) {
+        withAnimation(.easeOut(duration: 0.15)) {
+            toolbarState.isVisible = true
+            toolbarState.position = position
+            toolbarState.currentSelection = selection
+            toolbarState.existingHighlight = existingHighlight
+            toolbarState.selectedColor = existingHighlight?.color
+        }
+    }
+    
+    func hideToolbar() {
+        withAnimation(.easeOut(duration: 0.1)) {
+            toolbarState.reset()
+        }
+    }
+    
+    func addHighlight(_ highlight: PDFHighlight) {
+        highlights[highlight.id] = highlight
+    }
+    
+    func removeHighlight(_ highlight: PDFHighlight) {
+        highlights.removeValue(forKey: highlight.id)
+    }
+    
+    func updateHighlight(_ oldHighlight: PDFHighlight, with newHighlight: PDFHighlight) {
+        highlights.removeValue(forKey: oldHighlight.id)
+        highlights[newHighlight.id] = newHighlight
+    }
+    
+    func getHighlights(for documentURL: URL) -> [PDFHighlight] {
+        return highlights.values.filter { $0.documentURL == documentURL }
+    }
+
     // MARK: - PDF-to-Chat Coordination Methods
     
     func addPDFSelection(_ selection: PDFSelection, selectionId: UUID = UUID()) {

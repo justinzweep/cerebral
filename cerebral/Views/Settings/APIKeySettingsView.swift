@@ -117,6 +117,16 @@ struct APIKeySettingsView: View {
         .onAppear {
             tempAPIKey = settingsManager.apiKey
         }
+        .onReceive(NotificationCenter.default.publisher(for: .escapeKeyPressed)) { notification in
+            if let context = notification.userInfo?["context"] as? String, 
+               context == "apikey",
+               isEditingAPIKey {
+                // Cancel editing mode
+                tempAPIKey = settingsManager.apiKey
+                isEditingAPIKey = false
+            }
+        }
+
         .confirmationDialog("Remove API Key", isPresented: $showingAPIKeyConfirmation) {
             Button("Remove", role: .destructive) {
                 do {

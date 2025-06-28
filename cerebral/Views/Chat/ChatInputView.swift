@@ -173,41 +173,27 @@ struct ChatInputView: View {
             }
             return .ignored
         }
-        .onKeyPress(KeyEquivalent.escape) {
-            if showingAutocomplete {
+        .onReceive(NotificationCenter.default.publisher(for: .escapeKeyPressed)) { notification in
+            if let context = notification.userInfo?["context"] as? String, 
+               context == "autocomplete",
+               showingAutocomplete {
                 hideAutocomplete()
-                return .handled
             }
-            return .ignored
         }
+
 
     }
     
     // NEW: Enhanced send handling that includes PDF context and clears selections
     private func handleSendMessage() {
-        // Format the final message with PDF context
-        var finalMessage = ""
-        
-        // Add PDF selections as quoted context if any
-        if let pdfContext = appState.formatSelectionsForMessage() {
-            finalMessage += pdfContext
-        }
-        
-        // Add user's text
-        finalMessage += text
-        
-        // Temporarily replace the text with the formatted message
-        let originalText = text
-        text = finalMessage
-        
-        // Send the message
+        // Don't modify the text field - just send it as-is
+        // The PDF context will be passed as hiddenContext to the AI
         onSend()
         
-        // Clear PDF selections and any pending character after sending
+        // Clear PDF selections after sending
         appState.clearAllPDFSelections()
         
-        // Reset text to empty (not original text since message was sent)
-        text = ""
+        // Note: text clearing is handled by ChatView.sendMessage()
     }
     
     private var canSend: Bool {
