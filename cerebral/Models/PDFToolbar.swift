@@ -118,58 +118,36 @@ struct PDFHighlight: Identifiable, Equatable {
 // MARK: - Toolbar Position Calculator
 
 struct ToolbarPositionCalculator {
-    static let toolbarSize = CGSize(width: 140, height: 36)
-    static let margin: CGFloat = 8
+    static let toolbarSize = CGSize(width: 140, height: 50)
+    static let margin: CGFloat = 16
+    static let offsetFromSelection: CGFloat = 20
     
     static func calculatePosition(
         for selection: PDFSelection,
         in pdfView: PDFView,
-        toolbarSize: CGSize = toolbarSize,
-        margin: CGFloat = margin
+        toolbarSize: CGSize = toolbarSize
     ) -> CGPoint {
         guard let page = selection.pages.first else {
-            return .zero
+            return CGPoint(x: 100, y: 100) // Safe fallback
         }
         
-        // Get selection bounds in page coordinates
+        // Get the selection bounds on the PDF page
         let selectionBounds = selection.bounds(for: page)
         
-        // Convert to view coordinates
+        // Convert to PDFView coordinates
         let viewBounds = pdfView.convert(selectionBounds, from: page)
-        let pdfViewBounds = pdfView.bounds
         
-        // Primary position: 8px above selection end
-        var position = CGPoint(
-            x: viewBounds.maxX - toolbarSize.width/2,
-            y: viewBounds.minY - toolbarSize.height - margin
+        // Use the center-top of the selection as reference point
+        let referencePoint = CGPoint(
+            x: viewBounds.midX,
+            y: viewBounds.minY
         )
         
-        // Fallback 1: Keep within horizontal bounds
-        if position.x < 0 {
-            position.x = margin
-        } else if position.x + toolbarSize.width > pdfViewBounds.maxX {
-            position.x = pdfViewBounds.maxX - toolbarSize.width - margin
-        }
+        print("📍 Selection bounds on page: \(selectionBounds)")
+        print("📍 Converted to view bounds: \(viewBounds)")
+        print("📍 Reference point: \(referencePoint)")
         
-        // Fallback 2: If insufficient space above, place below
-        if position.y < 0 {
-            position.y = viewBounds.maxY + margin
-        }
-        
-        // Fallback 3: If still not fitting, place to the right
-        if position.y + toolbarSize.height > pdfViewBounds.maxY {
-            position = CGPoint(
-                x: viewBounds.maxX + margin,
-                y: viewBounds.midY - toolbarSize.height/2
-            )
-            
-            // Ensure right placement fits
-            if position.x + toolbarSize.width > pdfViewBounds.maxX {
-                position.x = viewBounds.minX - toolbarSize.width - margin
-            }
-        }
-        
-        return position
+        return referencePoint
     }
 }
 

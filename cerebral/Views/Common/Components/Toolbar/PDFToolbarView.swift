@@ -1,5 +1,5 @@
 //
-//  PDFToolbarView.swift
+//  PDFHighlightToolbar.swift
 //  cerebral
 //
 //  Created by Assistant on 26/06/2025.
@@ -8,211 +8,109 @@
 import SwiftUI
 import PDFKit
 
-struct PDFToolbarView: View {
-    @Binding var toolbarState: ToolbarState
-    let onColorSelected: (HighlightColor) -> Void
-    let onDismiss: () -> Void
-    let onRemoveHighlight: (() -> Void)?
-    
-    @State private var hoveredColor: HighlightColor?
+// MARK: - Simple Bottom Highlighting Toolbar
+
+struct PDFHighlightToolbar: View {
+    @Binding var highlightingState: HighlightingState
+    let onModeChanged: (HighlightingMode) -> Void
+    let onColorChanged: (HighlightColor) -> Void
     
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.xs) {
-            // Color swatches
-            ForEach(HighlightColor.allCases) { color in
-                ColorSwatch(
-                    color: color,
-                    isSelected: toolbarState.selectedColor == color,
-                    isHovered: hoveredColor == color,
-                    onTap: {
-                        onColorSelected(color)
-                    }
-                )
-                .onHover { hovering in
-                    hoveredColor = hovering ? color : nil
-                }
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            // Simple marker toggle
+            Button(action: {
+                let newMode: HighlightingMode = highlightingState.mode == .disabled ? .highlight : .disabled
+                onModeChanged(newMode)
+            }) {
+                Image(systemName: "highlighter")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(highlightingState.mode == .disabled ? 
+                                    DesignSystem.Colors.secondaryText : 
+                                    DesignSystem.Colors.accent)
             }
+            .buttonStyle(.plain)
+            .frame(width: 36, height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(highlightingState.mode == .disabled ? 
+                          DesignSystem.Colors.surfaceBackground : 
+                          DesignSystem.Colors.accent.opacity(0.15))
+            )
             
-            // Remove highlight button (if editing existing highlight)
-            if toolbarState.existingHighlight != nil {
-                Divider()
-                    .frame(height: 20)
-                
-                Button(action: {
-                    onRemoveHighlight?()
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DesignSystem.Colors.secondaryText)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .frame(width: 20, height: 20)
-                .background(
-                    Circle()
-                        .fill(DesignSystem.Colors.tertiaryBackground)
-                        .opacity(hoveredColor == nil ? 0.5 : 1.0)
-                )
-                .onHover { hovering in
-                    if hovering {
-                        hoveredColor = nil
+            // 4 Color circles behind the toggle
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                ForEach(HighlightColor.allCases) { color in
+                    Button(action: {
+                        onColorChanged(color)
+                        // Auto-enable highlighting when color is selected
+                        if highlightingState.mode == .disabled {
+                            onModeChanged(.highlight)
+                        }
+                    }) {
+                        Circle()
+                            .fill(color.color)
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: highlightingState.selectedColor == color ? 2 : 0)
+                                    .scaleEffect(highlightingState.selectedColor == color ? 1.1 : 1.0)
+                            )
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
-        .padding(.horizontal, DesignSystem.Spacing.sm)
-        .padding(.vertical, DesignSystem.Spacing.xs)
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(DesignSystem.Colors.surfaceBackground)
-                .shadow(
-                    color: Color.black.opacity(0.15),
-                    radius: 6,
-                    x: 0,
-                    y: 2
-                )
+                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
         )
-        .frame(width: toolbarState.existingHighlight != nil ? 180 : 140, height: 36)
-        .position(toolbarState.position)
-        .opacity(toolbarState.isVisible ? 1 : 0)
-        .scaleEffect(toolbarState.isVisible ? 1 : 0.8)
-        .animation(.easeOut(duration: toolbarState.isVisible ? 0.15 : 0.1), value: toolbarState.isVisible)
-        .onTapGesture {
-            // Prevent dismissal when tapping inside toolbar
-        }
     }
 }
 
-// MARK: - Color Swatch Component
+// MARK: - Highlighting State Models
 
-struct ColorSwatch: View {
-    let color: HighlightColor
-    let isSelected: Bool
-    let isHovered: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            Circle()
-                .fill(color.color)
-                .frame(width: 24, height: 24)
-                .overlay(
-                    // Selection indicator
-                    Circle()
-                        .stroke(Color.white, lineWidth: isSelected ? 2 : 0)
-                        .frame(width: 24, height: 24)
-                )
-                .overlay(
-                    // Hover effect
-                    Circle()
-                        .stroke(DesignSystem.Colors.borderFocus, lineWidth: isHovered ? 1 : 0)
-                        .frame(width: 26, height: 26)
-                )
-                .scaleEffect(isHovered ? 1.1 : 1.0)
-                .animation(.easeInOut(duration: 0.15), value: isHovered)
-        }
-        .buttonStyle(PlainButtonStyle())
-        .help(color.semanticMeaning)
-    }
+enum HighlightingMode {
+    case disabled
+    case highlight
 }
 
-// MARK: - Toolbar Container
-
-struct PDFToolbarContainer: View {
-    @State private var appState = ServiceContainer.shared.appState
-    let pdfDocument: PDFDocument?
-    let documentURL: URL?
+@Observable
+class HighlightingState {
+    var mode: HighlightingMode = .disabled
+    var selectedColor: HighlightColor = .yellow
     
-    private let toolbarService = ServiceContainer.shared.toolbarService
-    
-    var body: some View {
-        PDFToolbarView(
-            toolbarState: $appState.toolbarState,
-            onColorSelected: { color in
-                Task {
-                    await handleColorSelection(color)
-                }
-            },
-            onDismiss: {
-                appState.hideToolbar()
-            },
-            onRemoveHighlight: {
-                Task {
-                    await handleRemoveHighlight()
-                }
-            }
-        )
+    var isHighlightingEnabled: Bool {
+        mode != .disabled
     }
     
-    @MainActor
-    private func handleColorSelection(_ color: HighlightColor) async {
-        guard let selection = appState.toolbarState.currentSelection,
-              let document = pdfDocument,
-              let url = documentURL else {
-            appState.hideToolbar()
-            return
-        }
-        
-        do {
-            if let existingHighlight = appState.toolbarState.existingHighlight {
-                // Update existing highlight
-                let updatedHighlight = try await toolbarService.updateHighlight(
-                    existingHighlight,
-                    newColor: color,
-                    in: document
-                )
-                appState.updateHighlight(existingHighlight, with: updatedHighlight)
-            } else {
-                // Create new highlight
-                let newHighlight = try await toolbarService.applyHighlight(
-                    color: color,
-                    to: selection,
-                    in: document,
-                    documentURL: url
-                )
-                appState.addHighlight(newHighlight)
-            }
-            
-            // Keep selection visible briefly, then hide toolbar
-            try await Task.sleep(nanoseconds: 500_000_000) // 500ms
-            appState.hideToolbar()
-            
-        } catch {
-            print("❌ Failed to apply highlight: \(error)")
-            ServiceContainer.shared.errorManager.handle(error, context: "highlight_apply")
-            appState.hideToolbar()
-        }
+    func toggleMode() {
+        mode = mode == .disabled ? .highlight : .disabled
     }
     
-    @MainActor
-    private func handleRemoveHighlight() async {
-        guard let existingHighlight = appState.toolbarState.existingHighlight,
-              let document = pdfDocument else {
-            appState.hideToolbar()
-            return
-        }
-        
-        do {
-            try await toolbarService.removeHighlight(existingHighlight, from: document)
-            appState.removeHighlight(existingHighlight)
-            appState.hideToolbar()
-        } catch {
-            print("❌ Failed to remove highlight: \(error)")
-            ServiceContainer.shared.errorManager.handle(error, context: "highlight_remove")
-            appState.hideToolbar()
+    func setColor(_ color: HighlightColor) {
+        selectedColor = color
+        // Auto-enable highlighting when a color is selected
+        if mode == .disabled {
+            mode = .highlight
         }
     }
 }
 
 #Preview {
-    ZStack {
-        Color.gray.opacity(0.2)
-        
-        PDFToolbarView(
-            toolbarState: .constant(ToolbarState()),
-            onColorSelected: { _ in },
-            onDismiss: { },
-            onRemoveHighlight: { }
-        )
-    }
-    .frame(width: 400, height: 300)
+    @State var highlightingState = HighlightingState()
+    
+    return PDFHighlightToolbar(
+        highlightingState: $highlightingState,
+        onModeChanged: { mode in
+            highlightingState.mode = mode
+        },
+        onColorChanged: { color in
+            highlightingState.setColor(color)
+        }
+    )
+    .padding()
+    .frame(width: 300, height: 100)
 } 

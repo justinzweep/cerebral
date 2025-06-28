@@ -270,6 +270,20 @@ struct PDFSelectionInfo: Identifiable {
     let timestamp: Date
 }
 
+// MARK: - Undo/Redo Support Models
+
+enum HighlightOperation {
+    case add(PDFHighlight)
+    case remove(PDFHighlight)
+    case update(old: PDFHighlight, new: PDFHighlight)
+    case batch([HighlightOperation])
+}
+
+enum HighlightBatchOperation {
+    case add(PDFHighlight)
+    case remove(PDFHighlight)
+}
+
 // MARK: - App State Management
 
 @MainActor
@@ -323,41 +337,143 @@ final class AppState {
         documentToAddToChat = document
     }
     
-    // MARK: - Toolbar State Management
-    var toolbarState = ToolbarState()
+    // MARK: - Highlighting State Management
+    var highlightingState = HighlightingState()
     var highlights: [UUID: PDFHighlight] = [:]
     
-    func showToolbar(at position: CGPoint, for selection: PDFSelection, existingHighlight: PDFHighlight? = nil) {
-        withAnimation(.easeOut(duration: 0.15)) {
-            toolbarState.isVisible = true
-            toolbarState.position = position
-            toolbarState.currentSelection = selection
-            toolbarState.existingHighlight = existingHighlight
-            toolbarState.selectedColor = existingHighlight?.color
-        }
+    // Undo/Redo functionality
+    private var undoStack: [HighlightOperation] = []
+    private var redoStack: [HighlightOperation] = []
+    private let maxUndoStackSize = 50
+    
+    func setHighlightingMode(_ mode: HighlightingMode) {
+        highlightingState.mode = mode
+        print("🎨 Highlighting mode: \(mode)")
     }
     
-    func hideToolbar() {
-        withAnimation(.easeOut(duration: 0.1)) {
-            toolbarState.reset()
-        }
+    func setHighlightingColor(_ color: HighlightColor) {
+        highlightingState.setColor(color)
+        print("🎨 Highlighting color: \(color)")
     }
     
     func addHighlight(_ highlight: PDFHighlight) {
         highlights[highlight.id] = highlight
+        recordUndoOperation(.add(highlight))
     }
     
     func removeHighlight(_ highlight: PDFHighlight) {
         highlights.removeValue(forKey: highlight.id)
+        recordUndoOperation(.remove(highlight))
     }
     
     func updateHighlight(_ oldHighlight: PDFHighlight, with newHighlight: PDFHighlight) {
         highlights.removeValue(forKey: oldHighlight.id)
         highlights[newHighlight.id] = newHighlight
+        recordUndoOperation(.update(old: oldHighlight, new: newHighlight))
     }
     
     func getHighlights(for documentURL: URL) -> [PDFHighlight] {
         return highlights.values.filter { $0.documentURL == documentURL }
+    }
+    
+    // Batch operations for complex highlight changes
+    func performHighlightBatch(_ operations: [HighlightBatchOperation]) {
+        var undoOperations: [HighlightOperation] = []
+        
+        for operation in operations {
+            switch operation {
+            case .add(let highlight):
+                highlights[highlight.id] = highlight
+                undoOperations.append(.remove(highlight))
+            case .remove(let highlight):
+                highlights.removeValue(forKey: highlight.id)
+                undoOperations.append(.add(highlight))
+            }
+        }
+        
+        // Record the batch as a single undo operation
+        recordUndoOperation(.batch(undoOperations.reversed()))
+    }
+    
+    // Undo/Redo implementation
+    func performUndo() {
+        guard let operation = undoStack.popLast() else {
+            print("📚 Nothing to undo")
+            return
+        }
+        
+        // Apply the reverse operation
+        let redoOperation = applyReverseOperation(operation)
+        redoStack.append(redoOperation)
+        
+        // Trigger document save if needed
+        Task { @MainActor in
+            await saveCurrentDocumentHighlights()
+        }
+        
+        print("↩️ Undo applied")
+    }
+    
+    func performRedo() {
+        guard let operation = redoStack.popLast() else {
+            print("📚 Nothing to redo")
+            return
+        }
+        
+        // Apply the operation
+        let undoOperation = applyReverseOperation(operation)
+        undoStack.append(undoOperation)
+        
+        // Trigger document save if needed
+        Task { @MainActor in
+            await saveCurrentDocumentHighlights()
+        }
+        
+        print("↪️ Redo applied")
+    }
+    
+    private func recordUndoOperation(_ operation: HighlightOperation) {
+        undoStack.append(operation)
+        
+        // Limit stack size
+        if undoStack.count > maxUndoStackSize {
+            undoStack.removeFirst()
+        }
+        
+        // Clear redo stack when new operation is performed
+        redoStack.removeAll()
+    }
+    
+    private func applyReverseOperation(_ operation: HighlightOperation) -> HighlightOperation {
+        switch operation {
+        case .add(let highlight):
+            highlights.removeValue(forKey: highlight.id)
+            return .remove(highlight)
+            
+        case .remove(let highlight):
+            highlights[highlight.id] = highlight
+            return .add(highlight)
+            
+        case .update(let old, let new):
+            highlights.removeValue(forKey: new.id)
+            highlights[old.id] = old
+            return .update(old: new, new: old)
+            
+        case .batch(let operations):
+            var reverseOps: [HighlightOperation] = []
+            for op in operations.reversed() {
+                reverseOps.append(applyReverseOperation(op))
+            }
+            return .batch(reverseOps)
+        }
+    }
+    
+    private func saveCurrentDocumentHighlights() async {
+        guard let document = selectedDocument else { return }
+        
+        // This would trigger the PDF service to save highlights
+        // Implementation depends on how highlights are persisted
+        print("💾 Saving highlights after undo/redo operation")
     }
 
     // MARK: - PDF-to-Chat Coordination Methods

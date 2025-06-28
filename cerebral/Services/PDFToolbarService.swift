@@ -20,6 +20,8 @@ protocol PDFToolbarServiceProtocol {
     func removeHighlight(_ highlight: PDFHighlight, from document: PDFDocument) async throws
     func findExistingHighlight(for selection: PDFSelection, in document: PDFDocument) -> PDFHighlight?
     func updateHighlight(_ highlight: PDFHighlight, newColor: HighlightColor, in document: PDFDocument) async throws -> PDFHighlight
+    func findOverlappingHighlights(for selection: PDFSelection, in document: PDFDocument) -> [PDFHighlight]
+    func handleOverlappingHighlights(newSelection: PDFSelection, newColor: HighlightColor, overlappingHighlights: [PDFHighlight], in document: PDFDocument, documentURL: URL) async throws -> HighlightOperationResult
 }
 
 // MARK: - Implementation
@@ -52,33 +54,40 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         let pageIndex = document.index(for: page)
         let text = selection.string ?? ""
         
-        // Get precise line-by-line selections for accurate highlighting
-        let lineSelections = selection.selectionsByLine()
+        // Disable animations during highlight operations
+        let previousAnimationsEnabled = NSAnimationContext.current.allowsImplicitAnimation
+        NSAnimationContext.current.allowsImplicitAnimation = false
         
-        // Create highlight annotations for each line to ensure precision
-        var allBounds: [CGRect] = []
+        defer {
+            // Restore animation state
+            NSAnimationContext.current.allowsImplicitAnimation = previousAnimationsEnabled
+        }
+        
+        // Use PDFKit's native selectionsByLine() for precise line-by-line highlighting
+        let lineSelections = selection.selectionsByLine()
         let highlightID = UUID().uuidString
+        var allBounds: [CGRect] = []
         
         for (index, lineSelection) in lineSelections.enumerated() {
             guard let linePage = lineSelection.pages.first else { continue }
             
+            // Use native PDFKit bounds calculation
             let lineBounds = lineSelection.bounds(for: linePage)
             allBounds.append(lineBounds)
             
-            // Create precise annotation for this line
+            // Create annotation using PDFKit's native annotation creation
             let annotation = PDFAnnotation(bounds: lineBounds, forType: .highlight, withProperties: nil)
             annotation.color = color.nsColor
             annotation.contents = encodeAnnotationContents(color: color, groupID: highlightID)
             
-            // Store line metadata
+            // Use PDFKit's native annotation key for metadata
             annotation.setValue("\(highlightID)_line_\(index)", forAnnotationKey: .textLabel)
             
-            // Add annotation to page
+            // Add annotation using native PDFKit method
             linePage.addAnnotation(annotation)
         }
         
         // Use the bounds of the first line for the highlight model
-        // (This is for compatibility with existing code that expects a single bounds)
         let representativeBounds = allBounds.first ?? selection.bounds(for: page)
         
         // Create highlight model
@@ -219,6 +228,15 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         var groupID: String?
         var updatedAnnotations = 0
         
+        // Disable animations during highlight update operations
+        let previousAnimationsEnabled = NSAnimationContext.current.allowsImplicitAnimation
+        NSAnimationContext.current.allowsImplicitAnimation = false
+        
+        defer {
+            // Restore animation state
+            NSAnimationContext.current.allowsImplicitAnimation = previousAnimationsEnabled
+        }
+        
         // First pass: find the group ID by looking for any annotation with matching bounds
         for pageIndex in 0..<document.pageCount {
             guard let page = document.page(at: pageIndex) else { continue }
@@ -253,7 +271,7 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
                     continue
                 }
                 
-                // Update annotation color and metadata
+                // Update annotation color and metadata without animations
                 annotation.color = newColor.nsColor
                 annotation.contents = encodeAnnotationContents(color: newColor, groupID: foundGroupID)
                 updatedAnnotations += 1
@@ -284,6 +302,15 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
     func removeHighlight(_ highlight: PDFHighlight, from document: PDFDocument) async throws {
         var groupID: String?
         var removedAnnotations = 0
+        
+        // Disable animations during highlight removal operations
+        let previousAnimationsEnabled = NSAnimationContext.current.allowsImplicitAnimation
+        NSAnimationContext.current.allowsImplicitAnimation = false
+        
+        defer {
+            // Restore animation state
+            NSAnimationContext.current.allowsImplicitAnimation = previousAnimationsEnabled
+        }
         
         // First pass: find the group ID by looking for any annotation with matching bounds
         for pageIndex in 0..<document.pageCount {
@@ -325,7 +352,7 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
                 annotationsToRemove.append(annotation)
             }
             
-            // Remove the annotations
+            // Remove the annotations without animations
             for annotation in annotationsToRemove {
                 page.removeAnnotation(annotation)
                 removedAnnotations += 1
@@ -340,6 +367,280 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
         try await saveDocumentIfPossible(document, to: highlight.documentURL)
         
         print("🗑️ Removed \(removedAnnotations) annotation(s)")
+    }
+    
+    func findOverlappingHighlights(for selection: PDFSelection, in document: PDFDocument) -> [PDFHighlight] {
+        guard let page = selection.pages.first,
+              let selectionString = selection.string else { return [] }
+        
+        let pageIndex = document.index(for: page)
+        let selectionBounds = selection.bounds(for: page)
+        var overlappingHighlights: [PDFHighlight] = []
+        var processedGroupIDs: Set<String> = []
+        
+        // Use character-based intersection detection for more accuracy
+        let selectionStartChar = page.characterIndex(at: CGPoint(x: selectionBounds.minX, y: selectionBounds.midY))
+        let selectionEndChar = page.characterIndex(at: CGPoint(x: selectionBounds.maxX, y: selectionBounds.midY))
+        
+        // Only check the current page for overlapping highlights to be more deterministic
+        for annotation in page.annotations {
+            guard annotation.type == "Highlight",
+                  let contents = annotation.contents,
+                  let (color, groupID) = decodeAnnotationContents(contents),
+                  !processedGroupIDs.contains(groupID) else {
+                continue
+            }
+            
+            // Use character-based overlap detection with native PDFKit
+            let annotationBounds = annotation.bounds
+            let annotationStartChar = page.characterIndex(at: CGPoint(x: annotationBounds.minX, y: annotationBounds.midY))
+            let annotationEndChar = page.characterIndex(at: CGPoint(x: annotationBounds.maxX, y: annotationBounds.midY))
+            
+            // Check for character range overlap (more precise than geometric bounds)
+            let hasOverlap = selectionStartChar < annotationEndChar && selectionEndChar > annotationStartChar
+            
+            if hasOverlap {
+                // Reconstruct the full highlight from all its annotations using native PDFKit
+                if let fullHighlight = reconstructHighlight(groupID: groupID, in: document) {
+                    overlappingHighlights.append(fullHighlight)
+                    processedGroupIDs.insert(groupID)
+                }
+            }
+        }
+        
+        return overlappingHighlights
+    }
+    
+    func handleOverlappingHighlights(
+        newSelection: PDFSelection,
+        newColor: HighlightColor,
+        overlappingHighlights: [PDFHighlight],
+        in document: PDFDocument,
+        documentURL: URL
+    ) async throws -> HighlightOperationResult {
+        var removedHighlights: [PDFHighlight] = []
+        var addedHighlights: [PDFHighlight] = []
+        
+        guard let page = newSelection.pages.first else {
+            throw PDFToolbarError.pageNotFound
+        }
+        
+        let pageIndex = document.index(for: page)
+        
+        // Step 1: Remove all overlapping highlights and collect their text selections
+        var existingSelections: [(PDFSelection, HighlightColor)] = []
+        
+        for overlappingHighlight in overlappingHighlights {
+            guard overlappingHighlight.pageIndex == pageIndex else { continue }
+            
+            // Find and reconstruct the actual selection for this highlight
+            if let highlightSelection = reconstructSelectionFromHighlight(overlappingHighlight, in: document) {
+                existingSelections.append((highlightSelection, overlappingHighlight.color))
+            }
+            
+            // Remove the original highlight
+            try await removeHighlight(overlappingHighlight, from: document)
+            removedHighlights.append(overlappingHighlight)
+        }
+        
+        // Step 2: Process each existing selection against the new selection
+        var finalSelections: [(PDFSelection, HighlightColor)] = []
+        
+        for (existingSelection, existingColor) in existingSelections {
+            if existingColor == newColor {
+                // Same color: we'll merge this later
+                continue
+            } else {
+                // Different color: subtract the new selection from the existing one
+                let remainingSelections = subtractSelection(newSelection, from: existingSelection, on: page)
+                for remainingSelection in remainingSelections {
+                    finalSelections.append((remainingSelection, existingColor))
+                }
+            }
+        }
+        
+        // Step 3: Create the new highlight (merge with same-color selections if any)
+        var mergedSelection = newSelection
+        for (existingSelection, existingColor) in existingSelections {
+            if existingColor == newColor {
+                // Merge same-color selections
+                mergedSelection = mergeSelections(mergedSelection, existingSelection)
+            }
+        }
+        
+        // Apply the merged selection in the new color
+        let newHighlight = try await applyHighlight(
+            color: newColor,
+            to: mergedSelection,
+            in: document,
+            documentURL: documentURL
+        )
+        addedHighlights.append(newHighlight)
+        
+        // Step 4: Create highlights for all remaining different-color parts
+        for (selection, color) in finalSelections {
+            let highlight = try await applyHighlight(
+                color: color,
+                to: selection,
+                in: document,
+                documentURL: documentURL
+            )
+            addedHighlights.append(highlight)
+        }
+        
+        print("🎯 Processed overlapping highlights: removed \(removedHighlights.count), added \(addedHighlights.count)")
+        
+        return HighlightOperationResult(
+            removedHighlights: removedHighlights,
+            addedHighlights: addedHighlights
+        )
+    }
+    
+    // MARK: - Text-based Selection Operations
+    
+    private func reconstructSelectionFromHighlight(_ highlight: PDFHighlight, in document: PDFDocument) -> PDFSelection? {
+        guard let page = document.page(at: highlight.pageIndex) else { return nil }
+        
+        // Find all annotations belonging to this highlight
+        var groupID: String?
+        
+        // First, find the group ID by matching bounds
+        for annotation in page.annotations {
+            guard annotation.type == "Highlight",
+                  let contents = annotation.contents,
+                  let (_, foundGroupID) = decodeAnnotationContents(contents),
+                  annotation.bounds == highlight.bounds else {
+                continue
+            }
+            groupID = foundGroupID
+            break
+        }
+        
+        guard let targetGroupID = groupID else { return nil }
+        
+        // Collect all annotations with this group ID and create combined selection
+        let combinedSelection = PDFSelection(document: document)
+        
+        for pageIdx in 0..<document.pageCount {
+            guard let checkPage = document.page(at: pageIdx) else { continue }
+            
+            for annotation in checkPage.annotations {
+                guard annotation.type == "Highlight",
+                      let contents = annotation.contents,
+                      let (_, annotationGroupID) = decodeAnnotationContents(contents),
+                      annotationGroupID == targetGroupID else {
+                    continue
+                }
+                
+                // Use native PDFKit selection for annotation bounds
+                if let annotationSelection = checkPage.selection(for: annotation.bounds) {
+                    combinedSelection.add(annotationSelection)
+                }
+            }
+        }
+        
+        return combinedSelection.string?.isEmpty == false ? combinedSelection : nil
+    }
+    
+    private func subtractSelection(_ toSubtract: PDFSelection, from original: PDFSelection, on page: PDFPage) -> [PDFSelection] {
+        // Use character-based approach with native PDFKit APIs
+        guard let originalString = original.string,
+              let toSubtractString = toSubtract.string,
+              let pageString = page.string else {
+            return [original]
+        }
+        
+        // Get character ranges for both selections
+        let originalBounds = original.bounds(for: page)
+        let subtractBounds = toSubtract.bounds(for: page)
+        
+        // Find character indices using PDFKit's native methods
+        let originalStartChar = page.characterIndex(at: CGPoint(x: originalBounds.minX, y: originalBounds.midY))
+        let originalEndChar = page.characterIndex(at: CGPoint(x: originalBounds.maxX, y: originalBounds.midY))
+        let subtractStartChar = page.characterIndex(at: CGPoint(x: subtractBounds.minX, y: subtractBounds.midY))
+        let subtractEndChar = page.characterIndex(at: CGPoint(x: subtractBounds.maxX, y: subtractBounds.midY))
+        
+        var resultSelections: [PDFSelection] = []
+        
+        // Left part (before subtraction)
+        if originalStartChar < subtractStartChar {
+            let leftStartChar = originalStartChar
+            let leftEndChar = min(subtractStartChar, originalEndChar)
+            
+            if let leftSelection = createSelectionFromCharacterRange(
+                start: leftStartChar,
+                end: leftEndChar,
+                on: page
+            ), leftSelection.isValidForHighlighting {
+                resultSelections.append(leftSelection)
+            }
+        }
+        
+        // Right part (after subtraction)
+        if originalEndChar > subtractEndChar {
+            let rightStartChar = max(subtractEndChar, originalStartChar)
+            let rightEndChar = originalEndChar
+            
+            if let rightSelection = createSelectionFromCharacterRange(
+                start: rightStartChar,
+                end: rightEndChar,
+                on: page
+            ), rightSelection.isValidForHighlighting {
+                resultSelections.append(rightSelection)
+            }
+        }
+        
+        // If we couldn't create proper parts, return the original to avoid data loss
+        if resultSelections.isEmpty {
+            return [original]
+        }
+        
+        return resultSelections
+    }
+    
+    private func createSelectionFromCharacterRange(start: Int, end: Int, on page: PDFPage) -> PDFSelection? {
+        guard start < end,
+              let pageString = page.string,
+              start >= 0,
+              end <= pageString.count else {
+            return nil
+        }
+        
+        // Get bounds for the character range using native PDFKit
+        let startBounds = page.characterBounds(at: start)
+        let endBounds = page.characterBounds(at: end - 1)
+        
+        // Create a combined bounds rectangle
+        let combinedBounds = startBounds.union(endBounds)
+        
+        // Use PDFKit's native selection method
+        return page.selection(for: combinedBounds)
+    }
+    
+    private func mergeSelections(_ selection1: PDFSelection, _ selection2: PDFSelection) -> PDFSelection {
+        // Use PDFKit's native selection merging
+        guard let document = selection1.pages.first?.document else { return selection1 }
+        
+        let mergedSelection = PDFSelection(document: document)
+        mergedSelection.add(selection1)
+        mergedSelection.add(selection2)
+        
+        // Validate the merged selection has content
+        return mergedSelection.string?.isEmpty == false ? mergedSelection : selection1
+    }
+    
+    // MARK: - PDFView Notification Helpers
+    
+    private func notifyAnnotationChanges(on page: PDFPage, for pdfView: PDFView?) {
+        // Use PDFKit's native annotation change notification
+        pdfView?.annotationsChanged(on: page)
+    }
+    
+    private func getPDFViewFromDocument(_ document: PDFDocument) -> PDFView? {
+        // In a real implementation, we'd maintain a reference to the PDFView
+        // For now, we'll return nil and rely on automatic updates
+        // This could be improved by maintaining a weak reference to the PDFView
+        return nil
     }
     
     // MARK: - Helper Methods
@@ -384,6 +685,56 @@ final class PDFToolbarService: PDFToolbarServiceProtocol {
             }
         }
     }
+    
+    private func reconstructHighlight(groupID: String, in document: PDFDocument) -> PDFHighlight? {
+        var color: HighlightColor?
+        var pageIndex: Int = 0
+        var allText = ""
+        var representativeBounds: CGRect = .zero
+        var foundAny = false
+        
+        for checkPageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: checkPageIndex) else { continue }
+            
+            for annotation in page.annotations {
+                guard annotation.type == "Highlight",
+                      let contents = annotation.contents,
+                      let (annotationColor, annotationGroupID) = decodeAnnotationContents(contents),
+                      annotationGroupID == groupID else {
+                    continue
+                }
+                
+                if !foundAny {
+                    color = annotationColor
+                    pageIndex = checkPageIndex
+                    representativeBounds = annotation.bounds
+                    foundAny = true
+                }
+                
+                // Add text from this annotation
+                let selection = page.selection(for: annotation.bounds)
+                allText += selection?.string ?? ""
+            }
+        }
+        
+        guard foundAny, let highlightColor = color else { return nil }
+        
+        return PDFHighlight(
+            bounds: representativeBounds,
+            color: highlightColor,
+            pageIndex: pageIndex,
+            text: allText,
+            createdAt: Date(),
+            documentURL: document.documentURL ?? URL(fileURLWithPath: "")
+        )
+    }
+}
+
+// MARK: - Result Types
+
+struct HighlightOperationResult {
+    let removedHighlights: [PDFHighlight]
+    let addedHighlights: [PDFHighlight]
 }
 
 // MARK: - Errors

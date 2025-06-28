@@ -45,12 +45,10 @@ struct ContentView: View {
             }
             
             // Middle Pane: PDF Viewer
-            VStack(alignment: .leading, spacing: 0) {
-                PDFViewerView(document: appState.selectedDocument)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .background(DesignSystem.Colors.secondaryBackground)
-                    .id(appState.selectedDocument?.id.uuidString ?? "no-document") // Stable ID based on document
-            }
+            PDFViewerView(document: appState.selectedDocument)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(DesignSystem.Colors.secondaryBackground)
+                .id(appState.selectedDocument?.id.uuidString ?? "no-document") // Stable ID based on document
             .frame(minWidth: 300)
             .padding(.horizontal, DesignSystem.Spacing.sm)
             

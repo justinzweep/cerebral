@@ -10,6 +10,7 @@ import PDFKit
 
 struct PDFViewerRepresentable: NSViewRepresentable {
     let document: PDFDocument?
+    let documentURL: URL?
     @Binding var currentPage: Int
     @Binding var coordinator: PDFViewCoordinator?
     
@@ -35,6 +36,7 @@ struct PDFViewerRepresentable: NSViewRepresentable {
         // Set up delegate for handling selections
         pdfView.delegate = context.coordinator
         context.coordinator.pdfView = pdfView
+        context.coordinator.documentURL = documentURL
         
         // Set up notifications with better handling
         NotificationCenter.default.addObserver(
@@ -87,12 +89,13 @@ struct PDFViewerRepresentable: NSViewRepresentable {
 @MainActor
 class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
     weak var pdfView: PDFView?
+    var documentURL: URL?
     
     // Multiple selection management for chat integration
     private var currentSelections: [UUID: PDFSelection] = [:]
     private var appState = ServiceContainer.shared.appState
     
-    // Toolbar integration
+    // Highlighting integration
     private var toolbarService = ServiceContainer.shared.toolbarService
     
     // Store a strong reference to prevent deallocation
@@ -145,7 +148,6 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                   selectionString.count > 1 else { // Ignore single character selections
                 // No meaningful selection - already on MainActor
                 self.clearMultipleSelections()
-                self.appState.hideToolbar()
                 return
             }
             
@@ -158,14 +160,13 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                 // Add to multiple selections for chat
                 self.addToMultipleSelections(selection)
                 // Don't show toolbar for multi-selection mode
-                self.appState.hideToolbar()
             } else {
-                // Single selection - handle both chat and toolbar
+                // Single selection - handle both chat and highlighting
                 self.handleSingleSelection(selection)
                 
-                // Show toolbar for highlighting if selection is valid
-                if selection.isValidForHighlighting {
-                    self.showToolbarForSelection(selection, in: pdfView)
+                // Apply highlighting if enabled and selection is valid
+                if selection.isValidForHighlighting && appState.highlightingState.isHighlightingEnabled {
+                    self.applyHighlightToSelection(selection, in: pdfView)
                 }
             }
         }
@@ -203,24 +204,67 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         appState.removePDFSelection(withId: id)
     }
     
-    // MARK: - Toolbar Integration
+    // MARK: - Highlighting Integration
     
-    private func showToolbarForSelection(_ selection: PDFSelection, in pdfView: PDFView) {
-        // Calculate toolbar position
-        let position = toolbarService.calculateToolbarPosition(for: selection, in: pdfView)
+    private func applyHighlightToSelection(_ selection: PDFSelection, in pdfView: PDFView) {
+        guard let document = pdfView.document else { return }
         
-        // Check for existing highlight at selection
-        let existingHighlight = findExistingHighlight(for: selection, in: pdfView)
-        
-        // Show toolbar
-        appState.showToolbar(at: position, for: selection, existingHighlight: existingHighlight)
+        Task { @MainActor in
+            do {
+                let documentURL = getCurrentDocumentURL()
+                let selectedColor = appState.highlightingState.selectedColor
+                
+                // Find all overlapping highlights
+                let overlappingHighlights = toolbarService.findOverlappingHighlights(for: selection, in: document)
+                
+                if overlappingHighlights.isEmpty {
+                    // No overlap - create new highlight
+                    let newHighlight = try await toolbarService.applyHighlight(
+                        color: selectedColor,
+                        to: selection,
+                        in: document,
+                        documentURL: documentURL
+                    )
+                    appState.addHighlight(newHighlight)
+                    print("🎨 Applied new \(selectedColor) highlight")
+                    
+                } else {
+                    // Handle overlapping highlights
+                    let result = try await toolbarService.handleOverlappingHighlights(
+                        newSelection: selection,
+                        newColor: selectedColor,
+                        overlappingHighlights: overlappingHighlights,
+                        in: document,
+                        documentURL: documentURL
+                    )
+                    
+                    // Update app state with the results using batch operation
+                    var batchOperations: [HighlightBatchOperation] = []
+                    
+                    for removedHighlight in result.removedHighlights {
+                        batchOperations.append(.remove(removedHighlight))
+                    }
+                    
+                    for addedHighlight in result.addedHighlights {
+                        batchOperations.append(.add(addedHighlight))
+                    }
+                    
+                    appState.performHighlightBatch(batchOperations)
+                    
+                    print("🔄 Processed overlapping highlights: removed \(result.removedHighlights.count), added \(result.addedHighlights.count)")
+                }
+            } catch {
+                print("❌ Failed to apply highlight: \(error)")
+                ServiceContainer.shared.errorManager.handle(error, context: "highlight_apply")
+            }
+        }
     }
     
-    private func findExistingHighlight(for selection: PDFSelection, in pdfView: PDFView) -> PDFHighlight? {
-        guard let document = pdfView.document else { return nil }
-        
-        return toolbarService.findExistingHighlight(for: selection, in: document)
+    private func getCurrentDocumentURL() -> URL {
+        return documentURL ?? URL(fileURLWithPath: "")
     }
+    
+
     
     // Cleanup method to prevent memory leaks
     func cleanup() {
@@ -237,6 +281,7 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
 #Preview {
     PDFViewerRepresentable(
         document: nil,
+        documentURL: nil,
         currentPage: .constant(0),
         coordinator: .constant(nil)
     )

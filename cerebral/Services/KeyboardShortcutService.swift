@@ -100,6 +100,20 @@ final class KeyboardShortcutService {
             return nil // Consume the event
         }
         
+        // Command + Z (keyCode 6 for 'Z') - Undo
+        if keyCode == 6 && modifierFlags.contains(.command) && !modifierFlags.contains(.shift) {
+            appState.performUndo()
+            return nil // Consume the event
+        }
+        
+        // Command + Shift + Z (keyCode 6 for 'Z') - Redo
+        // OR Command + Y (keyCode 16 for 'Y') - Redo
+        if (keyCode == 6 && modifierFlags.contains(.command) && modifierFlags.contains(.shift)) ||
+           (keyCode == 16 && modifierFlags.contains(.command)) {
+            appState.performRedo()
+            return nil // Consume the event
+        }
+        
         return event // Let the event continue
     }
     
@@ -115,9 +129,9 @@ final class KeyboardShortcutService {
         // 2. API key editing state (form state)
         NotificationCenter.default.post(name: .escapeKeyPressed, object: nil, userInfo: ["context": "apikey"])
         
-        // 3. PDF Toolbar (immediate interaction state)
-        if appState.toolbarState.isVisible {
-            appState.hideToolbar()
+        // 3. PDF Highlighting (immediate interaction state)
+        if appState.highlightingState.isHighlightingEnabled {
+            appState.setHighlightingMode(.disabled)
             return true
         }
         

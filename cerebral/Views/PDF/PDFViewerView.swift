@@ -29,27 +29,16 @@ struct PDFViewerView: View {
         Group {
             if let currentDocument = document {
                 if let pdfDocument = pdfDocument {
-                    // PDF Content with Toolbar Overlay
-                    ZStack {
-                        PDFViewerRepresentable(
-                            document: pdfDocument,
-                            currentPage: $currentPage,
-                            coordinator: $pdfViewCoordinator
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .clipped()
-                        .background(DesignSystem.Colors.secondaryBackground)
-                        .onTapGesture {
-                            // Hide toolbar when clicking outside selection
-                            appState.hideToolbar()
-                        }
-                        
-                        // Toolbar Overlay
-                        PDFToolbarContainer(
-                            pdfDocument: pdfDocument,
-                            documentURL: currentDocument.filePath
-                        )
-                    }
+                    // PDF Content
+                    PDFViewerRepresentable(
+                        document: pdfDocument,
+                        documentURL: currentDocument.filePath,
+                        currentPage: $currentPage,
+                        coordinator: $pdfViewCoordinator
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .clipped()
+                    .background(DesignSystem.Colors.secondaryBackground)
                 } else {
                     // Enhanced Loading State
                     LoadingStateView(message: "Loading PDF...")
@@ -151,6 +140,8 @@ struct EmptyPDFStateView: View {
         .background(DesignSystem.Colors.secondaryBackground)
     }
 }
+
+
 
 #Preview {
     PDFViewerView(document: nil)
