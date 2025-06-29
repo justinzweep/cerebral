@@ -217,4 +217,74 @@ extension DesignSystem {
         static let minimumTouchTarget: CGFloat = 44 // Apple accessibility minimum
         static let preferredTouchTarget: CGFloat = 48 // Preferred touch target
     }
+    
+    // MARK: - Component Dimensions
+    struct ComponentSizes {
+        // MARK: - Icon Sizes
+        static let iconXXS: CGFloat = 6             // Extra extra small icons
+        static let iconXS: CGFloat = 8              // Extra small icons
+        static let iconSM: CGFloat = 10             // Small icons
+        static let iconM: CGFloat = 11              // Medium-small icons
+        static let iconMD: CGFloat = 12             // Medium icons (default)
+        static let iconLG: CGFloat = 14             // Large icons
+        static let iconXL: CGFloat = 16             // Extra large icons
+        
+        // MARK: - Button Sizes
+        static let buttonIconSM: CGFloat = 24       // Small icon button frame
+        static let buttonIconMD: CGFloat = 32       // Medium icon button frame
+        static let buttonIconLG: CGFloat = 40       // Large icon button frame
+        
+        // MARK: - Indicator Sizes
+        static let spinnerSM: CGFloat = 16          // Small spinner diameter
+        static let spinnerMD: CGFloat = 24          // Medium spinner diameter
+        static let spinnerLG: CGFloat = 32          // Large spinner diameter
+        static let spinnerLineWidthSM: CGFloat = 2  // Small spinner line width
+        static let spinnerLineWidthMD: CGFloat = 3  // Medium spinner line width
+        static let spinnerLineWidthLG: CGFloat = 4  // Large spinner line width
+        
+        // MARK: - Context Dots and Pills
+        static let contextDot: CGFloat = 6          // Context indicator dot
+        static let statusIndicator: CGFloat = 3     // Status indicator width
+        
+        // MARK: - Thumbnail Sizes
+        static let thumbnailSM = CGSize(width: 36, height: 44)    // Small PDF thumbnail
+        static let thumbnailMD = CGSize(width: 48, height: 64)    // Medium PDF thumbnail
+        static let thumbnailLG = CGSize(width: 120, height: 160)  // Large PDF thumbnail
+        
+        // MARK: - Window and Panel Sizes
+        static let settingsWindowWidth: CGFloat = 700       // Settings window width
+        static let settingsWindowHeight: CGFloat = 500      // Settings window height
+        static let settingsSidebarWidth: CGFloat = 200      // Settings sidebar width
+        static let dividerWidth: CGFloat = 1                // Standard divider width
+        
+        // MARK: - Chat Component Sizes
+        static let chatInputMinHeight: CGFloat = 66         // Chat input minimum height (2 lines)
+        static let chatInputMaxHeight: CGFloat = 120        // Chat input maximum height
+        static let chatInputBottomPadding: CGFloat = 120    // Bottom padding for messages
+        
+        // MARK: - Component Frames
+        static let standardIconFrame = CGSize(width: 20, height: 20)        // Standard icon frame
+        static let smallIconFrame = CGSize(width: 16, height: 16)           // Small icon frame
+        static let mediumIconFrame = CGSize(width: 24, height: 24)          // Medium icon frame
+        static let largeIconFrame = CGSize(width: 32, height: 32)           // Large icon frame
+        
+        // MARK: - Content Constraints
+        static let alertMaxWidth: CGFloat = 400             // Maximum alert width
+        static let panelMaxWidth: CGFloat = 280             // Maximum panel width
+        static let dropdownMaxItems: Int = 5                // Maximum dropdown items before scroll
+        static let dropdownItemHeight: CGFloat = 44         // Dropdown item height
+        
+        // MARK: - Preview and Demo Sizes
+        static let previewPanelWidth: CGFloat = 480         // Standard preview panel width
+        static let previewPanelHeight: CGFloat = 400        // Standard preview panel height
+        static let demoWindowWidth: CGFloat = 600           // Demo window width
+        static let demoWindowHeight: CGFloat = 600          // Demo window height
+        static let compactPanelHeight: CGFloat = 32         // Compact panel height
+        static let standardPanelHeight: CGFloat = 48        // Standard panel height
+        
+        // MARK: - Chat and Message Sizes
+        static let chatPanelWidth: CGFloat = 480            // Chat panel width
+        static let messagePanelWidth: CGFloat = 500         // Message panel width
+        static let contextPanelWidth: CGFloat = 600         // Context panel width
+    }
 } 

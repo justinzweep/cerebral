@@ -43,7 +43,7 @@ struct DocumentSidebarContent: View {
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
                 .buttonStyle(.plain)
-                .frame(width: 32, height: 32)
+                .frame(width: DesignSystem.ComponentSizes.largeIconFrame.width, height: DesignSystem.ComponentSizes.largeIconFrame.height)
                 .contentShape(Rectangle())
             }
             .padding(DesignSystem.Spacing.md)

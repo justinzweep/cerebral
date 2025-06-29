@@ -26,7 +26,7 @@ struct DocumentProcessorDemo: View {
             // Header
             HStack {
                 Image(systemName: "gearshape.2")
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignSystem.Colors.accent)
                 Text("Vector Search Demo")
                     .font(.title2)
                     .fontWeight(.semibold)
@@ -195,7 +195,7 @@ struct DocumentSelectionRow: View {
         HStack {
             Button(action: onToggle) {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundColor(isSelected ? .blue : .secondary)
+                                            .foregroundColor(isSelected ? DesignSystem.Colors.accent : DesignSystem.Colors.secondaryText)
             }
             .buttonStyle(PlainButtonStyle())
             
@@ -220,7 +220,7 @@ struct DocumentSelectionRow: View {
             Spacer()
         }
         .padding(4)
-        .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                            .background(isSelected ? DesignSystem.Colors.accentSecondary : Color.clear)
         .cornerRadius(4)
         .contentShape(Rectangle())
         .onTapGesture(perform: onToggle)
@@ -252,7 +252,7 @@ struct ProcessingResultsView: View {
                         Spacer()
                         
                         Image(systemName: result.success ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(result.success ? .green : .red)
+                            .foregroundColor(result.success ? DesignSystem.Colors.success : DesignSystem.Colors.error)
                     }
                     
                     if result.success {
@@ -266,7 +266,7 @@ struct ProcessingResultsView: View {
                     } else if let error = result.error {
                         Text("Error: \(error)")
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundColor(DesignSystem.Colors.error)
                     }
                 }
                 .padding(.vertical, 4)

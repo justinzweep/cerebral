@@ -39,7 +39,7 @@ struct DocumentSidebarPane: View {
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
                 .buttonStyle(.plain)
-                .frame(width: 32, height: 32)
+                .frame(width: DesignSystem.ComponentSizes.largeIconFrame.width, height: DesignSystem.ComponentSizes.largeIconFrame.height)
                 .contentShape(Rectangle())
             }
             .padding(DesignSystem.Spacing.md)
@@ -246,5 +246,5 @@ struct DocumentSidebarPane: View {
         showingImporter: .constant(false)
     )
     .modelContainer(for: [Document.self], inMemory: true)
-    .frame(width: 280, height: 600)
+            .frame(width: DesignSystem.ComponentSizes.panelMaxWidth, height: DesignSystem.ComponentSizes.demoWindowHeight)
 } 

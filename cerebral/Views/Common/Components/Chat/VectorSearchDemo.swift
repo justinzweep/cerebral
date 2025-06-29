@@ -31,7 +31,7 @@ struct VectorSearchDemo: View {
                 HStack {
                     Image(systemName: "magnifyingglass.circle.fill")
                         .font(.title)
-                        .foregroundColor(.blue)
+                        .foregroundColor(DesignSystem.Colors.accent)
                     Text("Vector Search Demo")
                         .font(.title)
                         .fontWeight(.bold)
@@ -142,7 +142,7 @@ struct VectorSearchDemo: View {
                 if chatSessions.isEmpty {
                     Text("No chat sessions available. Create one in the first tab.")
                         .font(.caption)
-                        .foregroundColor(.orange)
+                        .foregroundColor(DesignSystem.Colors.warning)
                 } else {
                     Picker("Chat Session", selection: $selectedSession) {
                         Text("Select Session").tag(nil as ChatSession?)
@@ -261,9 +261,9 @@ struct SearchResultCard: View {
                 Text("#\(rank)")
                     .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignSystem.Colors.accent)
                     .padding(4)
-                    .background(Color.blue.opacity(0.1))
+                    .background(DesignSystem.Colors.accentSecondary)
                     .cornerRadius(4)
                 
                 Text(chunk.document?.title ?? "Unknown Document")
@@ -276,7 +276,7 @@ struct SearchResultCard: View {
                     Text("Page \(pageNumber)")
                         .font(.caption2)
                         .padding(2)
-                        .background(Color.gray.opacity(0.1))
+                        .background(DesignSystem.Colors.tertiaryBackground)
                         .cornerRadius(4)
                 }
             }

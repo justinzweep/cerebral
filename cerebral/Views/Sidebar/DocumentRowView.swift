@@ -20,7 +20,7 @@ struct DocumentRowView: View {
             // PDF Thumbnail
             PDFThumbnailView(
                 document: document,
-                size: CGSize(width: 36, height: 44)
+                size: DesignSystem.ComponentSizes.thumbnailSM
             )
             
             // Document info
@@ -54,7 +54,7 @@ struct DocumentRowView: View {
                     .foregroundColor(DesignSystem.Colors.tertiaryText)
             }
             .buttonStyle(.plain)
-            .frame(width: 24, height: 24)
+            .frame(width: DesignSystem.ComponentSizes.mediumIconFrame.width, height: DesignSystem.ComponentSizes.mediumIconFrame.height)
             .background(
                 Circle()
                     .fill(Color.clear)
@@ -222,7 +222,7 @@ struct DocumentRowView: View {
         case .processing:
             return DesignSystem.Colors.accent
         case .failed:
-            return .red
+            return DesignSystem.Colors.error
         case .completed:
             return DesignSystem.Colors.secondaryText
         }

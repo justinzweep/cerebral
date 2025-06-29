@@ -16,7 +16,7 @@ struct PDFThumbnailView: View {
     @State private var isLoading = true
     @State private var loadingTask: Task<Void, Never>?
     
-    init(document: Document, size: CGSize = CGSize(width: 36, height: 44)) {
+    init(document: Document, size: CGSize = DesignSystem.ComponentSizes.thumbnailSM) {
         self.document = document
         self.size = size
     }

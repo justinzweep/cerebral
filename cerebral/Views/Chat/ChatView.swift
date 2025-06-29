@@ -56,7 +56,7 @@ struct ChatView: View {
                                     }
                                 }
                             }
-                            .padding(.bottom, 120) // Add bottom padding so messages don't hide behind input
+                            .padding(.bottom, DesignSystem.ComponentSizes.chatInputBottomPadding) // Add bottom padding so messages don't hide behind input
                         }
                         .scrollIndicators(.hidden) // Performance optimization
                         .onChange(of: chatManager.messages.count) { _, newCount in
@@ -318,7 +318,7 @@ struct ChatHeaderView: View {
                         .foregroundColor(DesignSystem.Colors.accent)
                 }
                 .buttonStyle(.plain)
-                .frame(width: 32, height: 32)
+                .frame(width: DesignSystem.ComponentSizes.largeIconFrame.width, height: DesignSystem.ComponentSizes.largeIconFrame.height)
                 .contentShape(Rectangle())
                 .foregroundColor(DesignSystem.Colors.secondaryText)
             }
@@ -390,5 +390,5 @@ struct APIKeyRequiredView: View {
 
 #Preview {
     ChatView(selectedDocument: nil)
-        .frame(width: 480, height: 600)  // Increased from 400 to match new chat width
+        .frame(width: DesignSystem.ComponentSizes.chatPanelWidth, height: DesignSystem.ComponentSizes.demoWindowHeight)  // Increased from 400 to match new chat width
 }

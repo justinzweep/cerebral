@@ -39,5 +39,5 @@ struct EmptyDocumentsView: View {
 
 #Preview {
     EmptyDocumentsView(showingImporter: .constant(false))
-        .frame(width: 280, height: 400)
+        .frame(width: DesignSystem.ComponentSizes.panelMaxWidth, height: DesignSystem.ComponentSizes.previewPanelHeight)
 } 

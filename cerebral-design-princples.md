@@ -1,25 +1,25 @@
 # Cerebral Design Principles
 
 ## Executive Summary
-This document outlines comprehensive UI/UX improvements for Cerebral, focusing on creating a modern, sleek, and minimalistic macOS application inspired by leading contemporary applications like Linear, Notion, ChatGPT, Claude, Msty, Things, and Arc. The design follows Apple Human Interface Guidelines while incorporating the sophisticated aesthetic and interaction patterns that define premium macOS applications.
+This document outlines comprehensive UI/UX improvements for Cerebral, focusing on creating a modern, conversational, and approachable macOS application inspired by leading contemporary applications like ChatGPT, Airbnb, Linear, Notion, Claude, Msty, Things, and Arc. The design follows Apple Human Interface Guidelines while incorporating the warm, human-centered aesthetic and interaction patterns that define premium consumer-focused applications.
 
 ## Overall Design Philosophy
 
 ### Core Design Values
-- **Clarity Over Decoration**: Every element serves a purpose, removing visual noise to focus on content
-- **Spatial Intelligence**: Strategic use of whitespace to create breathing room and visual hierarchy
-- **Material Sophistication**: Leverage macOS materials and vibrancy effects for depth without heaviness
-- **Typographic Excellence**: Clear, readable typography that guides users naturally through information
-- **Intentional Color**: Restrained color palette with purposeful accent usage
-- **Responsive Elegance**: Smooth animations and transitions that feel natural and performant
+- **Human-Centered Simplicity**: Every element feels approachable and intuitive, prioritizing user comfort over complexity
+- **Conversational Flow**: Interface elements guide users through natural, dialogue-like interactions
+- **Warm Minimalism**: Clean design with subtle warmth through rounded corners, gentle shadows, and inviting colors
+- **Contextual Intelligence**: Smart, adaptive interfaces that anticipate user needs and provide helpful suggestions
+- **Trustworthy Transparency**: Clear visual feedback and honest communication about system status and capabilities
+- **Delightful Interactions**: Thoughtful micro-interactions and animations that feel responsive and engaging
 
 ### Visual Hierarchy & Layout
 
 #### Three-Pane Architecture
-- **Left Sidebar**: Document library with clean list design, subtle hover states
-- **Center Panel**: Main content area (PDF viewer/chat interface) with generous margins
-- **Right Panel**: Contextual tools and information with collapsible sections
-- **Visual Separation**: Use `Material.thin` dividers and subtle background variations
+- **Left Sidebar**: Document library with card-based design, warm hover states, and friendly iconography
+- **Center Panel**: Conversational interface, generous padding, and comfortable reading zones
+- **Right Panel**: Contextual assistance with helpful tips, document insights, and smart suggestions
+- **Visual Separation**: Use soft shadows, subtle borders, and gentle background tints for natural content separation
 
 #### Spacing System
 ```swift

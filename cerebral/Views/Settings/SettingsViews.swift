@@ -248,5 +248,5 @@ struct ErrorMessage: View {
 #Preview("API Key Settings") {
     APIKeySettingsView()
         .environment(SettingsManager.shared)
-        .frame(width: 640, height: 480)
+        .frame(width: DesignSystem.ComponentSizes.settingsWindowWidth - DesignSystem.Spacing.xl, height: DesignSystem.ComponentSizes.settingsWindowHeight - DesignSystem.Spacing.md)
 } 

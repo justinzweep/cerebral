@@ -117,7 +117,7 @@ struct LoadingStateView: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.accent))
-                .scaleEffect(1.5)
+                .scaleEffect(DesignSystem.Scale.hover)
             
             Text(message)
                 .font(DesignSystem.Typography.title3)

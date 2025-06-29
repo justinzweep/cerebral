@@ -21,7 +21,7 @@ struct VectorContextPanel: View {
             // Header
             HStack {
                 Image(systemName: "brain.head.profile")
-                    .foregroundColor(.blue)
+                    .foregroundColor(DesignSystem.Colors.accent)
                 Text("Vector Context")
                     .font(.headline)
                 Spacer()
@@ -107,8 +107,8 @@ struct ContextItemRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             // Type Icon
-            Image(systemName: contextItem.type == .document ? "doc.text" : "text.quote")
-                .foregroundColor(contextItem.type == .document ? .blue : .green)
+                                Image(systemName: contextItem.type == .document ? "doc.text" : "text.quote")
+                        .foregroundColor(contextItem.type == .document ? DesignSystem.Colors.accent : DesignSystem.Colors.success)
                 .font(.caption)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -131,7 +131,7 @@ struct ContextItemRow: View {
                         Text("Page \(pageNumber)")
                             .font(.caption2)
                             .padding(2)
-                            .background(Color.blue.opacity(0.1))
+                            .background(DesignSystem.Colors.accentSecondary)
                             .cornerRadius(4)
                     }
                     
@@ -174,9 +174,9 @@ struct ProcessingStatusView: View {
             
             HStack(spacing: 12) {
                 StatusItem(label: "Total", count: status.total, color: .primary)
-                StatusItem(label: "Processed", count: status.processed, color: .green)
-                StatusItem(label: "Pending", count: status.pending, color: .orange)
-                StatusItem(label: "Failed", count: status.failed, color: .red)
+                StatusItem(label: "Processed", count: status.processed, color: DesignSystem.Colors.success)
+                StatusItem(label: "Pending", count: status.pending, color: DesignSystem.Colors.warning)
+                StatusItem(label: "Failed", count: status.failed, color: DesignSystem.Colors.error)
             }
             
             // Progress Bar
@@ -224,19 +224,19 @@ struct ProcessingStatusBadge: View {
     
     private var backgroundColor: Color {
         switch status {
-        case .pending: return .orange.opacity(0.1)
-        case .processing: return .blue.opacity(0.1)
-        case .completed: return .green.opacity(0.1)
-        case .failed: return .red.opacity(0.1)
+        case .pending: return DesignSystem.Colors.warningBackground
+        case .processing: return DesignSystem.Colors.accentSecondary
+        case .completed: return DesignSystem.Colors.successBackground
+        case .failed: return DesignSystem.Colors.errorBackground
         }
     }
     
     private var foregroundColor: Color {
         switch status {
-        case .pending: return .orange
-        case .processing: return .blue
-        case .completed: return .green
-        case .failed: return .red
+        case .pending: return DesignSystem.Colors.warning
+        case .processing: return DesignSystem.Colors.accent
+        case .completed: return DesignSystem.Colors.success
+        case .failed: return DesignSystem.Colors.error
         }
     }
 }

@@ -377,7 +377,7 @@ struct StatusIndicator: View {
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.xs) {
             Image(systemName: status.icon)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: DesignSystem.ComponentSizes.iconMD, weight: .medium))
                 .foregroundColor(status.color)
                 .rotationEffect(.degrees(status == .loading ? 360 : 0))
                 .animation(

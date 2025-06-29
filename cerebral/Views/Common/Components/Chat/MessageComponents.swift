@@ -147,7 +147,7 @@ struct StreamingWaitingAnimation: View {
             ForEach(0..<3, id: \.self) { index in
                 Circle()
                     .fill(DesignSystem.Colors.secondaryText)
-                    .frame(width: 6, height: 6)
+                    .frame(width: DesignSystem.ComponentSizes.contextDot, height: DesignSystem.ComponentSizes.contextDot)
                     .scaleEffect(showCursor ? 1.0 : 0.6)
                     .animation(
                         .easeInOut(duration: 0.6)
@@ -209,6 +209,6 @@ struct StreamingWaitingAnimation: View {
             shouldGroup: true
         )
     }
-    .frame(width: 480)
+            .frame(width: DesignSystem.ComponentSizes.chatPanelWidth)
     .padding()
 } 

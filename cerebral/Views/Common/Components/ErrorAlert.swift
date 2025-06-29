@@ -100,11 +100,11 @@ struct ErrorAlert: View {
             }
         }
         .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: 400)
+        .frame(maxWidth: DesignSystem.ComponentSizes.alertMaxWidth)
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card)
                 .fill(DesignSystem.Colors.background)
-                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                .shadow(color: DesignSystem.Shadows.medium, radius: DesignSystem.Shadows.large.radius, x: DesignSystem.Shadows.large.x, y: DesignSystem.Shadows.large.y)
         )
     }
     

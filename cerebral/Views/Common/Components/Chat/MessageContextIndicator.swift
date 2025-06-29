@@ -20,7 +20,7 @@ struct MessageContextIndicator: View {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         // Context icon
                         Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: DesignSystem.ComponentSizes.iconM, weight: .medium))
                             .foregroundColor(DesignSystem.Colors.accent)
                         
                         // Context summary
@@ -32,7 +32,7 @@ struct MessageContextIndicator: View {
                         
                         // Simple chevron
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .medium))
+                            .font(.system(size: DesignSystem.ComponentSizes.iconXS, weight: .medium))
                             .foregroundColor(DesignSystem.Colors.tertiaryText)
                             .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     }

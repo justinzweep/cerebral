@@ -29,8 +29,8 @@ struct ChatInputView: View {
     @State private var cursorPosition: Int = 0
     @State private var showAutocompleteAbove = false
     
-    private let maxHeight: CGFloat = 120
-    private let minHeight: CGFloat = 66 // Height for 2 lines of text
+    private let maxHeight: CGFloat = DesignSystem.ComponentSizes.chatInputMaxHeight
+    private let minHeight: CGFloat = DesignSystem.ComponentSizes.chatInputMinHeight // Height for 2 lines of text
     
     init(
         text: Binding<String>,
@@ -128,7 +128,7 @@ struct ChatInputView: View {
                     .offset(
                         x: DesignSystem.Spacing.md, // Align with text input padding
                         y: showAutocompleteAbove 
-                            ? -(CGFloat(min(autocompleteDocuments.count, 5)) * 44 + DesignSystem.Spacing.md + DesignSystem.Spacing.sm) 
+                            ? -(CGFloat(min(autocompleteDocuments.count, DesignSystem.ComponentSizes.dropdownMaxItems)) * DesignSystem.ComponentSizes.dropdownItemHeight + DesignSystem.Spacing.md + DesignSystem.Spacing.sm) 
                             : (minHeight + DesignSystem.Spacing.xs)
                     )
                     .zIndex(1000)
@@ -137,10 +137,10 @@ struct ChatInputView: View {
                             Color.clear
                                 .onAppear {
                                     // Calculate actual dropdown height
-                                    let itemHeight: CGFloat = 44 + DesignSystem.Spacing.xxxs
+                                    let itemHeight: CGFloat = DesignSystem.ComponentSizes.dropdownItemHeight + DesignSystem.Spacing.xxxs
                                     let containerPadding = DesignSystem.Spacing.xs * 2
-                                    let shadowPadding: CGFloat = 12 // Account for shadow
-                                    let actualItemCount = min(autocompleteDocuments.count, 5)
+                                    let shadowPadding: CGFloat = DesignSystem.Spacing.sm // Account for shadow
+                                    let actualItemCount = min(autocompleteDocuments.count, DesignSystem.ComponentSizes.dropdownMaxItems)
                                     let dropdownHeight = CGFloat(actualItemCount) * itemHeight + containerPadding + shadowPadding
                                     
                                     // Get input field position in global coordinates
@@ -354,7 +354,7 @@ struct AutocompleteDropdown: View {
                         Image(systemName: "doc.text")
                             .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.accent)
-                            .frame(width: 16, height: 16)
+                            .frame(width: DesignSystem.ComponentSizes.smallIconFrame.width, height: DesignSystem.ComponentSizes.smallIconFrame.height)
                         
                         Text(document.title)
                             .font(DesignSystem.Typography.body)
@@ -516,6 +516,6 @@ struct HighlightOverlay: View {
         Spacer()
     }
     .padding()
-    .frame(width: 480, height: 400)  // Increased width from 600 to 480 to match chat panel
+            .frame(width: DesignSystem.ComponentSizes.chatPanelWidth, height: DesignSystem.ComponentSizes.previewPanelHeight)  // Increased width from 600 to 480 to match chat panel
 }
 

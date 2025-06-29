@@ -194,7 +194,6 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
     
     /// Format the final RAG message for the LLM with advanced optimization
     /// This combines retrieved context (chunks + manual selections) with the user query
-    /// Implements sophisticated RAG prompt engineering for optimal AI performance
     func formatForLLM(text: String, contexts: [DocumentContext], chunks: [DocumentChunk] = []) -> String {
         var formatted = ""
         var contextAdded = false
@@ -219,12 +218,7 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
             contextAdded = true
         }
         
-        // Step 4: Add optimized RAG instructions
-        if contextAdded {
-            formatted += buildEnhancedRAGInstructions(hasVectorContext: !optimizedChunks.isEmpty, hasManualContext: !textSelectionContexts.isEmpty)
-        }
-        
-        // Step 5: Add user query with context awareness
+        // Step 4: Add user query with context awareness
         formatted += buildUserQuerySection(text, hasContext: contextAdded)
         
         return formatted
@@ -276,12 +270,9 @@ final class EnhancedMessageBuilder: MessageBuilderServiceProtocol {
     /// Build the vector search context section with enhanced formatting
     private func buildVectorContextSection(_ chunks: [DocumentChunk], maxTokens: Int) -> String {
         var section = """
-╔═══════════════════════════════════════════════════════════════╗
-║                    RETRIEVED DOCUMENT CONTEXT                 ║
-╚═══════════════════════════════════════════════════════════════╝
+RETRIEVED DOCUMENT CONTEXT:
 
 The following passages were automatically retrieved using semantic search based on your query.
-Each passage has been ranked by relevance and represents the most pertinent information from your documents.
 
 """
         
@@ -307,16 +298,14 @@ Each passage has been ranked by relevance and represents the most pertinent info
             includedChunks += documentChunks.count
         }
         
-        section += "═══════════════════════════════════════════════════════════════\n\n"
+        section += "---\n\n"
         return section
     }
     
     /// Build a section for chunks from a specific document
     private func buildDocumentChunkSection(document: Document, chunks: [DocumentChunk], maxTokens: Int) -> String {
-        var section = "📄 **\(document.documentTitle ?? document.title)**\n"
-        
-        // Note: Document model doesn't have author property - could be added from PDF metadata if needed
-        section += "   📊 \(chunks.count) relevant passage\(chunks.count == 1 ? "" : "s") found\n\n"
+        var section = "Document: \(document.documentTitle ?? document.title)\n"
+        section += "\(chunks.count) relevant passage\(chunks.count == 1 ? "" : "s") found:\n\n"
         
         var currentTokens = estimateTokenCount(section)
         
@@ -325,7 +314,7 @@ Each passage has been ranked by relevance and represents the most pertinent info
             let chunkTokens = estimateTokenCount(chunkSection)
             
             if currentTokens + chunkTokens > maxTokens && index > 0 {
-                section += "   [Additional passages from this document truncated]\n\n"
+                section += "[Additional passages from this document truncated]\n\n"
                 break
             }
             
@@ -333,13 +322,12 @@ Each passage has been ranked by relevance and represents the most pertinent info
             currentTokens += chunkTokens
         }
         
-        section += String(repeating: "─", count: 60) + "\n\n"
         return section
     }
     
     /// Build a formatted section for a single chunk with enhanced metadata
     private func buildSingleChunkSection(chunk: DocumentChunk, index: Int) -> String {
-        var section = "   📖 **Passage \(index)**"
+        var section = "Passage \(index)"
         
         // Add page information if available
         if let primaryPage = chunk.primaryPageNumber {
@@ -353,11 +341,11 @@ Each passage has been ranked by relevance and represents the most pertinent info
             }
         }
         
-        section += "\n"
+        section += ":\n"
         
         // Add chunk content with proper formatting
         let cleanedText = chunk.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        section += "   \"\(cleanedText)\"\n\n"
+        section += "\"\(cleanedText)\"\n\n"
         
         return section
     }
@@ -365,12 +353,9 @@ Each passage has been ranked by relevance and represents the most pertinent info
     /// Build the manual selection context section
     private func buildManualSelectionSection(_ contexts: [DocumentContext], maxTokens: Int) -> String {
         var section = """
-╔═══════════════════════════════════════════════════════════════╗
-║                     USER HIGHLIGHTED TEXT                     ║
-╚═══════════════════════════════════════════════════════════════╝
+USER HIGHLIGHTED TEXT:
 
 The following text was manually selected and highlighted by the user.
-This represents content the user specifically wants you to focus on.
 
 """
         
@@ -382,14 +367,14 @@ This represents content the user specifically wants you to focus on.
         for (_, docSelections) in groupedSelections {
             guard let first = docSelections.first else { continue }
             
-            section += "📄 **\(first.documentTitle)**\n"
+            section += "Document: \(first.documentTitle)\n"
             
             for (index, selection) in docSelections.enumerated() {
                 let selectionSection = buildSelectionSection(selection: selection, index: index + 1)
                 let selectionTokens = estimateTokenCount(selectionSection)
                 
                 if currentTokens + selectionTokens > maxTokens && index > 0 {
-                    section += "   [Additional selections truncated]\n\n"
+                    section += "[Additional selections truncated]\n\n"
                     break
                 }
                 
@@ -398,117 +383,35 @@ This represents content the user specifically wants you to focus on.
             }
         }
         
-        section += "═══════════════════════════════════════════════════════════════\n\n"
+        section += "---\n\n"
         return section
     }
     
     /// Build a formatted section for a manual selection
     private func buildSelectionSection(selection: DocumentContext, index: Int) -> String {
-        var section = "   ✋ **User Selection \(index)**"
+        var section = "User Selection \(index)"
         
         if let pages = selection.metadata.pageNumbers, !pages.isEmpty {
             let pageText = pages.map(String.init).joined(separator: ", ")
             section += " (Page\(pages.count > 1 ? "s" : "") \(pageText))"
         }
         
-        section += "\n"
-        section += "   \"\(selection.content.trimmingCharacters(in: .whitespacesAndNewlines))\"\n\n"
+        section += ":\n"
+        section += "\"\(selection.content.trimmingCharacters(in: .whitespacesAndNewlines))\"\n\n"
         
         return section
-    }
-    
-    /// Build enhanced RAG instructions tailored to the available context
-    private func buildEnhancedRAGInstructions(hasVectorContext: Bool, hasManualContext: Bool) -> String {
-        var instructions = """
-╔═══════════════════════════════════════════════════════════════╗
-║                      AI RESPONSE INSTRUCTIONS                 ║
-╚═══════════════════════════════════════════════════════════════╝
-
-You are operating in an advanced RAG (Retrieval-Augmented Generation) system. Follow these guidelines:
-
-🎯 **PRIMARY OBJECTIVES:**
-   • Provide accurate, detailed answers using the retrieved document context
-   • Always cite specific passages when referencing information from documents
-   • Synthesize information across multiple sources when relevant
-   • Keep your response concise and to the point, unless the user asks for more detail
-
-⚠️ **FORMATTING RESTRICTIONS:**
-   • DO NOT use markdown formatting in your response
-   • ONLY use these simple text formatting options:
-     - **Bold text** for emphasis and headings
-     - *Italic text* for subtle emphasis
-     - _Underlined text_ for important terms
-     - • Bullet points for lists
-     - 1. Numbered lists for sequences
-   • DO NOT use: headers (#), code blocks (```), links, tables, or other markdown syntax
-   • DO NOT use in text citations
-   • DO NOT mention you received the context from a vector search
-
-
-"""
-        
-        if hasVectorContext {
-            instructions += """
-📖 **RETRIEVED CONTEXT USAGE:**
-   • The semantic search has identified the most relevant passages for this query
-   • Prioritize information from these passages as they are contextually matched
-   • Reference specific passages by their document and page numbers
-   • Look for patterns and connections across different retrieved passages
-
-"""
-        }
-        
-        if hasManualContext {
-            instructions += """
-✋ **USER SELECTIONS PRIORITY:**
-   • User-highlighted text represents explicit areas of interest
-   • Give special attention to manually selected content
-   • These selections may contain the most critical information for the query
-
-"""
-        }
-        
-        instructions += """
-⚠️ **RESPONSE REQUIREMENTS:**
-   • If information is missing or unclear, explicitly state what's needed
-   • Distinguish between information found in the documents vs. general knowledge
-   • Use clear citations: "According to [Document Name, Page X]..."
-   • Provide specific page references for fact-checking
-   • Synthesize information coherently rather than just listing facts
-
-💡 **QUALITY GUIDELINES:**
-   • Structure your response logically with clear sections using **bold headings**
-   • Use bullet points and numbered lists for complex information
-   • Use **bold** for key insights and main takeaways
-   • Use *italic* for subtle emphasis and _underlined_ for important terms
-   • Suggest follow-up questions or areas for deeper exploration
-   • Remember: NO markdown syntax beyond the allowed formatting options
-
-═══════════════════════════════════════════════════════════════
-
-"""
-        
-        return instructions
     }
     
     /// Build the user query section with context awareness
     private func buildUserQuerySection(_ text: String, hasContext: Bool) -> String {
         if hasContext {
             return """
-╔═══════════════════════════════════════════════════════════════╗
-║                        USER QUESTION                          ║
-╚═══════════════════════════════════════════════════════════════╝
+USER QUESTION:
 
 \(text)
-
-Please provide a comprehensive response using the document context provided above.
 """
         } else {
-            return """
-════════════════════════════════════════════════════════════════
-
-USER QUESTION: \(text)
-"""
+            return text
         }
     }
     
@@ -534,7 +437,7 @@ USER QUESTION: \(text)
     private func getMaxContextTokens() -> Int {
         // Reserve tokens for instructions and user query
         let maxTotal = getContextTokenLimit()
-        let reservedTokens = 1000 // For instructions, formatting, user query
+        let reservedTokens = 500 // For formatting and user query
         return max(1000, maxTotal - reservedTokens)
     }
     

@@ -90,13 +90,13 @@ struct SettingsView: View {
                     .padding(.bottom, DesignSystem.Spacing.lg)
                 }
             }
-            .frame(width: 200)
+            .frame(width: DesignSystem.ComponentSizes.settingsSidebarWidth)
             .background(DesignSystem.Colors.secondaryBackground)
             
             // Divider
             Rectangle()
                 .fill(DesignSystem.Colors.border)
-                .frame(width: 1)
+                .frame(width: DesignSystem.ComponentSizes.dividerWidth)
             
             // Right Content Area
             Group {
@@ -108,7 +108,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DesignSystem.Colors.background)
         }
-        .frame(width: 700, height: 500)
+        .frame(width: DesignSystem.ComponentSizes.settingsWindowWidth, height: DesignSystem.ComponentSizes.settingsWindowHeight)
         .background(DesignSystem.Colors.background)
         .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl))
     }
@@ -129,7 +129,7 @@ struct SettingsTabRow: View {
                 Image(systemName: tab.icon)
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(iconColor)
-                    .frame(width: 20, height: 20)
+                    .frame(width: DesignSystem.ComponentSizes.standardIconFrame.width, height: DesignSystem.ComponentSizes.standardIconFrame.height)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tab.rawValue)
@@ -148,7 +148,7 @@ struct SettingsTabRow: View {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(DesignSystem.Colors.accent)
-                        .frame(width: 3, height: 16)
+                        .frame(width: DesignSystem.ComponentSizes.statusIndicator, height: DesignSystem.ComponentSizes.iconXL)
                 }
             }
             .padding(.horizontal, DesignSystem.Spacing.md)
@@ -200,7 +200,7 @@ struct SettingsContentView<Content: View>: View {
                         Image(systemName: icon)
                             .font(DesignSystem.Typography.title3)
                             .foregroundColor(DesignSystem.Colors.accent)
-                            .frame(width: 32, height: 32)
+                            .frame(width: DesignSystem.ComponentSizes.largeIconFrame.width, height: DesignSystem.ComponentSizes.largeIconFrame.height)
                             .background(
                                 Circle()
                                     .fill(DesignSystem.Colors.accentSecondary)

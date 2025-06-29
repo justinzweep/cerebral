@@ -661,7 +661,7 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                 if overlappingHighlights.isEmpty {
                     // No overlap - create new highlight
                     let newHighlight = try await toolbarService.applyHighlight(
-                        color: selectedColor ?? .yellow,
+                        color: selectedColor ?? HighlightColor.yellow,
                         to: selection,
                         in: document,
                         documentURL: documentURL
@@ -673,7 +673,7 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                     // Handle overlapping highlights
                     let result = try await toolbarService.handleOverlappingHighlights(
                         newSelection: selection,
-                        newColor: selectedColor ?? .yellow,
+                        newColor: selectedColor ?? HighlightColor.yellow,
                         overlappingHighlights: overlappingHighlights,
                         in: document,
                         documentURL: documentURL
