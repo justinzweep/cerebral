@@ -39,18 +39,23 @@ struct DocumentContext: Codable, Identifiable, Sendable, Equatable {
     }
     
     enum ContextType: String, Codable, CaseIterable {
-        case fullDocument      // Entire document
+        case fullDocument      // DEPRECATED - use vector search chunks instead
         case pageRange        // Specific pages
         case textSelection    // User-selected text
-        case semanticChunk    // AI-extracted relevant chunk
+        case semanticChunk    // AI-extracted relevant chunk (handled by vector search)
         
         var displayName: String {
             switch self {
-            case .fullDocument: return "Full Document"
+            case .fullDocument: return "Full Document (Deprecated)"
             case .pageRange: return "Page Range"
             case .textSelection: return "Selected Text"
             case .semanticChunk: return "Relevant Section"
             }
+        }
+        
+        // Available context types for new contexts (excluding deprecated ones)
+        static var availableTypes: [ContextType] {
+            return [.pageRange, .textSelection]
         }
     }
 }

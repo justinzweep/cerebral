@@ -52,7 +52,7 @@ struct SendButton: View {
         }) {
             buttonContent
         }
-        .frame(width: 32, height: 32)
+                    .frame(width: DesignSystem.ComponentSizes.largeIconFrame.width, height: DesignSystem.ComponentSizes.largeIconFrame.height)
         .background(backgroundShape)
         .scaleEffect(buttonScale)
         .opacity(buttonOpacity)

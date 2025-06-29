@@ -173,6 +173,38 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                   let pageNumber = notification.userInfo?["pageNumber"] as? Int else { return }
             self.navigateToSelectionBounds(bounds: bounds, onPage: pageNumber)
         }
+        
+        // Listen for chunk bounding box display requests
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ShowChunkBoundingBoxes"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let chunks = notification.userInfo?["chunks"] as? [DocumentChunk] else { return }
+            self.showBoundingBoxes(for: chunks)
+        }
+        
+        // Listen for clearing bounding boxes
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ClearChunkBoundingBoxes"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearBoundingBoxes()
+        }
+        
+        // Listen for chunk bounding box highlighting (hover effects)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("HighlightChunkBoundingBoxes"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let chunkId = notification.userInfo?["chunkId"] as? String,
+                  let highlighted = notification.userInfo?["highlighted"] as? Bool else { return }
+            self.highlightChunkBoundingBoxes(chunkId: chunkId, highlighted: highlighted)
+        }
     }
     
     // MARK: - PDF State Preservation Methods
@@ -497,6 +529,116 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
         appState.clearAllPDFSelections()
     }
     
+    // MARK: - Bounding Box Management
+    
+    private var currentBoundingBoxAnnotations: [ChunkBoundingBoxAnnotation] = []
+    
+    /// Show bounding boxes for document chunks on the PDF
+    func showBoundingBoxes(for chunks: [DocumentChunk]) {
+        guard let pdfView = pdfView, let document = pdfView.document else {
+            print("❌ Cannot show bounding boxes - no PDF view or document")
+            return
+        }
+        
+        print("📦 Showing bounding boxes for \(chunks.count) chunks")
+        
+        // Clear existing bounding boxes first
+        clearBoundingBoxes()
+        
+        // Add bounding boxes for each chunk
+        for chunk in chunks {
+            addBoundingBoxes(for: chunk, in: document)
+        }
+        
+        // Refresh the PDF view to show annotations
+        pdfView.needsDisplay = true
+    }
+    
+    /// Clear all current bounding box annotations
+    func clearBoundingBoxes() {
+        guard let pdfView = pdfView, let document = pdfView.document else { return }
+        
+        // Remove all current bounding box annotations from their pages
+        for annotation in currentBoundingBoxAnnotations {
+            if let page = findPageContaining(annotation: annotation, in: document) {
+                page.removeAnnotation(annotation)
+            }
+        }
+        
+        currentBoundingBoxAnnotations.removeAll()
+        pdfView.needsDisplay = true
+        
+        print("🧹 Cleared all bounding box annotations")
+    }
+    
+    /// Add bounding box annotations for a specific chunk
+    private func addBoundingBoxes(for chunk: DocumentChunk, in document: PDFDocument) {
+        for boundingBox in chunk.boundingBoxes {
+            guard let page = document.page(at: boundingBox.pageNumber - 1) else {
+                print("⚠️ Page \(boundingBox.pageNumber) not found for chunk bounding box")
+                continue
+            }
+            
+            // Convert API coordinates to PDFKit coordinates
+            let pdfRect = convertAPICoordinatesToPDFKit(
+                boundingBox: boundingBox,
+                page: page
+            )
+            
+            // Create and add the annotation
+            let annotation = ChunkBoundingBoxAnnotation(
+                bounds: pdfRect,
+                chunkId: chunk.chunkId,
+                highlighted: false
+            )
+            
+            page.addAnnotation(annotation)
+            currentBoundingBoxAnnotations.append(annotation)
+            
+            print("📍 Added bounding box for chunk \(chunk.chunkId) on page \(boundingBox.pageNumber)")
+        }
+    }
+    
+    /// Convert API bounding box coordinates to PDFKit coordinates
+    private func convertAPICoordinatesToPDFKit(boundingBox: BoundingBox, page: PDFPage) -> CGRect {
+        let pageRect = page.bounds(for: .mediaBox)
+        
+        // API uses BOTTOMLEFT origin, PDFKit uses BOTTOMLEFT as well for .mediaBox
+        // So we can use the coordinates directly, but need to ensure correct rect construction
+        let rect = CGRect(
+            x: boundingBox.left,
+            y: boundingBox.bottom, // Use bottom as y since it's bottom-left origin
+            width: boundingBox.width,
+            height: boundingBox.height
+        )
+        
+        // Clamp to page bounds to prevent out-of-bounds annotations
+        let clampedRect = rect.intersection(pageRect)
+        
+        return clampedRect.isEmpty ? rect : clampedRect
+    }
+    
+    /// Find which page contains a specific annotation
+    private func findPageContaining(annotation: PDFAnnotation, in document: PDFDocument) -> PDFPage? {
+        for pageIndex in 0..<document.pageCount {
+            if let page = document.page(at: pageIndex),
+               page.annotations.contains(annotation) {
+                return page
+            }
+        }
+        return nil
+    }
+    
+    /// Highlight specific chunk bounding boxes (for hover effects)
+    func highlightChunkBoundingBoxes(chunkId: String, highlighted: Bool) {
+        for annotation in currentBoundingBoxAnnotations {
+            if annotation.getChunkId() == chunkId {
+                annotation.updateHighlight(highlighted)
+            }
+        }
+        pdfView?.needsDisplay = true
+    }
+    
     // Remove specific selection (for Cmd+click removal)
     func removeSelection(withId id: UUID) {
         currentSelections.removeValue(forKey: id)
@@ -519,7 +661,7 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                 if overlappingHighlights.isEmpty {
                     // No overlap - create new highlight
                     let newHighlight = try await toolbarService.applyHighlight(
-                        color: selectedColor ?? .yellow,
+                        color: selectedColor ?? HighlightColor.yellow,
                         to: selection,
                         in: document,
                         documentURL: documentURL
@@ -531,7 +673,7 @@ class PDFViewCoordinator: NSObject, PDFViewDelegate, ObservableObject {
                     // Handle overlapping highlights
                     let result = try await toolbarService.handleOverlappingHighlights(
                         newSelection: selection,
-                        newColor: selectedColor ?? .yellow,
+                        newColor: selectedColor ?? HighlightColor.yellow,
                         overlappingHighlights: overlappingHighlights,
                         in: document,
                         documentURL: documentURL
@@ -666,5 +808,71 @@ class HighlightRemovalPDFView: PDFView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         setupTrackingArea()
+    }
+}
+
+// MARK: - Custom Bounding Box Annotation
+
+class ChunkBoundingBoxAnnotation: PDFAnnotation {
+    private let chunkId: String
+    private var isChunkHighlighted: Bool = false
+    
+    init(bounds: CGRect, chunkId: String, highlighted: Bool = false) {
+        self.chunkId = chunkId
+        // Use highlight annotation type for proper fill support
+        super.init(bounds: bounds, forType: .highlight, withProperties: nil)
+        
+        // Set initial highlight state
+        self.isChunkHighlighted = highlighted
+        
+        // Configure appearance with DesignSystem colors
+        updateAppearance()
+        
+        // Make it visible but non-interactive to prevent interfering with text selection
+        self.shouldDisplay = true
+        self.shouldPrint = false
+        
+        // Add metadata for identification
+        self.contents = "CEREBRAL_CHUNK_BOUNDS_\(chunkId)"
+    }
+    
+    required init?(coder: NSCoder) {
+        self.chunkId = ""
+        self.isChunkHighlighted = false
+        super.init(coder: coder)
+    }
+    
+    func getChunkId() -> String {
+        return chunkId
+    }
+    
+    func updateHighlight(_ highlighted: Bool) {
+        self.isChunkHighlighted = highlighted
+        updateAppearance()
+    }
+    
+    private func updateAppearance() {
+        if isChunkHighlighted {
+            // Highlighted/Selected state: Use DesignSystem accent color
+            self.color = NSColor(DesignSystem.Colors.accent).withAlphaComponent(0.6)
+            
+            // Add a subtle border for definition
+            self.border = PDFBorder()
+            self.border?.lineWidth = 2.0
+            self.border?.style = .solid
+            
+        } else {
+            // Normal/Unselected state: Use DesignSystem warning color for subtlety
+            self.color = NSColor(DesignSystem.Colors.warning).withAlphaComponent(0.4)
+            
+            // Lighter border for normal state
+            self.border = PDFBorder()
+            self.border?.lineWidth = 1.5
+            self.border?.style = .solid
+        }
+        
+        // Ensure the annotation is always visible
+        self.shouldDisplay = true
+        self.shouldPrint = false
     }
 } 

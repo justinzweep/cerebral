@@ -35,14 +35,14 @@ struct PDFHighlightToolbar: View {
                         // Selection ring background
                         if highlightingState.selectedColor == color {
                             Circle()
-                                .fill(Color.white)
-                                .frame(width: 32, height: 32)
-                                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+                                .fill(DesignSystem.Colors.surfaceBackground)
+                                .frame(width: DesignSystem.ComponentSizes.largeIconFrame.width, height: DesignSystem.ComponentSizes.largeIconFrame.height)
+                                .shadow(color: DesignSystem.Shadows.light, radius: DesignSystem.Shadows.small.radius, x: DesignSystem.Shadows.small.x, y: DesignSystem.Shadows.small.y)
                         }
                         
                         // Color circle
                         let isSelected = highlightingState.selectedColor == color
-                        let circleSize: CGFloat = isSelected ? 26 : 24
+                        let circleSize: CGFloat = isSelected ? DesignSystem.ComponentSizes.buttonIconMD - DesignSystem.Spacing.xs : DesignSystem.ComponentSizes.buttonIconSM
                         
                         Circle()
                             .fill(color.color)
@@ -52,22 +52,22 @@ struct PDFHighlightToolbar: View {
                         if highlightingState.selectedColor == color {
                             Circle()
                                 .stroke(DesignSystem.Colors.accent, lineWidth: 2)
-                                .frame(width: 30, height: 30)
+                                .frame(width: DesignSystem.ComponentSizes.buttonIconMD - 2, height: DesignSystem.ComponentSizes.buttonIconMD - 2)
                         }
                         
                         // Checkmark for selected color
                         if highlightingState.selectedColor == color {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(color.hasGoodWhiteTextContrast ? .white : .black)
-                                .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 0.5)
+                                .font(.system(size: DesignSystem.ComponentSizes.iconSM, weight: .bold))
+                                .foregroundColor(color.hasGoodWhiteTextContrast ? DesignSystem.Colors.textOnAccent : DesignSystem.Colors.primaryText)
+                                .shadow(color: DesignSystem.Shadows.medium, radius: DesignSystem.Shadows.micro.radius, x: DesignSystem.Shadows.micro.x, y: DesignSystem.Shadows.micro.y)
                         }
                     }
-                    .animation(.easeInOut(duration: 0.2), value: highlightingState.selectedColor)
+                    .animation(DesignSystem.Animation.quick, value: highlightingState.selectedColor)
                 }
                 .buttonStyle(.plain)
-                .scaleEffect(highlightingState.selectedColor == color ? 1.0 : 0.95)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: highlightingState.selectedColor)
+                .scaleEffect(highlightingState.selectedColor == color ? 1.0 : DesignSystem.Scale.active)
+                .animation(DesignSystem.Animation.gentleSpring, value: highlightingState.selectedColor)
                 .accessibilityLabel("\(color.displayName) highlight")
                 .accessibilityHint(highlightingState.selectedColor == color ? "Tap to disable highlighting" : "Tap to highlight with \(color.displayName.lowercased())")
             }
@@ -150,8 +150,8 @@ class HighlightingState {
             .font(.caption)
         Text("Highlighting Enabled: \(highlightingState.isHighlightingEnabled ? "Yes" : "No")")
             .font(.caption)
-            .foregroundColor(highlightingState.isHighlightingEnabled ? .green : .red)
+            .foregroundColor(highlightingState.isHighlightingEnabled ? DesignSystem.Colors.success : DesignSystem.Colors.error)
     }
     .padding()
-    .frame(width: 400, height: 200)
+    .frame(width: DesignSystem.ComponentSizes.alertMaxWidth, height: DesignSystem.ComponentSizes.previewPanelHeight / 2)
 } 

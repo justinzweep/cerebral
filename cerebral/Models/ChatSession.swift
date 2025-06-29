@@ -16,6 +16,10 @@ class ChatSession {
     @Attribute(.externalStorage) var messagesData: Data = Data()
     @Relationship var documentReferences: [Document] = []
     
+    // New properties to track context
+    @Relationship var contextItems: [ContextItem] = []
+    var contextDocumentIds: [UUID] = [] // Track which documents are in context
+    
     init(title: String) {
         self.title = title
     }
@@ -36,6 +40,7 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     let isUser: Bool
     let timestamp: Date
     var contexts: [DocumentContext] // Unified context system
+    var chunkIds: [UUID] // Store chunk IDs instead of full chunks for Codable conformance
     var isStreaming: Bool
     var streamingComplete: Bool
     
@@ -43,12 +48,14 @@ struct ChatMessage: Codable, Identifiable, Sendable {
         text: String,
         isUser: Bool,
         contexts: [DocumentContext] = [],
+        chunks: [DocumentChunk] = [],
         isStreaming: Bool = false
     ) {
         self.text = text
         self.isUser = isUser
         self.timestamp = Date()
         self.contexts = contexts
+        self.chunkIds = Array(Set(chunks.map { $0.id })) // Store only unique IDs
         self.isStreaming = isStreaming
         self.streamingComplete = !isStreaming
     }
@@ -64,6 +71,10 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     
     var hasContext: Bool {
         !contexts.isEmpty
+    }
+    
+    var hasChunks: Bool {
+        !chunkIds.isEmpty
     }
     
     // Helper methods for streaming
@@ -90,5 +101,21 @@ struct ChatMessage: Codable, Identifiable, Sendable {
     
     mutating func removeContext(_ context: DocumentContext) {
         contexts.removeAll { $0.id == context.id }
+    }
+    
+    // Chunk management methods
+    mutating func addChunkId(_ chunkId: UUID) {
+        if !chunkIds.contains(chunkId) {
+            chunkIds.append(chunkId)
+        }
+    }
+    
+    mutating func addChunkIds(_ newChunkIds: [UUID]) {
+        let uniqueNewIds = newChunkIds.filter { !chunkIds.contains($0) }
+        chunkIds.append(contentsOf: uniqueNewIds)
+    }
+    
+    mutating func removeChunkId(_ chunkId: UUID) {
+        chunkIds.removeAll { $0 == chunkId }
     }
 } 

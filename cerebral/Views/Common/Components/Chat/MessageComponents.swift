@@ -33,14 +33,7 @@ struct UserMessage: View {
                     }
             }
             
-            // Context indicator
-            if message.hasContext {
-                HStack {
-                    Spacer(minLength: DesignSystem.Spacing.lg)
-                    MessageContextIndicator(contexts: message.contexts)
-                        .frame(maxWidth: 400)
-                }
-            }
+            // No context indicator for user messages anymore
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
     }
@@ -121,6 +114,14 @@ struct AIMessage: View {
                 Spacer(minLength: DesignSystem.Spacing.lg)
             }
             
+            // Unified context indicator for AI messages (shows both text selections and chunks)
+            // Only show context indicators when streaming is complete
+            if !message.isStreaming && (message.hasContext || message.hasChunks) {
+                UnifiedContextIndicator(
+                    contexts: message.contexts,
+                    chunkIds: message.chunkIds
+                )
+            }
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xxxs)
     }
@@ -146,7 +147,7 @@ struct StreamingWaitingAnimation: View {
             ForEach(0..<3, id: \.self) { index in
                 Circle()
                     .fill(DesignSystem.Colors.secondaryText)
-                    .frame(width: 6, height: 6)
+                    .frame(width: DesignSystem.ComponentSizes.contextDot, height: DesignSystem.ComponentSizes.contextDot)
                     .scaleEffect(showCursor ? 1.0 : 0.6)
                     .animation(
                         .easeInOut(duration: 0.6)
@@ -208,6 +209,6 @@ struct StreamingWaitingAnimation: View {
             shouldGroup: true
         )
     }
-    .frame(width: 480)
+            .frame(width: DesignSystem.ComponentSizes.chatPanelWidth)
     .padding()
 } 

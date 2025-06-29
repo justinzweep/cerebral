@@ -121,17 +121,17 @@ struct IconButton: View {
         
         var font: Font {
             switch self {
-            case .small: return .system(size: 12, weight: .medium)
-            case .medium: return .system(size: 14, weight: .medium)
-            case .large: return .system(size: 16, weight: .medium)
+            case .small: return .system(size: DesignSystem.ComponentSizes.iconMD, weight: .medium)
+            case .medium: return .system(size: DesignSystem.ComponentSizes.iconLG, weight: .medium)
+            case .large: return .system(size: DesignSystem.ComponentSizes.iconXL, weight: .medium)
             }
         }
         
         var frameSize: CGFloat {
             switch self {
-            case .small: return 24
-            case .medium: return 32
-            case .large: return 40
+            case .small: return DesignSystem.ComponentSizes.buttonIconSM
+            case .medium: return DesignSystem.ComponentSizes.buttonIconMD
+            case .large: return DesignSystem.ComponentSizes.buttonIconLG
             }
         }
     }

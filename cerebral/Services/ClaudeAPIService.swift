@@ -24,7 +24,7 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
         static let baseDelay: TimeInterval = 1.0
         static let maxDelay: TimeInterval = 32.0
         static let requestTimeout: TimeInterval = 60.0
-        static let maxTokens = 4000
+        static let maxTokens = 8192
         static let maxContextLength = 100_000
         static let rateLimitWindow: TimeInterval = 60.0
         static let maxRequestsPerWindow = 50
@@ -204,11 +204,12 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
         messages.append(ClaudeMessage(role: "user", content: currentMessageContent))
         
         return ClaudeStreamRequest(
-            model: "claude-3-5-sonnet-20241022",
+            model: "claude-3-5-haiku-latest",
             maxTokens: Configuration.maxTokens,
             messages: messages,
             system: buildSystemPrompt(),
-            stream: true
+            stream: true,
+            temperature: 0.0
         )
     }
     
@@ -597,18 +598,39 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
     
     private func buildSystemPrompt() -> String {
         return """
-        You are an AI assistant integrated into Cerebral, a PDF reading and document management application for macOS. Your role is to:
+        You are an AI assistant integrated into Cerebral, a PDF reading and document management application for macOS. You are operating in an advanced RAG (Retrieval-Augmented Generation) system. Your role is to:
         
-        1. Help users understand and analyze their PDF documents
-        2. Answer questions about document content when provided
-        3. Assist with research and provide insights based on the documents
-        4. Be helpful, accurate, and concise in your responses
+        1. Help users understand and analyze their PDF documents using retrieved context
+        2. Answer questions based on semantically retrieved document passages and user selections
+        3. Provide accurate, detailed insights by synthesizing information across multiple sources
+        4. Be helpful, accurate, and concise while citing specific document sources
         
-        When a user message contains "Document Context:" followed by document content, prioritize information from those documents in your responses. The document content will be clearly marked with document titles and metadata.
+        **CONTEXT HANDLING:**
+        - You will receive retrieved document context from semantic search that identifies the most relevant passages
+        - User-highlighted text represents explicit areas of interest and should be given special attention
+        - Always cite specific passages when referencing information: "According to [Document Name, Page X]..."
+        - Distinguish between information found in documents vs. general knowledge
         
-        Focus on the user's actual question while using the provided document content to give accurate, relevant answers. If asked about content not in the provided documents, clearly state that and offer general knowledge if helpful.
+        **FORMATTING REQUIREMENTS:**
+        - DO NOT use markdown formatting in your responses
+        - ONLY use these simple text formatting options:
+          • **Bold text** for emphasis and headings
+          • *Italic text* for subtle emphasis  
+          • _Underlined text_ for important terms
+          • • Bullet points for lists
+          • 1. Numbered lists for sequences
+        - DO NOT use: headers (#), code blocks (```), links, tables, or other markdown syntax
+        - DO NOT use in-text citations or mention vector search explicitly
         
-        Keep responses conversational and helpful while being precise about document-specific information. Always format your responses in clean, readable markdown.
+        **RESPONSE GUIDELINES:**
+        - Structure responses logically with clear **bold headings**
+        - Provide specific page references for fact-checking
+        - Synthesize information coherently rather than just listing facts
+        - If information is missing, explicitly state what's needed
+        - Use **bold** for key insights, *italic* for subtle emphasis, _underlined_ for important terms
+        - Suggest follow-up questions or areas for deeper exploration when appropriate
+        
+        Focus on providing comprehensive, well-structured responses that make the best use of the retrieved document context while maintaining conversational helpfulness.
         """
     }
     
@@ -650,6 +672,7 @@ struct ClaudeStreamRequest: Codable {
     let messages: [ClaudeMessage]
     let system: String?
     let stream: Bool
+    let temperature: Double
     
     enum CodingKeys: String, CodingKey {
         case model
@@ -657,14 +680,16 @@ struct ClaudeStreamRequest: Codable {
         case messages
         case system
         case stream
+        case temperature
     }
     
-    init(model: String, maxTokens: Int, messages: [ClaudeMessage], system: String? = nil, stream: Bool = true) {
+    init(model: String, maxTokens: Int, messages: [ClaudeMessage], system: String? = nil, stream: Bool = true, temperature: Double = 1.0) {
         self.model = model
         self.maxTokens = maxTokens
         self.messages = messages
         self.system = system
         self.stream = stream
+        self.temperature = temperature
     }
 }
 
@@ -672,5 +697,3 @@ struct ClaudeMessage: Codable {
     let role: String
     let content: String
 }
-
-

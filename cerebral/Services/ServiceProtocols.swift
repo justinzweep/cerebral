@@ -58,7 +58,8 @@ protocol StreamingChatServiceProtocol {
         settingsManager: SettingsManager,
         documentContext: [Document],
         conversationHistory: [ChatMessage],
-        contexts: [DocumentContext]
+        contexts: [DocumentContext],
+        chunks: [DocumentChunk]
     ) async
     
     func cancelCurrentStreaming()

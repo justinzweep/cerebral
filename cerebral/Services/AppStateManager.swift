@@ -301,14 +301,13 @@ final class AppState {
             return nil 
         }
         
-        // Try to load the PDF document
-        do {
-            let pdfDocument = PDFDocument(url: document.filePath)
-            return pdfDocument
-        } catch {
-            print("❌ Failed to load PDF document for undo/redo: \(error)")
+        guard let filePath = document.filePath else {
+            print("⚠️ No file path available for document")
             return nil
         }
+        
+        // Try to load the PDF document
+        return PDFDocument(url: filePath)
     }
     
     private func createSelectionForHighlight(_ highlight: PDFHighlight, in document: PDFDocument) -> PDFSelection {

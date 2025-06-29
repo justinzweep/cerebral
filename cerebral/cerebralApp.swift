@@ -11,7 +11,13 @@ import SwiftData
 @main
 struct CerebralApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([Document.self, ChatSession.self])
+        let schema = Schema([
+            Document.self, 
+            ChatSession.self, 
+            DocumentChunk.self, 
+            BoundingBox.self, 
+            ContextItem.self
+        ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         
         do {
@@ -21,12 +27,20 @@ struct CerebralApp: App {
         }
     }()
     
+
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(SettingsManager.shared)
+                .onAppear {
+                    // Initialize vector search service with model context
+                    let context = sharedModelContainer.mainContext
+                    ContextManagementService.shared.initializeVectorSearch(modelContext: context)
+                }
         }
         .modelContainer(sharedModelContainer)
+        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Import PDF...") {

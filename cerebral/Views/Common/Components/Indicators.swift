@@ -18,17 +18,17 @@ struct LoadingSpinner: View {
         
         var diameter: CGFloat {
             switch self {
-            case .small: return 16
-            case .medium: return 24
-            case .large: return 32
+            case .small: return DesignSystem.ComponentSizes.spinnerSM
+            case .medium: return DesignSystem.ComponentSizes.spinnerMD
+            case .large: return DesignSystem.ComponentSizes.spinnerLG
             }
         }
         
         var lineWidth: CGFloat {
             switch self {
-            case .small: return 2
-            case .medium: return 3
-            case .large: return 4
+            case .small: return DesignSystem.ComponentSizes.spinnerLineWidthSM
+            case .medium: return DesignSystem.ComponentSizes.spinnerLineWidthMD
+            case .large: return DesignSystem.ComponentSizes.spinnerLineWidthLG
             }
         }
     }
@@ -162,9 +162,9 @@ struct StatusBadge: View {
             }
             
             HStack(spacing: 20) {
-                LoadingSpinner(size: .medium, color: .red)
-                LoadingSpinner(size: .medium, color: .green)
-                LoadingSpinner(size: .medium, color: .blue)
+                LoadingSpinner(size: .medium, color: DesignSystem.Colors.error)
+                LoadingSpinner(size: .medium, color: DesignSystem.Colors.success)
+                LoadingSpinner(size: .medium, color: DesignSystem.Colors.accent)
             }
         }
         

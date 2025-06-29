@@ -17,47 +17,56 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     
     // Layout constraints
-    private let sidebarWidthRange: ClosedRange<CGFloat> = 200...400
-    private let chatWidthRange: ClosedRange<CGFloat> = 280...600
-    private let centerMinWidth: CGFloat = 300
+    // MARK: - Layout Constants
+    
+    private let sidebarWidthRange: ClosedRange<CGFloat> = 250...350
+    private let chatWidthRange: ClosedRange<CGFloat> = 320...500
+    private let centerMinWidth: CGFloat = 400
     
     var body: some View {
-                HSplitView {
-            // Left Pane: Document Sidebar
-            if appState.showingSidebar {
-                DocumentSidebarPane(
-                    selectedDocument: $appState.selectedDocument,
-                    showingImporter: $appState.showingImporter
-                )
-                .frame(minWidth: sidebarWidthRange.lowerBound, maxWidth: sidebarWidthRange.upperBound)
-                .background(DesignSystem.Colors.secondaryBackground)
-                .transition(.asymmetric(
-                    insertion: .move(edge: .leading).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-                .id("sidebar")
-            }
+        VStack(spacing: 0) {
+            // Subtle divider line at bottom of toolbar (matches HSplitView styling)
+            Rectangle()
+                .fill(Color(NSColor.separatorColor))
+                .frame(height: 1)
             
-            // Center and Right Panes in nested HSplitView
             HSplitView {
-                // Center Pane: PDF Viewer
-                PDFViewerView(document: appState.selectedDocument)
-                    .frame(minWidth: centerMinWidth)
+                // Left Pane: Document Sidebar
+                if appState.showingSidebar {
+                    DocumentSidebarPane(
+                        selectedDocument: $appState.selectedDocument,
+                        showingImporter: $appState.showingImporter
+                    )
+                    .frame(minWidth: sidebarWidthRange.lowerBound, maxWidth: sidebarWidthRange.upperBound)
                     .background(DesignSystem.Colors.secondaryBackground)
-                    .id(appState.selectedDocument?.id.uuidString ?? "no-document")
-                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
+                    .id("sidebar")
+                }
                 
-                // Right Pane: Chat Panel
-                if appState.showingChat {
-                    ChatView(selectedDocument: appState.selectedDocument)
-                        .frame(minWidth: chatWidthRange.lowerBound, maxWidth: chatWidthRange.upperBound)
+                // Center and Right Panes in nested HSplitView
+                HSplitView {
+                    // Center Pane: PDF Viewer
+                    PDFViewerView(document: appState.selectedDocument)
+                        .frame(minWidth: centerMinWidth)
                         .background(DesignSystem.Colors.secondaryBackground)
-                        .environment(settingsManager)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .trailing).combined(with: .opacity)
-                        ))
-                        .id("chat-panel")
+                        .id(appState.selectedDocument?.id.uuidString ?? "no-document")
+                        .padding(.horizontal, DesignSystem.Spacing.sm)
+                    
+                    // Right Pane: Chat Panel
+                    if appState.showingChat {
+                        ChatView(selectedDocument: appState.selectedDocument)
+                            .frame(minWidth: chatWidthRange.lowerBound, maxWidth: chatWidthRange.upperBound)
+                            .background(DesignSystem.Colors.secondaryBackground)
+                            .environment(settingsManager)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .trailing).combined(with: .opacity)
+                            ))
+                            .id("chat-panel")
+                    }
                 }
             }
         }
@@ -148,6 +157,7 @@ struct ContentView: View {
                 }
             }
         }
+        .toolbarBackground(DesignSystem.Colors.secondaryBackground, for: .windowToolbar)
     }
     
     // MARK: - Panel Management

@@ -283,6 +283,6 @@ struct HighlightedMessageText: View {
         ), shouldGroup: true)
     }
     .padding()
-    .frame(width: 480)
+            .frame(width: DesignSystem.ComponentSizes.chatPanelWidth)
     .background(DesignSystem.Colors.background)
 } 
