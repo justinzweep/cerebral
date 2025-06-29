@@ -23,11 +23,10 @@ struct ContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Subtle divider line at bottom of toolbar
+            // Subtle divider line at bottom of toolbar (matches HSplitView styling)
             Rectangle()
-                .fill(DesignSystem.Colors.border)
-                .frame(height: 0.5)
-                .opacity(0.6)
+                .fill(Color(NSColor.separatorColor))
+                .frame(height: 1)
             
             HSplitView {
                 // Left Pane: Document Sidebar
