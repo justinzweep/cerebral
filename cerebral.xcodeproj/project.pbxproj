@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		9E755BB22E0DE39800BD33B7 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = 9E755BB12E0DE39800BD33B7 /* SwiftAnthropic */; };
+		9E9236D92E10B84100C1F8B2 /* Clerk in Frameworks */ = {isa = PBXBuildFile; productRef = 9E9236D82E10B84100C1F8B2 /* Clerk */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9E9236D92E10B84100C1F8B2 /* Clerk in Frameworks */,
 				9E755BB22E0DE39800BD33B7 /* SwiftAnthropic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -118,6 +120,7 @@
 			name = cerebral;
 			packageProductDependencies = (
 				9E755BB12E0DE39800BD33B7 /* SwiftAnthropic */,
+				9E9236D82E10B84100C1F8B2 /* Clerk */,
 			);
 			productName = cerebral;
 			productReference = 9E755B482E0DE00700BD33B7 /* cerebral.app */;
@@ -203,6 +206,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9E755BB02E0DE37E00BD33B7 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
+				9E9236D72E10B84100C1F8B2 /* XCRemoteSwiftPackageReference "clerk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9E755B492E0DE00700BD33B7 /* Products */;
@@ -562,6 +566,14 @@
 				minimumVersion = 1.4.0;
 			};
 		};
+		9E9236D72E10B84100C1F8B2 /* XCRemoteSwiftPackageReference "clerk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/clerk/clerk-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.58.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -569,6 +581,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9E755BB02E0DE37E00BD33B7 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
 			productName = SwiftAnthropic;
+		};
+		9E9236D82E10B84100C1F8B2 /* Clerk */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9E9236D72E10B84100C1F8B2 /* XCRemoteSwiftPackageReference "clerk-ios" */;
+			productName = Clerk;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

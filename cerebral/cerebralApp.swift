@@ -27,6 +27,7 @@ struct CerebralApp: App {
                 .environment(SettingsManager.shared)
         }
         .modelContainer(sharedModelContainer)
+        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Import PDF...") {
