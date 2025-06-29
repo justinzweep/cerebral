@@ -1,13 +1,13 @@
 {
-  "originHash" : "78fdc9a7c0d29a98c94c2a960fff727341fa09cc0290a7c76ac94467297295c9",
+  "originHash" : "a7478e138640eff09eaa7adb21304b0e345a7cecd42088c1c2285d0b85df5866",
   "pins" : [
     {
-      "identity" : "swiftanthropic",
+      "identity" : "objectbox-swift-spm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/jamesrochabrun/SwiftAnthropic",
+      "location" : "https://github.com/objectbox/objectbox-swift-spm",
       "state" : {
-        "revision" : "7262ced65e890ea5311193b849786344432d8fa7",
-        "version" : "1.8.6"
+        "branch" : "main",
+        "revision" : "e782bed6c3ad5171616817759026b241d887abc7"
       }
     }
   ],

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		9E755BB22E0DE39800BD33B7 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = 9E755BB12E0DE39800BD33B7 /* SwiftAnthropic */; };
+		9E9236F12E117FD200C1F8B2 /* ObjectBox.xcframework in Frameworks */ = {isa = PBXBuildFile; productRef = 9E9236F02E117FD200C1F8B2 /* ObjectBox.xcframework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9E755BB22E0DE39800BD33B7 /* SwiftAnthropic in Frameworks */,
+				9E9236F12E117FD200C1F8B2 /* ObjectBox.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,7 +117,7 @@
 			);
 			name = cerebral;
 			packageProductDependencies = (
-				9E755BB12E0DE39800BD33B7 /* SwiftAnthropic */,
+				9E9236F02E117FD200C1F8B2 /* ObjectBox.xcframework */,
 			);
 			productName = cerebral;
 			productReference = 9E755B482E0DE00700BD33B7 /* cerebral.app */;
@@ -202,7 +202,7 @@
 			mainGroup = 9E755B3F2E0DE00700BD33B7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				9E755BB02E0DE37E00BD33B7 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
+				9E9236EF2E117FD200C1F8B2 /* XCRemoteSwiftPackageReference "objectbox-swift-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9E755B492E0DE00700BD33B7 /* Products */;
@@ -554,21 +554,21 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		9E755BB02E0DE37E00BD33B7 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */ = {
+		9E9236EF2E117FD200C1F8B2 /* XCRemoteSwiftPackageReference "objectbox-swift-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/jamesrochabrun/SwiftAnthropic";
+			repositoryURL = "https://github.com/objectbox/objectbox-swift-spm";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.4.0;
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		9E755BB12E0DE39800BD33B7 /* SwiftAnthropic */ = {
+		9E9236F02E117FD200C1F8B2 /* ObjectBox.xcframework */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 9E755BB02E0DE37E00BD33B7 /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
-			productName = SwiftAnthropic;
+			package = 9E9236EF2E117FD200C1F8B2 /* XCRemoteSwiftPackageReference "objectbox-swift-spm" */;
+			productName = ObjectBox.xcframework;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
