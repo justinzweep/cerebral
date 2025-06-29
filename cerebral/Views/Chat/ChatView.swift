@@ -243,8 +243,9 @@ struct ChatView: View {
         
         // If no exact match, try matching by resolved paths (in case of symbolic links, etc.)
         let targetPath = documentURL.resolvingSymlinksInPath().path
-        if let pathMatch = allDocuments.first(where: { 
-            $0.filePath.resolvingSymlinksInPath().path == targetPath 
+        if let pathMatch = allDocuments.first(where: { document in
+            guard let filePath = document.filePath else { return false }
+            return filePath.resolvingSymlinksInPath().path == targetPath 
         }) {
             return pathMatch
         }

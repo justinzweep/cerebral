@@ -13,7 +13,7 @@ import PDFKit
 /// Dependency injection container for managing service instances
 /// Simplified to focus on service coordination and dependency management
 @MainActor
-final class ServiceContainer {
+final class ServiceContainer: ObservableObject {
     static let shared = ServiceContainer()
     
     private init() {
@@ -42,6 +42,10 @@ final class ServiceContainer {
     private var _streamingChatService: StreamingChatServiceProtocol?
     
     // MARK: - Service Accessors
+    
+    var contextService: ContextManagementService {
+        return contextManagementService as! ContextManagementService
+    }
     
     func chatService() -> ChatServiceProtocol {
         if _chatService == nil {

@@ -130,11 +130,51 @@ struct DocumentSidebarContent: View {
             // Create document model
             let title = finalURL.deletingPathExtension().lastPathComponent
             let document = Document(title: title, filePath: finalURL)
+            document.processingStatus = .pending
             modelContext.insert(document)
             
             try modelContext.save()
+            
+            // Process the PDF for vector search
+            Task {
+                await processPDFForVectorSearch(document)
+            }
+            
         } catch {
             ServiceContainer.shared.errorManager.handle(error, context: "document_import_single")
+        }
+    }
+    
+    private func processPDFForVectorSearch(_ document: Document) async {
+        do {
+            // Set processing status
+            document.processingStatus = .processing
+            try modelContext.save()
+            
+            // Initialize services
+            let pdfProcessingService = PDFProcessingService()
+            let vectorSearchService = VectorSearchService(modelContext: modelContext)
+            
+            // Process PDF to get chunks
+            let response = try await pdfProcessingService.processPDF(document: document)
+            
+            // Store chunks in vector database
+            try vectorSearchService.storeChunks(response.chunks, for: document)
+            
+            // Update document status
+            document.processingStatus = .completed
+            document.documentTitle = response.documentTitle
+            try modelContext.save()
+            
+            print("✅ Successfully processed PDF for vector search: '\(document.title)'")
+            
+        } catch {
+            // Update status to failed
+            document.processingStatus = .failed
+            try? modelContext.save()
+            
+            print("❌ Failed to process PDF for vector search: '\(document.title)' - \(error)")
+            ServiceContainer.shared.errorManager.handle(error, context: "pdf_processing")
         }
     }
 }

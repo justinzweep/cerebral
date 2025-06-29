@@ -52,6 +52,11 @@ struct PDFViewerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: document) { oldDocument, newDocument in
+            // Clear any existing bounding boxes when switching documents
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ClearChunkBoundingBoxes"),
+                object: nil
+            )
             loadPDF()
         }
         .onAppear {
@@ -73,9 +78,16 @@ struct PDFViewerView: View {
         // Update last opened date
         document.lastOpened = Date()
         
+        // Check if document has a valid file path
+        guard let filePath = document.filePath else {
+            errorMessage = "Document file path is not available."
+            showingError = true
+            return
+        }
+        
         // Load PDF document
-        if FileManager.default.fileExists(atPath: document.filePath.path) {
-            pdfDocument = PDFDocument(url: document.filePath)
+        if FileManager.default.fileExists(atPath: filePath.path) {
+            pdfDocument = PDFDocument(url: filePath)
             
             if let pdfDoc = pdfDocument {
                 // Load existing highlights

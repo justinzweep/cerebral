@@ -8,6 +8,7 @@
 import Foundation
 import PDFKit
 import SwiftUI
+import SwiftData
 
 // MARK: - Context Management Protocol
 
@@ -42,12 +43,26 @@ final class ContextManagementService: ContextManagementServiceProtocol {
     private let pdfService = PDFService.shared
     private let cacheManager: ContextCacheManager
     
+    // New services for vector search
+    private var vectorSearchService: VectorSearchService?
+    private let pdfProcessingService = PDFProcessingService()
+    
     // In-memory storage for session contexts (in production, this would be persisted)
     private var sessionContexts: [UUID: [DocumentContext]] = [:]
     
     private init() {
         self.cacheManager = ContextCacheManager()
         setupCache()
+    }
+    
+    // Initialize vector search service with model context
+    func initializeVectorSearch(modelContext: ModelContext) {
+        self.vectorSearchService = VectorSearchService(modelContext: modelContext)
+    }
+    
+    // Public accessor for vector search service
+    var currentVectorSearchService: VectorSearchService? {
+        return vectorSearchService
     }
     
     private func setupCache() {
@@ -58,6 +73,11 @@ final class ContextManagementService: ContextManagementServiceProtocol {
     // MARK: - Context Creation
     
     func createContext(from document: Document, type: DocumentContext.ContextType, selection: PDFSelection? = nil) async throws -> DocumentContext {
+        // We no longer support full document contexts - only chunks from vector search
+        guard type != .fullDocument else {
+            throw AppError.pdfError(PDFError.textExtractionFailed("Full document contexts are no longer supported. Use vector search chunks instead."))
+        }
+        
         // Check cache first
         if let cachedContext = getCachedContext(for: document, type: type) {
             return cachedContext
@@ -68,13 +88,8 @@ final class ContextManagementService: ContextManagementServiceProtocol {
         
         switch type {
         case .fullDocument:
-            content = pdfService.extractText(from: document, maxLength: 50000) ?? ""
-            metadata = ContextMetadata(
-                pageNumbers: Array(1...(pdfService.getDocumentMetadata(from: document)?["pageCount"] as? Int ?? 1)),
-                extractionMethod: "PDFKit.fullDocument",
-                tokenCount: tokenizer.estimateTokenCount(for: content),
-                checksum: tokenizer.calculateChecksum(for: content)
-            )
+            // This case should never be reached due to the guard above
+            throw AppError.pdfError(PDFError.textExtractionFailed("Full document contexts are no longer supported."))
             
         case .pageRange:
             // Extract pages based on selection
@@ -107,13 +122,8 @@ final class ContextManagementService: ContextManagementServiceProtocol {
             }
             
         case .semanticChunk:
-            // For now, treat as full document - in future, implement smart chunking
-            content = pdfService.extractText(from: document, maxLength: 10000) ?? ""
-            metadata = ContextMetadata(
-                extractionMethod: "PDFKit.semanticChunk",
-                tokenCount: tokenizer.estimateTokenCount(for: content),
-                checksum: tokenizer.calculateChecksum(for: content)
-            )
+            // Semantic chunks are now handled by vector search, not by this method
+            throw AppError.pdfError(PDFError.textExtractionFailed("Semantic chunks are now handled by vector search service."))
         }
         
         let context = DocumentContext(
@@ -212,7 +222,7 @@ final class ContextManagementService: ContextManagementServiceProtocol {
     }
     
     func invalidateCache(for documentId: UUID) {
-        // Remove from in-memory cache
+        // Remove from in-memory cache (all types including deprecated ones for cleanup)
         for type in DocumentContext.ContextType.allCases {
             let cacheKey = "\(documentId.uuidString)-\(type.rawValue)"
             contextCache.removeValue(forKey: cacheKey)
@@ -222,6 +232,130 @@ final class ContextManagementService: ContextManagementServiceProtocol {
         Task {
             await cacheManager.invalidateCache(for: documentId)
         }
+    }
+    
+    // MARK: - Vector Search Integration
+    
+    func addDocumentToContext(_ document: Document, for session: ChatSession) async throws {
+        guard let vectorService = vectorSearchService else {
+            throw VectorSearchError.serviceNotInitialized("VectorSearchService")
+        }
+        
+        // 1. Check if document is already processed
+        if document.processingStatus != .completed {
+            // 2. Send to API for processing
+            document.processingStatus = .processing
+            let response = try await pdfProcessingService.processPDF(document: document)
+            
+            // 3. Store chunks in vector database
+            try vectorService.storeChunks(response.chunks, for: document)
+            
+            // 4. Update document status
+            document.processingStatus = .completed
+            document.totalChunks = response.totalChunks
+            document.documentTitle = response.documentTitle
+        }
+        
+        // 5. Add to session context
+        let contextItem = ContextItem(
+            type: .document,
+            content: document.documentTitle ?? document.title,
+            documentId: document.id
+        )
+        session.contextItems.append(contextItem)
+        
+        if !session.contextDocumentIds.contains(document.id) {
+            session.contextDocumentIds.append(document.id)
+        }
+    }
+    
+    func addSelectionToContext(_ selection: String, from document: Document, pageNumber: Int, boundingBox: BoundingBox?, for session: ChatSession) {
+        let contextItem = ContextItem(
+            type: .selection,
+            content: selection,
+            documentId: document.id
+        )
+        contextItem.pageNumber = pageNumber
+        contextItem.boundingBox = boundingBox
+        
+        session.contextItems.append(contextItem)
+    }
+    
+    func buildContextForMessage(session: ChatSession, userMessage: String) async throws -> String {
+        guard let vectorService = vectorSearchService else {
+            throw VectorSearchError.serviceNotInitialized("VectorSearchService")
+        }
+        
+        var contextParts: [String] = []
+        
+        // 1. Add explicit selections
+        let selections = session.contextItems.filter { $0.type == .selection }
+        for selection in selections {
+            let pageInfo = selection.pageNumber != nil ? " (Page \(selection.pageNumber!))" : ""
+            contextParts.append("SELECTED TEXT\(pageInfo): \(selection.content)")
+        }
+        
+        // 2. For documents in context, perform semantic search
+        let documentIds = session.contextDocumentIds
+        if !documentIds.isEmpty {
+            let relevantChunks = try await vectorService.searchSimilarInDocuments(
+                documentIds, 
+                query: userMessage, 
+                limit: 10
+            )
+            
+            for chunk in relevantChunks {
+                var pageInfo = ""
+                if let primaryPage = chunk.primaryPageNumber {
+                    pageInfo = " (Page \(primaryPage))"
+                }
+                
+                let documentName = chunk.document?.documentTitle ?? chunk.document?.title ?? "Unknown Document"
+                contextParts.append("DOCUMENT CONTEXT [\(documentName)]\(pageInfo): \(chunk.text)")
+            }
+        }
+        
+        return contextParts.joined(separator: "\n\n")
+    }
+    
+    func removeContextItem(_ contextItem: ContextItem, from session: ChatSession) {
+        session.contextItems.removeAll { $0.id == contextItem.id }
+        
+        // If this was a document context, check if we should remove it from contextDocumentIds
+        if contextItem.type == .document, let documentId = contextItem.documentId {
+            let remainingDocumentContexts = session.contextItems.filter { 
+                $0.type == .document && $0.documentId == documentId 
+            }
+            if remainingDocumentContexts.isEmpty {
+                session.contextDocumentIds.removeAll { $0 == documentId }
+            }
+        }
+    }
+    
+    func clearAllContext(for session: ChatSession) {
+        session.contextItems.removeAll()
+        session.contextDocumentIds.removeAll()
+    }
+    
+    func getProcessingStatus(for document: Document) -> ProcessingStatus {
+        return document.processingStatus
+    }
+    
+    func reprocessDocument(_ document: Document) async throws {
+        guard let vectorService = vectorSearchService else {
+            throw VectorSearchError.serviceNotInitialized("VectorSearchService")
+        }
+        
+        // Clear existing chunks
+        try vectorService.clearChunksForDocument(document.id)
+        
+        // Reset processing status
+        document.processingStatus = .pending
+        document.totalChunks = 0
+        document.documentTitle = nil
+        
+        // Reset status so it will be reprocessed when next added to a session
+        document.processingStatus = ProcessingStatus.pending
     }
     
     // MARK: - Token Management
@@ -361,6 +495,7 @@ final class ContextCacheManager {
     }
     
     func invalidateCache(for documentId: UUID) async {
+        // Remove all cached contexts for this document (including deprecated types for cleanup)
         for type in DocumentContext.ContextType.allCases {
             let cacheKey = "\(documentId.uuidString)-\(type.rawValue)"
             let cacheFile = cacheDirectory.appendingPathComponent("\(cacheKey).json")

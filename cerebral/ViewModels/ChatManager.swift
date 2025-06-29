@@ -23,6 +23,7 @@ import Foundation
     // MARK: - Document Context
     private var currentDocumentContext: [Document] = []
     private var currentContextBundle = ChatContextBundle(sessionId: UUID(), contexts: [])
+    private var currentSession = ChatSession(title: "Chat") // Add current session for context management
     
     // MARK: - Services
     private var _streamingService: StreamingChatService?
@@ -39,7 +40,8 @@ import Foundation
     
     // MARK: - Public Interface
     
-    /// Send a message using streaming with new context system
+    /// Send a message using streaming with RAG (Retrieval-Augmented Generation) flow
+    /// This ensures vector search completes BEFORE sending message to AI
     func sendMessage(
         _ text: String,
         settingsManager: SettingsManager,
@@ -57,70 +59,118 @@ import Foundation
             return
         }
         
+        // Start loading state immediately
+        isLoading = true
+        isStreaming = false
+        
         do {
+            print("🔄 RAG Flow: Starting message processing...")
+            
             // CLEAR context bundle at the start of each message for fresh context
             currentContextBundle = ChatContextBundle(sessionId: UUID(), contexts: [])
-            print("🧹 Cleared context bundle for new message")
+            print("🧹 RAG Flow: Cleared context bundle for new message")
             
-            // Add explicit contexts to bundle (these are the text selections)
-            if !explicitContexts.isEmpty {
-                currentContextBundle.contexts.append(contentsOf: explicitContexts)
-                print("📝 Added \(explicitContexts.count) explicit contexts (text selections)")
+            // Step 1: Set active document ID if we have a currently selected/open document
+            if let activeDocument = ServiceContainer.shared.appState.selectedDocument {
+                currentContextBundle.activeDocumentId = activeDocument.id
+                print("📄 RAG Flow: Set active document: \(activeDocument.title)")
             }
             
-            // Convert document context to new format (only for full documents)
+            // Step 2: Add explicit contexts (manual text selections) to bundle
+            if !explicitContexts.isEmpty {
+                currentContextBundle.contexts.append(contentsOf: explicitContexts)
+                print("📝 RAG Flow: Added \(explicitContexts.count) explicit contexts (text selections)")
+            }
+            
+            // Step 3: Process appended document context (from @ or sidebar) - add to session for vector search
             if !documentContext.isEmpty {
-                print("📄 Processing \(documentContext.count) full document contexts")
+                print("📄 RAG Flow: Processing \(documentContext.count) appended documents for vector search")
+                
                 for doc in documentContext {
-                    if let context = try? await contextService.createContext(
-                        from: doc,
-                        type: .fullDocument,
-                        selection: nil
-                    ) {
-                        currentContextBundle.addContext(context)
+                    do {
+                        try await contextService.addDocumentToContext(doc, for: currentSession)
+                        print("✅ RAG Flow: Added appended document to vector search: \(doc.title)")
+                    } catch {
+                        print("❌ RAG Flow: Failed to add appended document to vector search: \(error)")
+                        throw error // Fail fast if we can't add documents
                     }
                 }
             }
             
-            // Build message with new context system
-            let (processedText, contexts) = try await enhancedMessageBuilder.buildMessage(
+            // Step 4: If we have an active document, also add it to session for vector search
+            if let activeDocId = currentContextBundle.activeDocumentId,
+               let activeDoc = ServiceContainer.shared.documentService.findDocument(byId: activeDocId) {
+                do {
+                    try await contextService.addDocumentToContext(activeDoc, for: currentSession)
+                    print("✅ RAG Flow: Added active document to vector search: \(activeDoc.title)")
+                } catch {
+                    print("❌ RAG Flow: Failed to add active document to vector search: \(error)")
+                    throw error // Fail fast if we can't add active document
+                }
+            }
+            
+            // Step 5: CRITICAL RAG STEP - Build message with vector search and WAIT for completion
+            print("🔍 RAG Flow: Starting vector search and context building...")
+            let (processedText, contexts, chunks) = try await enhancedMessageBuilder.buildMessage(
                 userInput: text,
                 contextBundle: currentContextBundle,
                 sessionId: currentContextBundle.sessionId
             )
             
-            // Create user message with contexts
+            // Step 6: Verify we have retrieved context before proceeding
+            let hasVectorContext = !chunks.isEmpty
+            let hasManualContext = !contexts.isEmpty
+            
+            if !hasVectorContext && !hasManualContext {
+                print("⚠️ RAG Flow: No context retrieved - proceeding with user query only")
+            } else {
+                print("✅ RAG Flow: Successfully retrieved context - \(chunks.count) chunks, \(contexts.count) manual selections")
+            }
+            
+            // Step 7: Create RAG-enhanced message for LLM (this includes retrieved context + user query)
+            let ragEnhancedMessage = enhancedMessageBuilder.formatForLLM(
+                text: processedText,
+                contexts: contexts,
+                chunks: chunks
+            )
+            
+            print("📤 RAG Flow: Message ready to send (\(ragEnhancedMessage.count) characters)")
+            
+            // Step 8: Create user message for display (original text only)
             let userMessage = ChatMessage(
                 text: text,  // Store original text for display
                 isUser: true,
-                contexts: contexts
+                contexts: [], // No contexts shown in user messages
+                chunks: []    // No chunks shown in user messages
             )
             messages.append(userMessage)
             
-            // Format for LLM
-            let llmMessage = enhancedMessageBuilder.formatForLLM(
-                text: processedText,
-                contexts: contexts
-            )
+            print("📝 RAG Flow: Created user message (no chunks shown for user messages)")
             
-            // Send to streaming service
+            // Step 9: Send RAG-enhanced message to AI (only after successful retrieval)
+            print("🚀 RAG Flow: Sending enhanced message to AI...")
             await streamingService.sendStreamingMessage(
-                llmMessage,
+                ragEnhancedMessage, // This contains user query + retrieved context
                 settingsManager: settingsManager,
                 documentContext: documentContext,
                 conversationHistory: filterValidMessages(Array(messages.dropLast(2))),
-                contexts: contexts
+                contexts: contexts,
+                chunks: chunks
             )
             
         } catch {
-            // Handle error
+            // Handle RAG pipeline errors
+            isLoading = false
+            isStreaming = false
+            
             let errorMessage = ChatMessage(
-                text: "Failed to process message: \(error.localizedDescription)",
+                text: "RAG Pipeline Error: Failed to retrieve document context - \(error.localizedDescription)",
                 isUser: false,
                 contexts: []
             )
             messages.append(errorMessage)
             lastError = error.localizedDescription
+            print("❌ RAG Flow: Pipeline failed with error: \(error)")
         }
     }
     
@@ -156,6 +206,7 @@ import Foundation
         messages.removeAll()
         currentDocumentContext.removeAll()
         currentContextBundle = ChatContextBundle(sessionId: UUID(), contexts: [])
+        currentSession = ChatSession(title: title) // Create new session
         currentSessionTitle = title
         resetState()
     }
@@ -171,6 +222,7 @@ import Foundation
         if let document = document {
             setDocumentContext([document])
             currentSessionTitle = "Chat with \(document.title)"
+            currentSession = ChatSession(title: currentSessionTitle) // Create new session
             
             let welcomeMessage = ChatMessage(
                 text: "I'm ready to help you with '\(document.title)'. Feel free to ask me any questions about this document!",
@@ -181,6 +233,7 @@ import Foundation
         } else {
             clearDocumentContext()
             currentSessionTitle = "Chat"
+            currentSession = ChatSession(title: "Chat") // Create new session
         }
     }
     
@@ -302,3 +355,5 @@ extension ChatManager: StreamingChatServiceDelegate {
         isLoading = false
     }
 } 
+
+

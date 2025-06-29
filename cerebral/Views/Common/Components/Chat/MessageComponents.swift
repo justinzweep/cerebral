@@ -33,14 +33,7 @@ struct UserMessage: View {
                     }
             }
             
-            // Context indicator
-            if message.hasContext {
-                HStack {
-                    Spacer(minLength: DesignSystem.Spacing.lg)
-                    MessageContextIndicator(contexts: message.contexts)
-                        .frame(maxWidth: 400)
-                }
-            }
+            // No context indicator for user messages anymore
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xs)
     }
@@ -121,6 +114,14 @@ struct AIMessage: View {
                 Spacer(minLength: DesignSystem.Spacing.lg)
             }
             
+            // Unified context indicator for AI messages (shows both text selections and chunks)
+            // Only show context indicators when streaming is complete
+            if !message.isStreaming && (message.hasContext || message.hasChunks) {
+                UnifiedContextIndicator(
+                    contexts: message.contexts,
+                    chunkIds: message.chunkIds
+                )
+            }
         }
         .padding(.vertical, shouldGroup ? DesignSystem.Spacing.xxxs : DesignSystem.Spacing.xxxs)
     }

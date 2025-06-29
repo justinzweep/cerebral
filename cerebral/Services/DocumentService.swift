@@ -65,6 +65,7 @@ final class DocumentService: DocumentServiceProtocol {
         // Create document model
         let title = finalURL.deletingPathExtension().lastPathComponent
         let document = Document(title: title, filePath: finalURL)
+        document.processingStatus = .pending
         
         // Check for duplicates in the database
         if let existingDocument = findDocument(byName: title) {
@@ -81,6 +82,11 @@ final class DocumentService: DocumentServiceProtocol {
             // Clean up the file if database save fails
             try? FileManager.default.removeItem(at: finalURL)
             throw DocumentError.storageError("Failed to save document to database: \(error.localizedDescription)")
+        }
+        
+        // Process the PDF for vector search asynchronously
+        Task {
+            await processPDFForVectorSearch(document, modelContext: modelContext)
         }
         
         print("✅ Successfully imported document: '\(title)'")
@@ -296,14 +302,35 @@ final class DocumentService: DocumentServiceProtocol {
     
     // MARK: - Document Management
     
+    /// Completely deletes a document and all associated data
+    /// This includes:
+    /// 1. Clearing document chunks from the vector database (SwiftData)
+    /// 2. Removing the physical PDF file from storage
+    /// 3. Removing the document record from the database
+    /// - Parameters:
+    ///   - document: The document to delete
+    ///   - modelContext: The SwiftData model context
+    /// - Throws: DocumentError.deletionFailed if any step fails
     func deleteDocument(_ document: Document, from modelContext: ModelContext) throws {
         do {
-            // Remove the physical file
-            if FileManager.default.fileExists(atPath: document.filePath.path) {
-                try FileManager.default.removeItem(at: document.filePath)
+            // First, clear chunks from vector database
+            let vectorSearchService = VectorSearchService(modelContext: modelContext)
+            do {
+                let deletedChunks = try vectorSearchService.deleteChunksForDocument(document.id)
+                print("✅ Successfully deleted \(deletedChunks) chunks from vector database for document: '\(document.title)'")
+            } catch {
+                print("⚠️ Failed to delete chunks from vector database for '\(document.title)': \(error)")
+                // Continue with deletion even if chunk cleanup fails
             }
             
-            // Remove from database
+            // Remove the physical file
+            if let filePath = document.filePath {
+                if FileManager.default.fileExists(atPath: filePath.path) {
+                    try FileManager.default.removeItem(at: filePath)
+                }
+            }
+            
+            // Remove from database (SwiftData will automatically handle cascade deletion of chunks due to relationship)
             modelContext.delete(document)
             try modelContext.save()
             
@@ -353,8 +380,9 @@ final class DocumentService: DocumentServiceProtocol {
         var totalSize: Int64 = 0
         
         for document in documents {
-            if let attributes = try? FileManager.default.attributesOfItem(atPath: document.filePath.path),
-               let fileSize = attributes[.size] as? Int64 {
+            if let filePath = document.filePath,
+               let attributes = try? FileManager.default.attributesOfItem(atPath: filePath.path),
+               let fileSize = attributes[FileAttributeKey.size] as? Int64 {
                 totalSize += fileSize
             }
         }
@@ -368,11 +396,16 @@ final class DocumentService: DocumentServiceProtocol {
         var errors: [(Document, Error)] = []
         
         for document in documents {
-            if !FileManager.default.fileExists(atPath: document.filePath.path) {
+            guard let filePath = document.filePath else {
+                errors.append((document, DocumentError.fileNotFound(document.title)))
+                continue
+            }
+            
+            if !FileManager.default.fileExists(atPath: filePath.path) {
                 errors.append((document, DocumentError.fileNotFound(document.title)))
             } else {
                 do {
-                    try pdfService.validatePDF(at: document.filePath)
+                    try pdfService.validatePDF(at: filePath)
                 } catch {
                     errors.append((document, error))
                 }
@@ -380,5 +413,82 @@ final class DocumentService: DocumentServiceProtocol {
         }
         
         return errors
+    }
+    
+    // MARK: - PDF Processing for Vector Search
+    
+    private func processPDFForVectorSearch(_ document: Document, modelContext: ModelContext) async {
+        do {
+            // Initialize services
+            let pdfProcessingService = PDFProcessingService()
+            let vectorSearchService = VectorSearchService(modelContext: modelContext)
+            
+            // Check if processing server is available
+            let isServerHealthy = await pdfProcessingService.checkServerHealth()
+            if !isServerHealthy {
+                print("⚠️ Processing server not available at localhost:8000")
+                print("💡 To enable vector search, start the processing server:")
+                print("   cd path/to/your/python/server && python app.py")
+                print("   Or check VECTOR_SEARCH_README.md for setup instructions")
+                document.processingStatus = .failed
+                try modelContext.save()
+                return
+            }
+            
+            // Set processing status
+            document.processingStatus = .processing
+            try modelContext.save()
+            
+            print("🔄 Starting PDF processing for '\(document.title)' - this may take several minutes...")
+            
+            // Process PDF to get chunks
+            let response = try await pdfProcessingService.processPDF(document: document)
+            
+            // Store chunks in vector database
+            try vectorSearchService.storeChunks(response.chunks, for: document)
+            
+            // Update document status
+            document.processingStatus = .completed
+            document.documentTitle = response.documentTitle
+            try modelContext.save()
+            
+            print("✅ Successfully processed PDF for vector search: '\(document.title)'")
+            
+        } catch {
+            // Update status to failed
+            document.processingStatus = .failed
+            try? modelContext.save()
+            
+            // Provide more specific error messages
+            let errorMessage = if let processingError = error as? ProcessingError {
+                switch processingError {
+                case .networkError(let networkError):
+                    if let urlError = networkError as? URLError {
+                        switch urlError.code {
+                        case .timedOut:
+                            "Processing timed out - PDF may be too large or server is busy"
+                        case .cannotConnectToHost:
+                            "Cannot connect to processing server - make sure it's running on localhost:8000"
+                        default:
+                            "Network error: \(urlError.localizedDescription)"
+                        }
+                    } else {
+                        "Network error: \(networkError.localizedDescription)"
+                    }
+                case .serverError:
+                    "Server error - check processing server logs"
+                case .invalidFilePath:
+                    "Invalid file path"
+                case .decodingError(let decodingError):
+                    "Response parsing error: \(decodingError.localizedDescription)"
+                case .invalidResponse:
+                    "Invalid server response"
+                }
+            } else {
+                error.localizedDescription
+            }
+            
+            print("❌ Failed to process PDF for vector search: '\(document.title)' - \(errorMessage)")
+        }
     }
 } 

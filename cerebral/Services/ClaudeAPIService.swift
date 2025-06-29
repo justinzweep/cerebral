@@ -24,7 +24,7 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
         static let baseDelay: TimeInterval = 1.0
         static let maxDelay: TimeInterval = 32.0
         static let requestTimeout: TimeInterval = 60.0
-        static let maxTokens = 4000
+        static let maxTokens = 8192
         static let maxContextLength = 100_000
         static let rateLimitWindow: TimeInterval = 60.0
         static let maxRequestsPerWindow = 50
@@ -204,11 +204,12 @@ class ClaudeAPIService: ObservableObject, ChatServiceProtocol {
         messages.append(ClaudeMessage(role: "user", content: currentMessageContent))
         
         return ClaudeStreamRequest(
-            model: "claude-3-5-sonnet-20241022",
+            model: "claude-3-5-haiku-latest",
             maxTokens: Configuration.maxTokens,
             messages: messages,
             system: buildSystemPrompt(),
-            stream: true
+            stream: true,
+            temperature: 0.0
         )
     }
     
@@ -650,6 +651,7 @@ struct ClaudeStreamRequest: Codable {
     let messages: [ClaudeMessage]
     let system: String?
     let stream: Bool
+    let temperature: Double
     
     enum CodingKeys: String, CodingKey {
         case model
@@ -657,14 +659,16 @@ struct ClaudeStreamRequest: Codable {
         case messages
         case system
         case stream
+        case temperature
     }
     
-    init(model: String, maxTokens: Int, messages: [ClaudeMessage], system: String? = nil, stream: Bool = true) {
+    init(model: String, maxTokens: Int, messages: [ClaudeMessage], system: String? = nil, stream: Bool = true, temperature: Double = 1.0) {
         self.model = model
         self.maxTokens = maxTokens
         self.messages = messages
         self.system = system
         self.stream = stream
+        self.temperature = temperature
     }
 }
 
@@ -672,5 +676,3 @@ struct ClaudeMessage: Codable {
     let role: String
     let content: String
 }
-
-

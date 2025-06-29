@@ -34,7 +34,8 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         settingsManager: SettingsManager,
         documentContext: [Document],
         conversationHistory: [ChatMessage],
-        contexts: [DocumentContext]
+        contexts: [DocumentContext],
+        chunks: [DocumentChunk] = []
     ) async {
         
         // Cancel any existing streaming task to prevent memory leaks
@@ -48,13 +49,16 @@ final class StreamingChatService: StreamingChatServiceProtocol {
         delegate?.streamingDidStart()
         
         // Create initial AI message for streaming
+        print("🤖 StreamingChatService: Creating AI message with \(contexts.count) contexts and \(chunks.count) chunks")
         let aiMessage = ChatMessage(
             text: "",
             isUser: false,
             contexts: contexts,  // Include contexts in AI message
+            chunks: chunks,      // Include chunks in AI message
             isStreaming: true
         )
         
+        print("📤 StreamingChatService: AI message created with \(aiMessage.chunkIds.count) chunk IDs: \(aiMessage.chunkIds)")
         delegate?.streamingDidCreateMessage(aiMessage)
         
         // Extract document IDs for cross-actor communication

@@ -21,7 +21,11 @@ final class PDFService: PDFServiceProtocol {
     
     func extractText(from document: Document, maxLength: Int = 4000) -> String? {
         do {
-            guard let pdfDocument = PDFDocument(url: document.filePath) else {
+            guard let filePath = document.filePath else {
+                throw PDFError.failedToLoad(document.title)
+            }
+            
+            guard let pdfDocument = PDFDocument(url: filePath) else {
                 throw PDFError.failedToLoad(document.title)
             }
             
@@ -59,7 +63,11 @@ final class PDFService: PDFServiceProtocol {
     
     func extractTextFromPage(document: Document, pageIndex: Int) -> String? {
         do {
-            guard let pdfDocument = PDFDocument(url: document.filePath) else {
+            guard let filePath = document.filePath else {
+                throw PDFError.failedToLoad(document.title)
+            }
+            
+            guard let pdfDocument = PDFDocument(url: filePath) else {
                 throw PDFError.failedToLoad(document.title)
             }
             
@@ -83,7 +91,11 @@ final class PDFService: PDFServiceProtocol {
     
     func getDocumentMetadata(from document: Document) -> [String: Any]? {
         do {
-            guard let pdfDocument = PDFDocument(url: document.filePath) else {
+            guard let filePath = document.filePath else {
+                throw PDFError.failedToLoad(document.title)
+            }
+            
+            guard let pdfDocument = PDFDocument(url: filePath) else {
                 throw PDFError.failedToLoad(document.title)
             }
             
@@ -121,7 +133,11 @@ final class PDFService: PDFServiceProtocol {
         
         do {
             // Generate new thumbnail
-            guard let pdfDocument = PDFDocument(url: document.filePath) else {
+            guard let filePath = document.filePath else {
+                throw PDFError.failedToLoad(document.title)
+            }
+            
+            guard let pdfDocument = PDFDocument(url: filePath) else {
                 throw PDFError.failedToLoad(document.title)
             }
             
@@ -129,7 +145,7 @@ final class PDFService: PDFServiceProtocol {
                 throw PDFError.thumbnailGenerationFailed(document.title)
             }
             
-            let pageBounds = firstPage.bounds(for: .mediaBox)
+            let pageBounds = firstPage.bounds(for: PDFDisplayBox.mediaBox)
             let aspectRatio = pageBounds.width / pageBounds.height
             
             // Calculate thumbnail size maintaining aspect ratio
@@ -143,7 +159,7 @@ final class PDFService: PDFServiceProtocol {
             }
             
             // Create thumbnail image
-            let thumbnail = firstPage.thumbnail(of: thumbnailSize, for: .mediaBox)
+            let thumbnail = firstPage.thumbnail(of: thumbnailSize, for: PDFDisplayBox.mediaBox)
             
             // Cache the thumbnail
             thumbnailCache.setObject(thumbnail, forKey: cacheKey)
@@ -171,7 +187,11 @@ final class PDFService: PDFServiceProtocol {
     
     /// Gets the page count for a PDF document
     func getPageCount(for document: Document) -> Int? {
-        guard let pdfDocument = PDFDocument(url: document.filePath) else {
+        guard let filePath = document.filePath else {
+            return nil
+        }
+        
+        guard let pdfDocument = PDFDocument(url: filePath) else {
             return nil
         }
         return pdfDocument.pageCount

@@ -1,49 +1,13 @@
 {
-  "originHash" : "7c154cbac7fe5c90cea9f370a5432f62e218316e97a19ea20e9913ec85fa2dbe",
+  "originHash" : "a7478e138640eff09eaa7adb21304b0e345a7cecd42088c1c2285d0b85df5866",
   "pins" : [
     {
-      "identity" : "clerk-ios",
+      "identity" : "objectbox-swift-spm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/clerk/clerk-ios",
+      "location" : "https://github.com/objectbox/objectbox-swift-spm",
       "state" : {
-        "revision" : "4928f555ce70bdfbe274236fa1be6aeb81be9a88",
-        "version" : "0.58.0"
-      }
-    },
-    {
-      "identity" : "factory",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/hmlongco/Factory",
-      "state" : {
-        "revision" : "ccc898f21992ebc130bc04cc197460a5ae230bcf",
-        "version" : "2.5.3"
-      }
-    },
-    {
-      "identity" : "get",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kean/Get",
-      "state" : {
-        "revision" : "31249885da1052872e0ac91a2943f62567c0d96d",
-        "version" : "2.2.1"
-      }
-    },
-    {
-      "identity" : "simplekeychain",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/auth0/SimpleKeychain",
-      "state" : {
-        "revision" : "776c4a6db74d5c6c143974be91c383680d468630",
-        "version" : "1.3.0"
-      }
-    },
-    {
-      "identity" : "swiftanthropic",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/jamesrochabrun/SwiftAnthropic",
-      "state" : {
-        "revision" : "7262ced65e890ea5311193b849786344432d8fa7",
-        "version" : "1.8.6"
+        "branch" : "main",
+        "revision" : "e782bed6c3ad5171616817759026b241d887abc7"
       }
     }
   ],

@@ -17,9 +17,11 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     
     // Layout constraints
-    private let sidebarWidthRange: ClosedRange<CGFloat> = 200...400
-    private let chatWidthRange: ClosedRange<CGFloat> = 280...600
-    private let centerMinWidth: CGFloat = 300
+    // MARK: - Layout Constants
+    
+    private let sidebarWidthRange: ClosedRange<CGFloat> = 250...350
+    private let chatWidthRange: ClosedRange<CGFloat> = 320...500
+    private let centerMinWidth: CGFloat = 400
     
     var body: some View {
         VStack(spacing: 0) {
