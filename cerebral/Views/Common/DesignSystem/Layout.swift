@@ -2,9 +2,9 @@
 //  Layout.swift
 //  cerebral
 //
-//  Consolidated Layout System - Typography and Spacing
-//  Based on Apple's macOS Typography Best Practices (2025)
-//  Following San Francisco font guidelines and accessibility requirements
+//  Modern Conversational Layout System
+//  Warm, generous spacing inspired by Airbnb's welcoming design
+//  Apple-compliant typography with ChatGPT's approachable intelligence
 //
 
 import SwiftUI
@@ -143,52 +143,52 @@ extension DesignSystem {
         static let systemCaption = Font.caption.weight(.medium)
     }
     
-    // MARK: - Spacing and Layout System (8pt Grid)
+    // MARK: - Spacing and Layout System (8pt Grid, Warm & Generous)
     
     struct Spacing {
-        // MARK: - Core Spacing Scale (8pt Grid System)
-        static let xs: CGFloat = 4      // 4pt - Tight spacing
-        static let sm: CGFloat = 8      // 8pt - Small spacing
-        static let md: CGFloat = 16     // 16pt - Medium spacing (base unit)
-        static let lg: CGFloat = 24     // 24pt - Large spacing
-        static let xl: CGFloat = 32     // 32pt - Extra large spacing
-        static let xxl: CGFloat = 48    // 48pt - Extra extra large spacing
+        // MARK: - Core Spacing Scale (8pt Grid System - Airbnb Inspired)
+        static let xs: CGFloat = 6      // 6pt - Comfortable tight spacing (increased)
+        static let sm: CGFloat = 12     // 12pt - Small spacing (increased for warmth)
+        static let md: CGFloat = 20     // 20pt - Medium spacing (increased generosity)
+        static let lg: CGFloat = 28     // 28pt - Large spacing (increased)
+        static let xl: CGFloat = 36     // 36pt - Extra large spacing (increased)
+        static let xxl: CGFloat = 52    // 52pt - Extra extra large spacing (increased)
         
         // MARK: - Micro Spacing
-        static let xxxs: CGFloat = 2    // 2pt - Minimal spacing
-        static let xxs: CGFloat = 4     // 4pt - Tiny spacing (same as xs for consistency)
+        static let xxxs: CGFloat = 3    // 3pt - Minimal spacing (slightly increased)
+        static let xxs: CGFloat = 6     // 6pt - Tiny spacing (same as xs for consistency)
         
         // MARK: - Macro Spacing
-        static let xxxl: CGFloat = 64   // 64pt - Section spacing
-        static let huge: CGFloat = 80   // 80pt - Large section spacing
-        static let massive: CGFloat = 96 // 96pt - Page-level spacing
+        static let xxxl: CGFloat = 68   // 68pt - Section spacing (increased)
+        static let huge: CGFloat = 84   // 84pt - Large section spacing (increased)
+        static let massive: CGFloat = 100 // 100pt - Page-level spacing (increased)
         
-        // MARK: - Content Spacing
-        static let contentPadding = md  // 16pt - Standard content padding
-        static let cardPadding = lg     // 24pt - Card internal padding
-        static let sectionSpacing = xl  // 32pt - Between sections
+        // MARK: - Content Spacing (More Generous for Comfort)
+        static let contentPadding = md  // 20pt - Standard content padding (increased)
+        static let cardPadding = lg     // 28pt - Card internal padding (increased)
+        static let sectionSpacing = xl  // 36pt - Between sections (increased)
         
         // MARK: - Layout Spacing
-        static let sidebarWidth: CGFloat = 280      // Optimal sidebar width
+        static let sidebarWidth: CGFloat = 300      // Optimal sidebar width (increased)
         static let contentMaxWidth: CGFloat = 800   // Optimal reading width
         static let minimumTouchTarget: CGFloat = 44 // Accessibility minimum (Apple requirement)
     }
     
-    // MARK: - Corner Radius System
+    // MARK: - Corner Radius System (Warm & Inviting)
     struct CornerRadius {
-        static let xs: CGFloat = 4      // Subtle rounding
-        static let sm: CGFloat = 6      // Small elements
-        static let md: CGFloat = 8      // Standard elements (buttons, cards)
-        static let lg: CGFloat = 12     // Large elements (panels, modals)
-        static let xl: CGFloat = 16     // Extra large elements
-        static let xxl: CGFloat = 20    // Very large elements
+        static let xs: CGFloat = 6      // Subtle rounding (increased for warmth)
+        static let sm: CGFloat = 8      // Small elements (increased)
+        static let md: CGFloat = 12     // Standard elements (increased for friendliness)
+        static let lg: CGFloat = 16     // Large elements (increased)
+        static let xl: CGFloat = 20     // Extra large elements (increased)
+        static let xxl: CGFloat = 24    // Very large elements (increased)
         static let round: CGFloat = 999 // Fully rounded (pills, avatars)
         
-        // MARK: - Semantic Radii
-        static let button = md          // 8pt - Button radius
-        static let card = lg            // 12pt - Card radius
-        static let modal = xl           // 16pt - Modal radius
-        static let input = sm           // 6pt - Input field radius
+        // MARK: - Semantic Radii (ChatGPT & Airbnb Inspired)
+        static let button = md          // 12pt - More friendly button radius
+        static let card = lg            // 16pt - Warmer card radius
+        static let modal = xl           // 20pt - Welcoming modal radius
+        static let input = sm           // 8pt - Comfortable input field radius
     }
     
     // MARK: - Interaction Scale System

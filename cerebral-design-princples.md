@@ -1,17 +1,17 @@
 # Cerebral Design Principles
 
 ## Executive Summary
-This document outlines comprehensive UI/UX improvements for Cerebral, focusing on creating a modern, conversational, and approachable macOS application inspired by leading contemporary applications like ChatGPT, Airbnb, Linear, Notion, Claude, Msty, Things, and Arc. The design follows Apple Human Interface Guidelines while incorporating the warm, human-centered aesthetic and interaction patterns that define premium consumer-focused applications.
+This document outlines comprehensive UI/UX improvements for Cerebral, focusing on creating a modern, conversational, and delightfully approachable macOS application. Drawing primary inspiration from ChatGPT's intelligent conversational interface and Airbnb's warm, welcoming design language, we've crafted a visual system that combines beautiful blue and purple gradients with thoughtful interactions. The design follows Apple Human Interface Guidelines while embracing the vibrant, human-centered aesthetic that makes users feel inspired and empowered in their AI-assisted workflows.
 
 ## Overall Design Philosophy
 
 ### Core Design Values
-- **Human-Centered Simplicity**: Every element feels approachable and intuitive, prioritizing user comfort over complexity
-- **Conversational Flow**: Interface elements guide users through natural, dialogue-like interactions
-- **Warm Minimalism**: Clean design with subtle warmth through rounded corners, gentle shadows, and inviting colors
-- **Contextual Intelligence**: Smart, adaptive interfaces that anticipate user needs and provide helpful suggestions
-- **Trustworthy Transparency**: Clear visual feedback and honest communication about system status and capabilities
-- **Delightful Interactions**: Thoughtful micro-interactions and animations that feel responsive and engaging
+- **Conversational Intelligence**: Every element feels like a natural part of an intelligent conversation, inspired by ChatGPT's approachable AI interface
+- **Warm Hospitality**: Taking cues from Airbnb's welcoming design language, we create spaces that feel inviting and comfortable
+- **Beautiful Gradients**: Stunning blue and purple color combinations that add depth, visual interest, and emotional connection
+- **Contextual Awareness**: Smart, adaptive interfaces that anticipate user needs with thoughtful suggestions and helpful context
+- **Trustworthy Transparency**: Clear visual feedback with honest, human-centered communication about system capabilities
+- **Delightful Responsiveness**: Smooth animations and micro-interactions that feel magical yet purposeful
 
 ### Visual Hierarchy & Layout
 
@@ -66,83 +66,96 @@ enum Spacing {
 ### Color & Materials
 
 #### Color Philosophy
-**Clean Professional Minimalism**: Inspired by McKinsey & Company's sophisticated design language, our color system prioritizes clarity, cleanliness, and professional elegance. We use mostly whites and light grays with carefully chosen blue and purple accents that convey intelligence and trustworthiness.
+**Modern Conversational Design**: Inspired by ChatGPT's approachable intelligence and Airbnb's warm hospitality, our color system creates an inviting, trustworthy, and delightful experience. We embrace beautiful blue and purple gradients that feel both sophisticated and human-centered, with colors that spark creativity and conversation.
 
 **Key Principles:**
-- **Clean Foundation**: Pure whites and light grays create a clean, uncluttered foundation
-- **Sophisticated Accents**: McKinsey-inspired blue and purple colors used sparingly for maximum impact
-- **High Contrast**: Clear distinction between text and backgrounds for optimal readability
-- **Professional Restraint**: Minimal color usage that lets content take center stage
+- **Warm Foundation**: Soft whites and warm grays create an inviting, comfortable foundation
+- **Vibrant Accents**: ChatGPT-inspired blues and purples that feel conversational and intelligent
+- **Beautiful Gradients**: Stunning color combinations that add depth and visual interest
+- **Emotional Connection**: Colors that feel approachable, trustworthy, and inspiring
+- **Creative Energy**: Vibrant hues that encourage exploration and discovery
 
 #### Primary Color Palette
 ```swift
-// Clean Professional Color System
+// Modern Conversational Color System
 struct Colors {
-    // MARK: - Base Neutrals (Clean & Minimal)
+    // MARK: - Base Neutrals (Warm & Inviting)
     static let white = Color.white                // Pure white primary background
-    static let gray50 = Color(hex: "FAFAFA")      // Subtle background
-    static let gray100 = Color(hex: "F5F5F5")     // Light background
-    static let gray200 = Color(hex: "EEEEEE")     // Border light
-    static let gray300 = Color(hex: "E0E0E0")     // Border
-    static let gray500 = Color(hex: "9E9E9E")     // Text muted
-    static let gray600 = Color(hex: "757575")     // Text secondary
-    static let gray700 = Color(hex: "616161")     // Text primary
-    static let gray900 = Color(hex: "212121")     // Text emphasis
+    static let gray50 = Color(hex: "FAFBFC")      // Soft white
+    static let gray100 = Color(hex: "F4F6F8")     // Warm light gray
+    static let gray200 = Color(hex: "E8EAED")     // Light border
+    static let gray300 = Color(hex: "DADCE0")     // Medium border
+    static let gray500 = Color(hex: "9AA0A6")     // Muted text
+    static let gray600 = Color(hex: "80868B")     // Secondary text
+    static let gray700 = Color(hex: "5F6368")     // Primary text
+    static let gray800 = Color(hex: "3C4043")     // Strong text
     
-    // MARK: - McKinsey Blue (Professional & Confident)
-    static let blue700 = Color(hex: "1E40AF")     // Primary brand (deeper)
-    static let blue600 = Color(hex: "2563EB")     // Primary brand
-    static let blue500 = Color(hex: "3B82F6")     // Brand accent
-    static let blue100 = Color(hex: "DBEAFE")     // Background tint
-    static let blue50 = Color(hex: "EFF6FF")      // Subtle background
+    // MARK: - ChatGPT Blues (Conversational & Trustworthy)
+    static let blue50 = Color(hex: "F0F9FF")      // Lightest blue
+    static let blue100 = Color(hex: "E0F2FE")     // Very light blue
+    static let blue300 = Color(hex: "7DD3FC")     // Medium light blue
+    static let blue400 = Color(hex: "38BDF8")     // Bright blue
+    static let blue500 = Color(hex: "0EA5E9")     // Primary blue
+    static let blue600 = Color(hex: "0284C7")     // Strong blue
+    static let blue700 = Color(hex: "0369A1")     // Deep blue
     
-    // MARK: - Sophisticated Purple (McKinsey Secondary)
-    static let purple700 = Color(hex: "6B46C1")   // Deep purple
-    static let purple600 = Color(hex: "7C3AED")   // Primary purple
-    static let purple500 = Color(hex: "8B5CF6")   // Purple accent
-    static let purple100 = Color(hex: "EDE9FE")   // Background tint
-    static let purple50 = Color(hex: "F5F3FF")    // Subtle background
+    // MARK: - Vibrant Purples (ChatGPT & Airbnb Inspired)
+    static let purple50 = Color(hex: "FAF5FF")    // Lightest purple
+    static let purple100 = Color(hex: "F3E8FF")   // Very light purple
+    static let purple300 = Color(hex: "D8B4FE")   // Medium light purple
+    static let purple400 = Color(hex: "C084FC")   // Bright purple
+    static let purple500 = Color(hex: "A855F7")   // Primary purple
+    static let purple600 = Color(hex: "9333EA")   // Strong purple
+    static let purple700 = Color(hex: "7C3AED")   // Deep purple
     
-    // MARK: - Semantic Colors (Professional Status)
-    static let green600 = Color(hex: "059669")    // Success primary
-    static let green500 = Color(hex: "10B981")    // Success light
-    static let green100 = Color(hex: "D1FAE5")    // Success background
+    // MARK: - Complementary Teals (Fresh & Modern)
+    static let teal300 = Color(hex: "5EEAD4")     // Medium teal
+    static let teal400 = Color(hex: "2DD4BF")     // Bright teal
+    static let teal500 = Color(hex: "14B8A6")     // Primary teal
+    static let teal600 = Color(hex: "0D9488")     // Strong teal
     
-    static let amber600 = Color(hex: "D97706")    // Warning primary
-    static let amber500 = Color(hex: "F59E0B")    // Warning light
+    // MARK: - Semantic Colors (Friendly & Clear)
+    static let emerald500 = Color(hex: "10B981")  // Success
+    static let emerald600 = Color(hex: "059669")  // Success strong
+    static let emerald100 = Color(hex: "D1FAE5")  // Success background
+    
+    static let amber500 = Color(hex: "F59E0B")    // Warning
+    static let amber600 = Color(hex: "D97706")    // Warning strong
     static let amber100 = Color(hex: "FEF3C7")    // Warning background
     
-    static let red600 = Color(hex: "DC2626")      // Error primary
-    static let red500 = Color(hex: "EF4444")      // Error light
-    static let red100 = Color(hex: "FEE2E2")      // Error background
-    
-    static let indigo600 = Color(hex: "4F46E5")   // Info primary
-    static let indigo500 = Color(hex: "6366F1")   // Info light
-    static let indigo100 = Color(hex: "E0E7FF")   // Info background
+    static let rose500 = Color(hex: "F43F5E")     // Error
+    static let rose600 = Color(hex: "E11D48")     // Error strong
+    static let rose100 = Color(hex: "FFE4E6")     // Error background
 }
 ```
 
 #### Dark Mode Palette
 ```swift
-// Dark Mode Professional Colors
+// Dark Mode Conversational Colors
 struct DarkColors {
-    // MARK: - Base Neutrals (Rich Darks)
-    static let slate900 = Color(hex: "0F172A")    // Primary background
-    static let slate800 = Color(hex: "1E293B")    // Secondary background
-    static let slate700 = Color(hex: "334155")    // Tertiary background
-    static let slate600 = Color(hex: "475569")    // Surface background
-    static let slate500 = Color(hex: "64748B")    // Border/divider
-    static let slate400 = Color(hex: "94A3B8")    // Muted text
-    static let slate300 = Color(hex: "CBD5E1")    // Secondary text
-    static let slate200 = Color(hex: "E2E8F0")    // Primary text
-    static let slate100 = Color(hex: "F1F5F9")    // High contrast text
+    // MARK: - Rich Dark Neutrals (Modern & Approachable)
+    static let gray900 = Color(hex: "0F0F23")     // Primary background (deep blue-black)
+    static let gray800 = Color(hex: "1A1A2E")     // Secondary background
+    static let gray750 = Color(hex: "16213E")     // Card background
+    static let gray700 = Color(hex: "2A2D47")     // Surface background
+    static let gray600 = Color(hex: "3E4258")     // Border
+    static let gray500 = Color(hex: "6B6D7C")     // Muted elements
+    static let gray400 = Color(hex: "9B9CA6")     // Secondary text
+    static let gray300 = Color(hex: "C5C6D0")     // Primary text
+    static let gray200 = Color(hex: "E2E3ED")     // High contrast text
+    static let gray100 = Color(hex: "F1F2F7")     // Emphasis text
     
-    // MARK: - Enhanced Accents for Dark Mode
-    static let blue500 = Color(hex: "3B82F6")     // Primary brand (brighter)
-    static let blue400 = Color(hex: "60A5FA")     // Hover state
-    static let blue600 = Color(hex: "2563EB")     // Pressed state
+    // MARK: - Enhanced Blues for Dark Mode (Brighter & More Vibrant)
+    static let blue500 = Color(hex: "3B82F6")     // Bright blue
+    static let blue400 = Color(hex: "60A5FA")     // Light blue
+    static let blue600 = Color(hex: "2563EB")     // Primary blue
     
-    // Semantic colors remain largely the same but slightly adjusted for dark backgrounds
+    // MARK: - Enhanced Purples for Dark Mode (Vibrant & Beautiful)
+    static let purple500 = Color(hex: "8B5CF6")   // Bright purple
+    static let purple400 = Color(hex: "A78BFA")   // Light purple
+    static let purple600 = Color(hex: "7C3AED")   // Primary purple
+    
+    // Enhanced semantic colors with better visibility in dark mode
 }
 ```
 
@@ -181,45 +194,74 @@ struct SemanticColors {
 }
 ```
 
-#### Gradient System
+#### Beautiful Gradient System
 ```swift
-// Professional Gradients for Visual Interest
+// ChatGPT & Airbnb Inspired Gradients
 struct Gradients {
-    // MARK: - Brand Gradients
-    static let brandPrimary = LinearGradient(
-        colors: [.blue600, .blue500],
+    // MARK: - Primary Brand Gradients (Blue to Purple Magic)
+    static let oceanSunset = LinearGradient(
+        colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
-    static let brandSecondary = LinearGradient(
-        colors: [.purple600, .blue600],
+    static let electricBlue = LinearGradient(
+        colors: [Color(hex: "0ea5e9"), Color(hex: "3b82f6")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
-    // MARK: - Surface Gradients (Subtle Depth)
-    static let cardSurface = LinearGradient(
-        colors: [.white, .slate50],
-        startPoint: .top,
-        endPoint: .bottom
+    static let purpleDream = LinearGradient(
+        colors: [Color(hex: "a855f7"), Color(hex: "7c3aed")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
     
-    static let glassSurface = LinearGradient(
-        colors: [.white.opacity(0.8), .white.opacity(0.4)],
-        startPoint: .top,
-        endPoint: .bottom
+    // MARK: - Magical Multi-Color Gradients
+    static let conversational = LinearGradient(
+        colors: [
+            Color(hex: "667eea"), 
+            Color(hex: "764ba2"), 
+            Color(hex: "f093fb")
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
     
-    // MARK: - Status Gradients
+    static let aiAssistant = LinearGradient(
+        colors: [Color(hex: "4facfe"), Color(hex: "00f2fe")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    // MARK: - Airbnb-Inspired Warm Gradients
+    static let warmWelcome = LinearGradient(
+        colors: [Color(hex: "fa709a"), Color(hex: "fee140")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    static let tealMagic = LinearGradient(
+        colors: [Color(hex: "21d4fd"), Color(hex: "b721ff")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    // MARK: - Status Gradients (Friendly & Clear)
     static let success = LinearGradient(
-        colors: [.green500, .green600],
+        colors: [Color(hex: "34d399"), Color(hex: "059669")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
     static let warning = LinearGradient(
-        colors: [.amber500, .amber600],
+        colors: [Color(hex: "fbbf24"), Color(hex: "d97706")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    static let error = LinearGradient(
+        colors: [Color(hex: "fb7185"), Color(hex: "e11d48")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -228,24 +270,30 @@ struct Gradients {
 
 #### Color Usage Guidelines
 
-**Primary Actions**: Use `blue600` for primary buttons, links, and key interactive elements
-**Secondary Actions**: Use `purple600` for secondary brand actions and creative features
-**Tertiary Actions**: Use `gray600` with subtle backgrounds for supporting actions
-**Destructive Actions**: Use `red600` for delete, remove, or destructive operations
-**Success States**: Use `green600` for confirmations, completed states
-**Warning States**: Use `amber600` for caution, temporary states
+**Primary Actions**: Use `blue600` for primary buttons, links, and key interactive elements - evokes trust and conversation
+**Secondary Actions**: Use `purple600` for secondary brand actions and creative features - sparks creativity and innovation
+**Tertiary Actions**: Use `teal500` for supportive actions and fresh interactions - feels modern and approachable
+**Destructive Actions**: Use `rose600` for delete, remove, or destructive operations - clear but not harsh
+**Success States**: Use `emerald600` for confirmations and completed states - feels natural and positive
+**Warning States**: Use `amber600` for caution and temporary states - warm but alerting
 
 **Text Hierarchy**:
-- Headers: `gray900` (light) / `gray100` (dark) - High contrast for maximum readability
-- Body text: `gray700` (light) / `gray300` (dark) - Primary reading text
-- Secondary text: `gray600` (light) / `gray400` (dark) - Supporting information
-- Muted text: `gray500` both modes - Placeholder and metadata
+- Headers: `gray800` (light) / `gray200` (dark) - Warm, readable contrast
+- Body text: `gray700` (light) / `gray300` (dark) - Comfortable reading experience
+- Secondary text: `gray600` (light) / `gray400` (dark) - Supporting information with personality
+- Muted text: `gray500` both modes - Subtle but accessible
 
 **Backgrounds**:
-- Primary: `white` (light) / `gray900` (dark) - Clean, pure foundation
-- Secondary: `gray50` (light) / `gray800` (dark) - Subtle background variation
-- Cards/Panels: `white` (light) / `gray800` (dark) - Elevated surfaces
-- Hover states: `gray50` (light) / `gray700` (dark) - Minimal, clean interactions
+- Primary: `white` (light) / `gray900` (dark) - Clean foundation with subtle warmth
+- Secondary: `gray50` (light) / `gray800` (dark) - Gentle background variation
+- Cards/Panels: `white` (light) / `gray750` (dark) - Elevated surfaces with depth
+- Hover states: `gray50` (light) / `gray700` (dark) - Smooth, responsive interactions
+
+**Gradients for Impact**:
+- Hero sections: Use `oceanSunset` or `conversational` for maximum visual appeal
+- Buttons: `electricBlue` or `purpleDream` for engaging call-to-actions
+- Backgrounds: `aiAssistant` or `warmWelcome` for subtle depth and interest
+- Status indicators: Corresponding gradient versions for enhanced visual feedback
 
 ### Material Usage
 - **Window backgrounds**: `Material.regular` for depth

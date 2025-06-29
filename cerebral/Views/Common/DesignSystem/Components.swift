@@ -2,13 +2,144 @@
 //  Components.swift
 //  cerebral
 //
-//  UI Components and Styles for Cerebral macOS App
-//  Modern interaction patterns and Apple typography best practices
+//  Modern Conversational UI Components
+//  Inspired by ChatGPT's approachable intelligence and Airbnb's warm hospitality
 //
 
 import SwiftUI
 
-// MARK: - Enhanced Button Styles (Apple Typography Best Practices)
+// MARK: - Beautiful Gradient Button Styles (ChatGPT & Airbnb Inspired)
+
+struct PrimaryGradientButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .appleTextStyle(.button)
+            .foregroundColor(.white)
+            .fontWeight(.semibold)
+            .padding(.horizontal, DesignSystem.Spacing.lg)
+            .padding(.vertical, DesignSystem.Spacing.sm + 2)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
+                    .fill(backgroundGradient(isPressed: configuration.isPressed))
+            )
+            .scaleEffect(scaleValue(isPressed: configuration.isPressed))
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
+            .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private func backgroundGradient(isPressed: Bool) -> LinearGradient {
+        if isPressed {
+            return DesignSystem.Gradients.electricBlue
+        } else if isHovered {
+            return DesignSystem.Gradients.conversational
+        } else {
+            return DesignSystem.Gradients.oceanSunset
+        }
+    }
+    
+    private func scaleValue(isPressed: Bool) -> CGFloat {
+        if isPressed {
+            return DesignSystem.Scale.pressed
+        } else if isHovered {
+            return DesignSystem.Scale.hover
+        } else {
+            return 1.0
+        }
+    }
+}
+
+struct SecondaryGradientButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .appleTextStyle(.button)
+            .foregroundColor(.white)
+            .fontWeight(.medium)
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, DesignSystem.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
+                    .fill(backgroundGradient(isPressed: configuration.isPressed))
+            )
+            .scaleEffect(scaleValue(isPressed: configuration.isPressed))
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
+            .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private func backgroundGradient(isPressed: Bool) -> LinearGradient {
+        if isPressed {
+            return DesignSystem.Gradients.purpleDream
+        } else if isHovered {
+            return DesignSystem.Gradients.tealMagic
+        } else {
+            return DesignSystem.Gradients.purpleDream
+        }
+    }
+    
+    private func scaleValue(isPressed: Bool) -> CGFloat {
+        if isPressed {
+            return DesignSystem.Scale.pressed
+        } else if isHovered {
+            return DesignSystem.Scale.hover
+        } else {
+            return 1.0
+        }
+    }
+}
+
+struct WarmButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .appleTextStyle(.button)
+            .foregroundColor(.white)
+            .fontWeight(.medium)
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, DesignSystem.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
+                    .fill(backgroundGradient(isPressed: configuration.isPressed))
+            )
+            .scaleEffect(scaleValue(isPressed: configuration.isPressed))
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
+            .opacity(isEnabled ? 1.0 : 0.6)
+            .onHover { isHovered = $0 }
+    }
+    
+    private func backgroundGradient(isPressed: Bool) -> LinearGradient {
+        if isPressed {
+            return DesignSystem.Gradients.warmWelcome
+        } else if isHovered {
+            return DesignSystem.Gradients.warmWelcome
+        } else {
+            return DesignSystem.Gradients.warmWelcome
+        }
+    }
+    
+    private func scaleValue(isPressed: Bool) -> CGFloat {
+        if isPressed {
+            return DesignSystem.Scale.pressed
+        } else if isHovered {
+            return DesignSystem.Scale.hover
+        } else {
+            return 1.0
+        }
+    }
+}
+
+// MARK: - Classic Button Styles (Updated with New Colors)
 
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
@@ -18,15 +149,16 @@ struct PrimaryButtonStyle: ButtonStyle {
         configuration.label
             .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.textOnAccent)
-            .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.vertical, DesignSystem.Spacing.sm)
+            .fontWeight(.semibold)
+            .padding(.horizontal, DesignSystem.Spacing.lg)
+            .padding(.vertical, DesignSystem.Spacing.sm + 2)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
                     .fill(backgroundFill(isPressed: configuration.isPressed))
             )
             .scaleEffect(scaleValue(isPressed: configuration.isPressed))
-            .animation(DesignSystem.Animation.micro, value: configuration.isPressed)
-            .animation(DesignSystem.Animation.micro, value: isHovered)
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
             .onHover { isHovered = $0 }
     }
@@ -59,22 +191,43 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .appleTextStyle(.button)
-            .foregroundColor(DesignSystem.Colors.accent)
+            .foregroundColor(foregroundColor(isPressed: configuration.isPressed))
+            .fontWeight(.medium)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
-                    .stroke(DesignSystem.Colors.accent.opacity(0.3), lineWidth: 1)
+                    .stroke(borderColor(isPressed: configuration.isPressed), lineWidth: 1.5)
                     .background(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button)
                             .fill(backgroundFill(isPressed: configuration.isPressed))
                     )
             )
             .scaleEffect(scaleValue(isPressed: configuration.isPressed))
-            .animation(DesignSystem.Animation.micro, value: configuration.isPressed)
-            .animation(DesignSystem.Animation.micro, value: isHovered)
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
             .onHover { isHovered = $0 }
+    }
+    
+    private func foregroundColor(isPressed: Bool) -> Color {
+        if isPressed {
+            return DesignSystem.Colors.accentPressed
+        } else if isHovered {
+            return DesignSystem.Colors.accentHover
+        } else {
+            return DesignSystem.Colors.accent
+        }
+    }
+    
+    private func borderColor(isPressed: Bool) -> Color {
+        if isPressed {
+            return DesignSystem.Colors.accentPressed
+        } else if isHovered {
+            return DesignSystem.Colors.accentHover
+        } else {
+            return DesignSystem.Colors.accent.opacity(0.4)
+        }
     }
     
     private func backgroundFill(isPressed: Bool) -> Color {
@@ -106,6 +259,7 @@ struct TertiaryButtonStyle: ButtonStyle {
         configuration.label
             .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.secondaryText)
+            .fontWeight(.medium)
             .padding(.horizontal, DesignSystem.Spacing.sm)
             .padding(.vertical, DesignSystem.Spacing.xs)
             .background(
@@ -113,8 +267,8 @@ struct TertiaryButtonStyle: ButtonStyle {
                     .fill(backgroundFill(isPressed: configuration.isPressed))
             )
             .scaleEffect(scaleValue(isPressed: configuration.isPressed))
-            .animation(DesignSystem.Animation.micro, value: configuration.isPressed)
-            .animation(DesignSystem.Animation.micro, value: isHovered)
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
             .onHover { isHovered = $0 }
     }
@@ -148,6 +302,7 @@ struct DestructiveButtonStyle: ButtonStyle {
         configuration.label
             .appleTextStyle(.button)
             .foregroundColor(DesignSystem.Colors.error)
+            .fontWeight(.medium)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.sm)
             .background(
@@ -155,17 +310,17 @@ struct DestructiveButtonStyle: ButtonStyle {
                     .fill(backgroundFill(isPressed: configuration.isPressed))
             )
             .scaleEffect(scaleValue(isPressed: configuration.isPressed))
-            .animation(DesignSystem.Animation.micro, value: configuration.isPressed)
-            .animation(DesignSystem.Animation.micro, value: isHovered)
+            .animation(DesignSystem.Animation.delightful, value: configuration.isPressed)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
             .opacity(isEnabled ? 1.0 : 0.6)
             .onHover { isHovered = $0 }
     }
     
     private func backgroundFill(isPressed: Bool) -> Color {
         if isPressed {
-            return DesignSystem.Colors.error.opacity(0.15)
+            return DesignSystem.Colors.error.opacity(0.2)
         } else if isHovered {
-            return DesignSystem.Colors.error.opacity(0.08)
+            return DesignSystem.Colors.error.opacity(0.12)
         } else {
             return Color.clear
         }
@@ -182,7 +337,7 @@ struct DestructiveButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Enhanced List Row Style (Modern Interaction)
+// MARK: - Enhanced Row Style (Warm & Responsive)
 struct EnhancedRowStyle: ViewModifier {
     @State private var isHovered = false
     let isSelected: Bool
@@ -190,14 +345,14 @@ struct EnhancedRowStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, DesignSystem.Spacing.sm)
-            .padding(.vertical, DesignSystem.Spacing.xs)
+            .padding(.vertical, DesignSystem.Spacing.xs + 2)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
                     .fill(backgroundFill)
             )
             .scaleEffect(isHovered ? DesignSystem.Scale.focus : 1.0)
-            .animation(DesignSystem.Animation.micro, value: isHovered)
-            .animation(DesignSystem.Animation.micro, value: isSelected)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
+            .animation(DesignSystem.Animation.delightful, value: isSelected)
             .onHover { isHovered = $0 }
     }
     
@@ -218,9 +373,9 @@ extension View {
     }
 }
 
-// MARK: - Modern Text Field Style (Apple Typography)
+// MARK: - Modern Conversational Text Field Style
 
-struct CerebralTextFieldStyle: TextFieldStyle {
+struct ConversationalTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
     let isError: Bool
     
@@ -232,13 +387,13 @@ struct CerebralTextFieldStyle: TextFieldStyle {
         configuration
             .appleTextStyle(.body)
             .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.vertical, DesignSystem.Spacing.sm)
+            .padding(.vertical, DesignSystem.Spacing.sm + 2)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.input)
-                    .fill(DesignSystem.Colors.background)
+                    .fill(DesignSystem.Colors.surfaceBackground)
                     .stroke(
                         borderColor,
-                        lineWidth: isFocused || isError ? 1.5 : 0.5
+                        lineWidth: isFocused || isError ? 2.0 : 1.0
                     )
                     .animation(DesignSystem.Animation.quick, value: isFocused)
             )
@@ -256,11 +411,12 @@ struct CerebralTextFieldStyle: TextFieldStyle {
     }
 }
 
-// MARK: - Modern Card Modifier
+// MARK: - Beautiful Card Modifier (ChatGPT & Airbnb Inspired)
 
-struct CardModifier: ViewModifier {
+struct BeautifulCardModifier: ViewModifier {
     let elevation: CardElevation
     let isInteractive: Bool
+    let useGradient: Bool
     @State private var isHovered = false
     
     enum CardElevation {
@@ -269,11 +425,11 @@ struct CardModifier: ViewModifier {
         var shadow: (radius: CGFloat, y: CGFloat, opacity: Double) {
             switch self {
             case .none: return (0, 0, 0)
-            case .subtle: return (1, 0.5, 0.03)
-            case .low: return (2, 1, 0.06)
-            case .medium: return (4, 2, 0.10)
-            case .high: return (8, 4, 0.15)
-            case .floating: return (12, 6, 0.20)
+            case .subtle: return (2, 1, 0.04)
+            case .low: return (4, 2, 0.08)
+            case .medium: return (8, 4, 0.12)
+            case .high: return (12, 6, 0.16)
+            case .floating: return (20, 10, 0.24)
             }
         }
         
@@ -286,29 +442,42 @@ struct CardModifier: ViewModifier {
         }
     }
     
-    init(elevation: CardElevation = .medium, isInteractive: Bool = false) {
+    init(elevation: CardElevation = .medium, isInteractive: Bool = false, useGradient: Bool = false) {
         self.elevation = elevation
         self.isInteractive = isInteractive
+        self.useGradient = useGradient
     }
     
     func body(content: Content) -> some View {
         content
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card)
-                    .fill(elevation.material)
+                    .fill(cardBackground)
                     .shadow(
-                        color: Color.black.opacity(elevation.shadow.opacity),
+                        color: shadowColor,
                         radius: elevation.shadow.radius,
                         y: elevation.shadow.y
                     )
             )
             .scaleEffect(interactiveScale)
-            .animation(DesignSystem.Animation.micro, value: isHovered)
+            .animation(DesignSystem.Animation.delightful, value: isHovered)
             .onHover { hover in
                 if isInteractive {
                     isHovered = hover
                 }
             }
+    }
+    
+    private var cardBackground: AnyShapeStyle {
+        if useGradient {
+            return AnyShapeStyle(DesignSystem.Gradients.cardSurface)
+        } else {
+            return AnyShapeStyle(DesignSystem.Colors.cardBackground)
+        }
+    }
+    
+    private var shadowColor: Color {
+        Color.black.opacity(elevation.shadow.opacity)
     }
     
     private var interactiveScale: CGFloat {
@@ -321,25 +490,41 @@ struct CardModifier: ViewModifier {
 }
 
 extension View {
-    func card(elevation: CardModifier.CardElevation = .medium, isInteractive: Bool = false) -> some View {
-        modifier(CardModifier(elevation: elevation, isInteractive: isInteractive))
+    func beautifulCard(elevation: BeautifulCardModifier.CardElevation = .medium, 
+                      isInteractive: Bool = false, 
+                      useGradient: Bool = false) -> some View {
+        modifier(BeautifulCardModifier(elevation: elevation, isInteractive: isInteractive, useGradient: useGradient))
+    }
+    
+    // Legacy support
+    func card(elevation: BeautifulCardModifier.CardElevation = .medium, isInteractive: Bool = false) -> some View {
+        modifier(BeautifulCardModifier(elevation: elevation, isInteractive: isInteractive))
     }
 }
 
-// MARK: - Modern Status Indicators (Apple Typography)
+// MARK: - Modern Status Indicators (Friendly & Clear)
 
 struct StatusIndicator: View {
     enum Status {
-        case connected, disconnected, loading, error, warning, info
+        case connected, disconnected, loading, error, warning, info, thinking, ready
         
         var color: Color {
             switch self {
             case .connected: return DesignSystem.Colors.success
-            case .disconnected: return DesignSystem.Colors.secondaryText
-            case .loading: return DesignSystem.Colors.warning
+            case .disconnected: return DesignSystem.Colors.tertiaryText
+            case .loading, .thinking: return DesignSystem.Colors.secondaryAccent
             case .error: return DesignSystem.Colors.error
             case .warning: return DesignSystem.Colors.warning
-            case .info: return DesignSystem.Colors.info
+            case .info, .ready: return DesignSystem.Colors.accent
+            }
+        }
+        
+        var gradient: LinearGradient? {
+            switch self {
+            case .connected: return DesignSystem.Gradients.success
+            case .thinking: return DesignSystem.Gradients.conversational
+            case .ready: return DesignSystem.Gradients.aiAssistant
+            default: return nil
             }
         }
         
@@ -347,10 +532,12 @@ struct StatusIndicator: View {
             switch self {
             case .connected: return "Connected"
             case .disconnected: return "Disconnected"
-            case .loading: return "Connecting..."
-            case .error: return "Connection Error"
+            case .loading: return "Loading..."
+            case .thinking: return "Thinking..."
+            case .error: return "Error"
             case .warning: return "Warning"
-            case .info: return "Information"
+            case .info: return "Info"
+            case .ready: return "Ready"
             }
         }
         
@@ -359,117 +546,176 @@ struct StatusIndicator: View {
             case .connected: return "checkmark.circle.fill"
             case .disconnected: return "xmark.circle.fill"
             case .loading: return "arrow.clockwise"
+            case .thinking: return "brain.head.profile"
             case .error: return "exclamationmark.triangle.fill"
             case .warning: return "exclamationmark.triangle"
             case .info: return "info.circle.fill"
+            case .ready: return "sparkles"
             }
         }
     }
     
     let status: Status
     let showText: Bool
+    let useGradient: Bool
     
-    init(_ status: Status, showText: Bool = true) {
+    init(_ status: Status, showText: Bool = true, useGradient: Bool = false) {
         self.status = status
         self.showText = showText
+        self.useGradient = useGradient
     }
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.xs) {
-            Image(systemName: status.icon)
-                .font(.system(size: DesignSystem.ComponentSizes.iconMD, weight: .medium))
-                .foregroundColor(status.color)
-                .rotationEffect(.degrees(status == .loading ? 360 : 0))
-                .animation(
-                    status == .loading ? 
-                    SwiftUI.Animation.linear(duration: 1.0).repeatForever(autoreverses: false) : 
-                    .default, 
-                    value: status
-                )
+            Group {
+                if useGradient && status.gradient != nil {
+                    Image(systemName: status.icon)
+                        .font(.system(size: DesignSystem.ComponentSizes.iconMD, weight: .medium))
+                        .foregroundStyle(status.gradient!)
+                } else {
+                    Image(systemName: status.icon)
+                        .font(.system(size: DesignSystem.ComponentSizes.iconMD, weight: .medium))
+                        .foregroundColor(status.color)
+                }
+            }
+            .rotationEffect(.degrees(shouldRotate ? 360 : 0))
+            .animation(
+                shouldRotate ? 
+                SwiftUI.Animation.linear(duration: 1.5).repeatForever(autoreverses: false) : 
+                .default, 
+                value: status
+            )
             
             if showText {
                 Text(status.text)
                     .appleTextStyle(.caption)
                     .foregroundColor(status.color)
+                    .fontWeight(.medium)
             }
+        }
+    }
+    
+    private var shouldRotate: Bool {
+        status == .loading || status == .thinking
+    }
+}
+
+// MARK: - Conversational Badge Component
+
+struct ConversationalBadge: View {
+    let text: String
+    let style: BadgeStyle
+    
+    enum BadgeStyle {
+        case primary, secondary, success, warning, error, info, gradient
+        
+        var colors: (background: Color, text: Color) {
+            switch self {
+            case .primary:
+                return (DesignSystem.Colors.accent.opacity(0.1), DesignSystem.Colors.accent)
+            case .secondary:
+                return (DesignSystem.Colors.secondaryAccent.opacity(0.1), DesignSystem.Colors.secondaryAccent)
+            case .success:
+                return (DesignSystem.Colors.successBackground, DesignSystem.Colors.success)
+            case .warning:
+                return (DesignSystem.Colors.warningBackground, DesignSystem.Colors.warning)
+            case .error:
+                return (DesignSystem.Colors.errorBackground, DesignSystem.Colors.error)
+            case .info:
+                return (DesignSystem.Colors.tertiaryAccentBackground, DesignSystem.Colors.tertiaryAccent)
+            case .gradient:
+                return (Color.clear, Color.white)
+            }
+        }
+        
+        var gradient: LinearGradient? {
+            switch self {
+            case .gradient: return DesignSystem.Gradients.conversational
+            default: return nil
+            }
+        }
+    }
+    
+    init(_ text: String, style: BadgeStyle = .primary) {
+        self.text = text
+        self.style = style
+    }
+    
+    var body: some View {
+        Text(text)
+            .appleTextStyle(.caption2)
+            .fontWeight(.semibold)
+            .foregroundColor(style.colors.text)
+            .padding(.horizontal, DesignSystem.Spacing.xs + 2)
+            .padding(.vertical, DesignSystem.Spacing.xxxs + 1)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xs)
+                    .fill(badgeBackground)
+            )
+    }
+    
+    private var badgeBackground: AnyShapeStyle {
+        if let gradient = style.gradient {
+            return AnyShapeStyle(gradient)
+        } else {
+            return AnyShapeStyle(style.colors.background)
         }
     }
 }
 
 // MARK: - Typography Convenience Components
 
-/// A text view that automatically applies Apple typography best practices
-struct AppleText: View {
+struct ConversationalText: View {
     let text: String
-    let style: AppleTextStyle
-    let color: Color?
-    let multilineTextAlignment: TextAlignment
+    let style: TextStyle
     
-    init(_ text: String, style: AppleTextStyle = .body, color: Color? = nil, multilineTextAlignment: TextAlignment = .leading) {
+    enum TextStyle {
+        case hero, title, subtitle, body, caption, accent
+        
+        var font: Font {
+            switch self {
+            case .hero: return DesignSystem.Typography.largeTitle
+            case .title: return DesignSystem.Typography.title
+            case .subtitle: return DesignSystem.Typography.title2
+            case .body: return DesignSystem.Typography.body
+            case .caption: return DesignSystem.Typography.caption
+            case .accent: return DesignSystem.Typography.headline
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .hero, .title: return DesignSystem.Colors.primaryText
+            case .subtitle: return DesignSystem.Colors.secondaryText
+            case .body: return DesignSystem.Colors.primaryText
+            case .caption: return DesignSystem.Colors.tertiaryText
+            case .accent: return DesignSystem.Colors.accent
+            }
+        }
+        
+        var weight: Font.Weight {
+            switch self {
+            case .hero: return .bold
+            case .title: return .semibold
+            case .subtitle: return .medium
+            case .body: return .regular
+            case .caption: return .medium
+            case .accent: return .semibold
+            }
+        }
+    }
+    
+    init(_ text: String, style: TextStyle = .body) {
         self.text = text
         self.style = style
-        self.color = color
-        self.multilineTextAlignment = multilineTextAlignment
     }
     
     var body: some View {
         Text(text)
-            .appleTextStyle(style)
-            .foregroundColor(color ?? defaultColor)
-            .multilineTextAlignment(multilineTextAlignment)
-    }
-    
-    private var defaultColor: Color {
-        switch style {
-        case .largeTitle, .title, .title2, .title3, .headline, .body:
-            return DesignSystem.Colors.primaryText
-        case .bodySecondary, .callout, .subheadline:
-            return DesignSystem.Colors.secondaryText
-        case .footnote, .caption, .caption2:
-            return DesignSystem.Colors.tertiaryText
-        case .button, .menuItem, .tabBar:
-            return DesignSystem.Colors.primaryText
-        }
+            .font(style.font.weight(style.weight))
+            .foregroundColor(style.color)
     }
 }
 
-/// A label component with proper Apple typography
-struct AppleLabel: View {
-    let title: String
-    let subtitle: String?
-    let titleStyle: AppleTextStyle
-    let subtitleStyle: AppleTextStyle
-    
-    init(_ title: String, subtitle: String? = nil, titleStyle: AppleTextStyle = .headline, subtitleStyle: AppleTextStyle = .caption) {
-        self.title = title
-        self.subtitle = subtitle
-        self.titleStyle = titleStyle
-        self.subtitleStyle = subtitleStyle
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxxs) {
-            AppleText(title, style: titleStyle)
-            
-            if let subtitle = subtitle {
-                AppleText(subtitle, style: subtitleStyle, color: DesignSystem.Colors.secondaryText)
-            }
-        }
-    }
-}
 
-// MARK: - Environment Extensions
-
-extension EnvironmentValues {
-    var openSettings: () -> Void {
-        get { self[OpenSettingsKey.self] }
-        set { self[OpenSettingsKey.self] = newValue }
-    }
-}
-
-private struct OpenSettingsKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {
-        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-    }
-}
 
